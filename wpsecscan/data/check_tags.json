@@ -115,5 +115,22 @@
   "backup_file_fuzz":      {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1083", "attack_label": "File and Directory Discovery", "cwe": "CWE-538", "d3fend": "D3-RAC"},
   "hostname_collision":    {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1583.001", "attack_label": "Acquire Infrastructure: Domains", "cwe": "CWE-346", "d3fend": "D3-DNSTI"},
   "plugin_route_fuzz":     {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-862", "d3fend": "D3-RAC"},
-  "header_smuggling_case": {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-444", "d3fend": "D3-NTA"}
+  "header_smuggling_case": {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-444", "d3fend": "D3-NTA"},
+
+  "timthumb":                {"owasp": "A06:2021", "owasp_label": "Vulnerable & Outdated Components", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-1104", "d3fend": "D3-SU"},
+  "plugin_hash_fingerprint": {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592.002", "attack_label": "Software Discovery", "cwe": "CWE-200", "d3fend": "D3-RAC"},
+  "users_deep":              {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1589.002", "attack_label": "Email Addresses", "cwe": "CWE-200", "d3fend": "D3-RAC"},
+  "plugin_archive_fuzz":     {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1530", "attack_label": "Data from Cloud Storage", "cwe": "CWE-538", "d3fend": "D3-RAC"},
+  "premium_license_leak":    {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552.001", "attack_label": "Credentials in Files", "cwe": "CWE-798", "d3fend": "D3-CR"},
+  "xmlrpc_method_brute":     {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-200", "d3fend": "D3-RAC"},
+  "yaml_templates":          {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-693", "d3fend": "D3-IVA"},
+  "yaml_workflows":          {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-693", "d3fend": "D3-IVA"},
+  "dns_templates":           {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1071.004", "attack_label": "DNS Application Layer", "cwe": "CWE-693", "d3fend": "D3-DNSTI"},
+  "headless_templates":      {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1059.007", "attack_label": "JavaScript Execution", "cwe": "CWE-79", "d3fend": "D3-IVA"},
+  "spider_crawl":            {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1593", "attack_label": "Search Open Websites/Domains", "cwe": "CWE-200", "d3fend": "D3-NTA"},
+  "forced_browse":           {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1083", "attack_label": "File and Directory Discovery", "cwe": "CWE-538", "d3fend": "D3-RAC"},
+  "websocket_fuzz":          {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-345", "d3fend": "D3-IVA"},
+  "openapi_scanner":         {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-200", "d3fend": "D3-RAC"},
+  "mobile_app_endpoints":    {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-NTA"},
+  "host_recon":              {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1046", "attack_label": "Network Service Discovery", "cwe": "CWE-200", "d3fend": "D3-NTA"}
 }

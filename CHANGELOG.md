@@ -7,6 +7,38 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (Round-57 — competitor-parity, 40 features)
+- **16 new checks** (wpscan/nuclei/ZAP/turbo-intruder parity): timthumb,
+  plugin_hash_fingerprint, users_deep, plugin_archive_fuzz, premium_license_leak,
+  xmlrpc_method_brute, yaml_templates, yaml_workflows, dns_templates,
+  headless_templates, spider_crawl, forced_browse, websocket_fuzz,
+  openapi_scanner, mobile_app_endpoints, host_recon. Inventory: **120 checks**.
+- **21 new non-check modules**: ua_rotation, rate_limit, template_engine,
+  workflow, interactsh, auto_scan, template_fuzz, template_signature, spider,
+  scan_modes, session_context, alert_filters, js_plugin, turbo_engine,
+  attack_scripts, response_diff, attack_checkpoint, burp_import, pcap_replay,
+  mobile_app_discovery, intel_freshness.
+- **GUI update-notice popup** at launch — shows "Update available" with a
+  click-to-download button that opens the GitHub release page. Help → Check
+  for updates now to force a re-check.
+- **HTTP client `rotate_ua` flag** — opt-in per-request UA rotation from a
+  20-entry realistic pool.
+- **Marketplace remote-catalogue fetch** — static + remote (24h cached) merged.
+
+### Fixed (Round-57 QA pass)
+- `template_engine.py`: NameError on undefined `error` in exception tuple
+  (referenced `re.error` without import alias).
+- `headless_templates.py`: missing aggressive-mode gate — check ran in
+  passive mode despite being registered as aggressive.
+- `rate_limit.py`: unbounded module-global state dict; now LRU-capped at
+  64 services with `clear()` helper.
+- `turbo_engine.last_byte_sync`: socket leak when `connect()` failed
+  after socket creation.
+- `interactsh.py`: `WPSECSCAN_INTERACTSH_URL` env now rejects loopback /
+  metadata / RFC1918 hosts (SSRF guard).
+- `js_plugin.py`: stdout capped at 10 MB; runaway Node script can't OOM.
+- `template_signature.py`: gpg stderr sanitised before embedding in return.
+
 ### Changed (BREAKING for end users)
 - **GUI binary renamed**: `wordpress-barebacker.exe` → `wpsecscan-gui.exe`.
   CLI binary stays as `wpsecscan.exe`. Matches `git`/`git-gui`,

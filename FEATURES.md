@@ -6,6 +6,86 @@ For install instructions, see [README.md](README.md).
 
 ---
 
+## Round-57 — competitor-parity (wpscan / nuclei / OWASP ZAP / turbo-intruder)
+
+A 40-feature parity round that brings WPSecScan close to feature-coverage of
+the established big-name security tools. Inventory grew from **104 → 120 checks**.
+Tests: **392 pass** (was 358).
+
+### Wave A — wpscan parity (8 items)
+| ID | What |
+|---|---|
+| `timthumb` | Probes 8 timthumb.php paths + parses version banner; flags `<=2.8.13` as CVE-2011-4106/4663 RCE |
+| `plugin_hash_fingerprint` | Hashes plugin static assets and matches against a shipped version map — works even when readme.txt is stripped |
+| `users_deep` | 10-source username enumeration: oEmbed, RSS, comments feed, WP-core + Yoast author sitemaps, post HTML |
+| `plugin_archive_fuzz` | For every detected plugin slug, probes `slug.{zip,tar,gz,rar,7z,sql.gz,bak,old}` — backup-source leak detection |
+| `premium_license_leak` | Scans HTML/JS for leaked Elementor Pro / WP Rocket / Gravity Forms / WPMU DEV license keys |
+| `xmlrpc_method_brute` | Brute-forces ~30 hidden XML-RPC method names (Jetpack, WC, plugin-internal) — finds methods that `system.listMethods` hides |
+| `ua_rotation` | 20 realistic User-Agent pool with per-request rotation — bypasses naive UA-based bot blockers |
+| `rate_limit` | External-API rate-limit awareness (X-RateLimit-* / Retry-After) for KEV/EPSS/VT/GH/HIBP/AbuseIPDB integrations |
+
+### Wave B — nuclei parity (9 items)
+| ID | What |
+|---|---|
+| `yaml_templates` | nuclei-style YAML template engine (subset) — drop `.yaml` in `~/.wpsecscan/templates/`, runs against target |
+| DSL matchers | `status` / `word` / `regex` / `size` matchers with `condition: and\|or` |
+| `yaml_workflows` | Workflow chaining — entry template's match gates execution of subsequent templates filtered by tag/id |
+| `interactsh` shim | Out-of-band callback registration via the public `oast.live` Interactsh; SSRF-safe (refuses loopback/RFC1918) |
+| `dns_templates` | DNS-block templates (A/AAAA/MX/TXT/NS/CNAME) — minimal manual resolver, no dnspython dep |
+| `headless_templates` | Playwright-driven templates with `navigate` / `wait` / `screenshot` actions + post-JS DOM matchers (aggressive) |
+| `auto_scan` | Tech-fingerprint-driven template auto-selection — runs only WP-tagged templates against detected WP sites |
+| `template_fuzz` | Per-template payload substitution — `{{payload}}` × N values × every URL param |
+| `template_signature` | SHA256 manifest + optional GPG signature verification for community-template tamper detection |
+
+### Wave C — OWASP ZAP parity (12 items)
+| ID | What |
+|---|---|
+| `spider_crawl` | BFS recursive same-origin crawler bounded by max_depth=3, max_pages=200, respects robots.txt |
+| `scan_modes` | Named active/passive/authenticated/full modes — concurrency auto-tunes per mode |
+| `session_context` | Saved login flows per target — auto-re-auth on mid-scan session timeout, env-var creds |
+| `forced_browse` | DirBuster-style hidden-path discovery from a 200-entry curated wordlist (extendable via `~/.wpsecscan/extra_paths.txt`) |
+| `marketplace` upgrade | Static catalogue now merged with a 24h-cached remote catalogue (drop URLs in `WPSECSCAN_MARKETPLACE_URL`) |
+| `websocket_fuzz` | Auto-discovers WS endpoints from HTML, sends oversized/malformed/XSS/SQL-meta frames (aggressive) |
+| `HUD.md` | Heads-Up Display documented as intentionally not-implemented (WebExtension complexity); alternatives listed |
+| `openapi_scanner` | Auto-discovers OpenAPI/Swagger spec at common paths, probes every documented endpoint for unauth access |
+| `alert_filters` | `~/.wpsecscan/alert_filters.json` — hide / downgrade known findings (accepted risks) post-scan |
+| `js_plugin` | JS-scriptable checks via Node subprocess — drop `.js` files in `~/.wpsecscan/plugins/`, 10MB stdout cap |
+
+### Wave D — PortSwigger turbo-intruder parity (6 items)
+| ID | What |
+|---|---|
+| `turbo_engine.burst` | HTTP/2-multiplexing high-RPS burst (default 200 concurrent) |
+| `turbo_engine.last_byte_sync` | Open N TCP sockets, send everything-except-CRLF, fire final byte simultaneously — race-condition ~microsecond sync |
+| `turbo_engine.single_packet_h2` | Coalesce N HTTP/2 HEADERS frames into one TCP packet |
+| `attack_scripts` | Drop a Python script in `~/.wpsecscan/attacks/`, run with `--attack <id> <target>`, gets `engine` + `Finding` |
+| `response_diff` | Statistical outlier detection across N response summaries (status / length-σ / body-hash) |
+| `attack_checkpoint` | `CheckpointedRunner` — pause/resume long fuzz runs, persists every 50 completions |
+
+### Wave E — cross-cutting (5 items)
+| ID | What |
+|---|---|
+| `burp_import` | Read Burp Suite `.burp` SQLite projects → HAR format → replay via existing har_replay |
+| `pcap_replay` | Read `.pcap` / `.pcapng` (scapy optional dep) → HAR → replay |
+| `mobile_app_endpoints` | Discovers app association files (`apple-app-site-association`, `assetlinks.json`) — surfaces mobile-app endpoint shapes |
+| `intel_freshness` | Per-source "last updated" scoreboard — flags KEV/EPSS/Wordfence/Sucuri caches that are >30 days stale |
+| `host_recon` | TCP probe to common service ports (Redis, Mongo, Docker, k8s API, etc.) on the WP-host IP |
+
+### UX additions
+- **GUI update notice**: pops up at launch when a newer release exists, with a Download button that opens the GitHub release page. Help → Check for updates now to force a re-check.
+- **Activity bus emits** for the spider + YAML template engine so the live dashboard shows them firing.
+
+### QA bugs fixed in this round
+Internal QA audit found 13 issues; the 4 critical + 4 high-priority were patched before push:
+- `template_engine.py` NameError on `re.error` alias
+- `headless_templates.py` missing aggressive-mode gate
+- `rate_limit.py` unbounded state dict (now LRU-capped at 64 services)
+- `turbo_engine.py` socket leak on connect-failure path
+- `interactsh.py` SSRF-safe server validation (refuses loopback/metadata/RFC1918)
+- `js_plugin.py` 10 MB stdout cap
+- `template_signature.py` gpg stderr sanitisation
+
+---
+
 ## Round-56 — "See it all working" visibility upgrade
 
 Three rounds of feature additions had left most of the work invisible: KEV
