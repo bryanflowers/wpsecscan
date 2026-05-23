@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wpsecscan"
-version = "1.6.0"
-description = "Defensive WordPress security scanner — 120 checks, threat-intel integrations, YAML templates, GUI + CLI."
+version = "1.7.0"
+description = "Defensive WordPress security scanner — 136 checks, AI-assisted remediation (BYO key), YAML templates, OSINT, exec reporting, CLI + GUI."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }

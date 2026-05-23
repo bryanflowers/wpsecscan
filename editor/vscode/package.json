@@ -1,0 +1,25 @@
+{
+  "name": "wpsecscan-vscode",
+  "displayName": "WPSecScan",
+  "description": "Defensive WordPress security scanner — run scans + view findings from VS Code.",
+  "version": "0.1.0",
+  "publisher": "bryanflowers",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "wpsecscan.scan", "title": "WPSecScan: scan a URL..." },
+      { "command": "wpsecscan.scanCurrentDir", "title": "WPSecScan: scan workspace (auto-detect from wp-config.php)" },
+      { "command": "wpsecscan.openDemo", "title": "WPSecScan: demo mode" }
+    ]
+  },
+  "scripts": {
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.20.0",
+    "typescript": "^5.0.0"
+  }
+}

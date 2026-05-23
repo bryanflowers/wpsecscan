@@ -7,6 +7,45 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (Round-58 — 117-feature mega-round, becoming the best WP scanner)
+- **16 new checks** across 4 waves: WordPress deep dives (Gutenberg blocks,
+  wp-cron DoS, REST permission audit, WP_Query SQLi, salt-age, Heartbeat
+  abuse, WooCommerce deep, plugin-specific audit), cloud (`hosting_platform_audit`,
+  `origin_ip_discovery`), exploit primitives (HTTP/2 smuggling, upload-bypass
+  deep, misc-injection, TLS-reneg DoS, cache-poison v2), OSINT enrich.
+  Inventory: **136 checks** (was 120).
+- **12 new utility modules**: `risk_aging`, `continuous`, `ai_assist`
+  (BYO key — OpenAI/Anthropic/Ollama), `perf` (BloomFilter / worker-pool /
+  memoization), `gui_polish` (CyberChef/Shodan/tray/notify/themes/
+  achievements), `observability` (self-health/profile/watchdog/tail),
+  `scanner_security` (gpg-encrypt/shred/sandbox/sigstore/perms-audit),
+  `education` (tutorial + CTF + plain-English), plus `integrations/osint`,
+  `reporters/bounty_format`, `reporters/executive_pack`.
+- **VS Code extension scaffold** (`editor/vscode/`), **pre-commit hook**
+  (`scripts/pre-commit-hook.sh`), **cross-platform build recipes**
+  (`ECOSYSTEM-INTEGRATIONS.md`).
+- **HIPAA / FERPA / SOC 2 / FedRAMP / GDPR Article mappings** for 23
+  check IDs (`data/compliance_extra.json`).
+- **WPSECSCAN_NO_AI=1** env to hard-disable all AI features regardless of
+  API-key presence (data-privacy guardrail).
+- 35 new tests; total now **427 passing** (was 392).
+
+### Fixed (Round-58 QA pass — 7 issues)
+- `scanner_security.shred_older_than` — symlink guard prevents
+  symlink-attack on shred dir.
+- `continuous.discover_wp_in_cidr` — MAX_DISCOVER_HOSTS=256 hard cap;
+  refuses /16 or larger.
+- `gui_polish.desktop_notify` — XML escape (Windows toast) +
+  AppleScript escape (macOS) on title/msg, preventing shell/markup
+  injection from user-supplied strings.
+- `reporters/bounty_format._safe()` — escapes `{`/`}` in finding fields
+  so str.format() doesn't accidentally re-interpolate user content.
+- `integrations/osint.find_bounty_program` — 24h disk cache + 0.4s pacing
+  between HackerOne/Bugcrowd/Intigriti probes, avoiding rate-limit storms
+  in batch scans.
+- `ai_assist` — every entry point checks `WPSECSCAN_NO_AI` env first;
+  data-warning added to `executive_summary` docstring.
+
 ### Added (Round-57 — competitor-parity, 40 features)
 - **16 new checks** (wpscan/nuclei/ZAP/turbo-intruder parity): timthumb,
   plugin_hash_fingerprint, users_deep, plugin_archive_fuzz, premium_license_leak,

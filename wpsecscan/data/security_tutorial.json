@@ -1,0 +1,37 @@
+{
+  "_meta": "#115 Built-in WordPress security tutorial. Each entry = one teaching step shown in the GUI tutorial flow.",
+  "steps": [
+    {
+      "title": "Why WordPress security is hard",
+      "body": "WordPress runs ~43% of the web. Its plugin ecosystem (~60k plugins) means most security issues today are in third-party plugins, not core. Plugin developers ship at very different quality levels — a popular plugin with 1M+ installs may still have a critical CVE every few months."
+    },
+    {
+      "title": "The four risk tiers",
+      "body": "WPSecScan reports findings as critical / high / medium / low / info. Critical = remote code execution, auth bypass, or data dump. High = privilege escalation, broken access control. Medium = info disclosure, missing hardening. Low = minor leaks. Info = configuration notes."
+    },
+    {
+      "title": "Why we score 0-100",
+      "body": "The risk score deducts points for findings with severity-tier caps so one runaway check can't dominate. 90+ = healthy, 70-89 = a few issues, 40-69 = priority fixes needed, <40 = significant exposure. The grade (A-F) is for non-technical stakeholders."
+    },
+    {
+      "title": "Passive vs aggressive",
+      "body": "Passive checks (default) read responses but never send active payloads. Aggressive (`--aggressive`) sends SQLi / XSS / SSRF probes — these CAN trigger WAF blocks or rate limits. Only use aggressive on sites you own or have written permission to test."
+    },
+    {
+      "title": "Threat intel sources",
+      "body": "WPSecScan integrates with CISA KEV (known-exploited CVEs), EPSS (exploitation probability), VirusTotal (URL reputation), Sucuri SiteCheck, and the Wordfence DB. The KEV badge on a finding means active in-the-wild exploitation."
+    },
+    {
+      "title": "The exploit playbook",
+      "body": "Every finding has a copy-paste playbook showing curl / sqlmap / Metasploit / nuclei / wpscan / ffuf commands. WPSecScan never executes these — you copy them to your own terminal. Defensive use only."
+    },
+    {
+      "title": "Custom checks",
+      "body": "Drop Python files in ~/.wpsecscan/plugins/ to add your own checks. Drop YAML files in ~/.wpsecscan/templates/ for nuclei-style templates. Drop JS in plugins/ (Node required) for scriptable rules. Drop signatures in ~/.wpsecscan/signatures/ for plugin-CVE patches."
+    },
+    {
+      "title": "Reporting + integrations",
+      "body": "Outputs: HTML, JSON, CSV, MD, XLSX, SARIF, HAR, Burp scope, executive PDF, customer attestation. Ships an HTTP API server, daemon mode, audit-log shipping to Splunk/Datadog/Loki, Slack/Discord webhooks, GitHub Issues auto-create."
+    }
+  ]
+}

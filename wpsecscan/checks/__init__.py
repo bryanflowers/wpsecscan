@@ -107,6 +107,23 @@ from .websocket_fuzz import check as websocket_fuzz
 from .openapi_scanner import check as openapi_scanner
 from .mobile_app_endpoints import check as mobile_app_endpoints
 from .host_recon import check as host_recon
+# Round-58 (117 features): new checks
+from .gutenberg_blocks import check as gutenberg_blocks
+from .wp_cron_dos import check as wp_cron_dos
+from .rest_permission_audit import check as rest_permission_audit
+from .wp_query_sqli import check as wp_query_sqli
+from .wp_salts_age import check as wp_salts_age
+from .heartbeat_abuse import check as heartbeat_abuse
+from .woocommerce_deep import check as woocommerce_deep
+from .plugin_specific_audit import check as plugin_specific_audit
+from .hosting_platform_audit import check as hosting_platform_audit
+from .origin_ip_discovery import check as origin_ip_discovery
+from .http2_smuggling import check as http2_smuggling
+from .upload_bypass_deep import check as upload_bypass_deep
+from .misc_injection_audit import check as misc_injection_audit
+from .tls_reneg_dos import check as tls_reneg_dos
+from .cache_poisoning_v2 import check as cache_poisoning_v2
+from .osint_enrich import check as osint_enrich
 
 # CVE matching (uses the Wordfence DB; runs whenever DB is present)
 from .core_cves import check as core_cves
@@ -260,6 +277,24 @@ ALL_CHECKS = [
     ("openapi_scanner",    "OpenAPI / Swagger endpoint scanner (#26)", openapi_scanner, False),
     ("mobile_app_endpoints","Mobile-app association discovery (#38)", mobile_app_endpoints, False),
     ("host_recon",         "Host port recon — Docker/Redis/k8s/etc. (#40)", host_recon, False),
+    # ---- Round-58 passive checks ----
+    ("gutenberg_blocks",         "Gutenberg block CVE scanner (#1)", gutenberg_blocks, False),
+    ("wp_cron_dos",              "wp-cron.php DoS amplification (#2)", wp_cron_dos, False),
+    ("rest_permission_audit",    "REST permission_callback audit (#3)", rest_permission_audit, False),
+    ("wp_salts_age",             "WP salts age check (#5+#6)", wp_salts_age, False),
+    ("heartbeat_abuse",          "Heartbeat API DoS surface (#7)", heartbeat_abuse, False),
+    ("woocommerce_deep",         "WC consumer-key/IDOR deep audit (#8+#9)", woocommerce_deep, False),
+    ("plugin_specific_audit",    "ACF/MS/agent/child/WP-CLI audit (#11-15)", plugin_specific_audit, False),
+    ("hosting_platform_audit",   "WP Engine/Kinsta/CF/Amplify audits (#16-22)", hosting_platform_audit, False),
+    ("origin_ip_discovery",      "Origin-IP discovery via subdomains (#23)", origin_ip_discovery, False),
+    ("tls_reneg_dos",            "TLS renegotiation DoS probe (#26)", tls_reneg_dos, False),
+    ("osint_enrich",             "OSINT — ASN/geo/bug-bounty/cert TX (#36-43)", osint_enrich, False),
+    # ---- Round-58 aggressive checks ----
+    ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
+    ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),
+    ("upload_bypass_deep",       "Upload SVG-XXE/polyglot/TOCTOU (#28-30)", upload_bypass_deep, True),
+    ("misc_injection_audit",     "LDAP/XPath/SSI/ESI/CRLF/email-header (#32-34)", misc_injection_audit, True),
+    ("cache_poisoning_v2",       "Cache poisoning chain v2 (#35)", cache_poisoning_v2, True),
     # ---- Round-57 aggressive checks ----
     ("plugin_archive_fuzz","Plugin source-archive fuzz (#6)", plugin_archive_fuzz, True),
     ("headless_templates", "Headless DOM templates (Playwright) (#14)", headless_templates, True),

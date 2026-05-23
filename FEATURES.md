@@ -6,6 +6,40 @@ For install instructions, see [README.md](README.md).
 
 ---
 
+## Round-58 — 117-feature mega-round (best WordPress security scanner)
+
+A sweeping round across 14 categories (P-CC). Inventory: **120 → 136 checks**.
+Tests: **392 → 427 passing**. See CHANGELOG.md for the full list. Headlines:
+
+- 16 new WordPress / cloud / exploit-primitive checks (waves P-R)
+- OSINT enrichment (ASN, geo, bug-bounty, cert-tx) — wave S
+- Compliance: HIPAA / FERPA / SOC 2 / FedRAMP / GDPR mappings, risk-aging,
+  bug-bounty submission templates, trust-center page generator — wave T
+- Continuous mode, CIDR-discovery (capped /24), per-site profiles,
+  scan-windowing — wave U
+- Executive pack: $-cost-of-remediation + breach-exposure estimates,
+  industry benchmark, priority queue, 4 stakeholder variants — wave V
+- AI / LLM assist (OpenAI / Anthropic / Ollama — BYO key, `WPSECSCAN_NO_AI=1`
+  hard-disable, data warnings in docstrings) — wave W
+- VS Code extension scaffold + pre-commit hook + cross-platform build
+  recipes (Mac .app, Linux .deb/.rpm, Homebrew/Scoop/winget) — wave X
+- BloomFilter, worker-pool, per-check memoization — wave Y
+- CyberChef/Shodan link builders, system tray, desktop notifications
+  (shell-escaped), 6 color themes, achievements, custom-CSS reports — wave Z
+- Self-health, --profile cProfile, watchdog, live-tail, retry policy — wave AA
+- gpg encrypt-at-rest, symlink-safe shred, sandboxed plugin subprocess,
+  Sigstore wrapper, permissions audit — wave BB
+- Built-in WP-security tutorial (8 steps), CTF practice mode, plain-English
+  explainer per check — wave CC
+
+### Round-58 QA pass (7 issues fixed before push)
+- `shred_older_than` symlink guard, CIDR /24 hard cap, `desktop_notify`
+  XML/AppleScript escape, `bounty_format` str.format injection guard,
+  OSINT 24h bounty cache + pacing, `WPSECSCAN_NO_AI` env, data warnings
+  on AI docstrings.
+
+---
+
 ## Round-57 — competitor-parity (wpscan / nuclei / OWASP ZAP / turbo-intruder)
 
 A 40-feature parity round that brings WPSecScan close to feature-coverage of

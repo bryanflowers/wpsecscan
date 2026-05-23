@@ -132,5 +132,22 @@
   "websocket_fuzz":          {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-345", "d3fend": "D3-IVA"},
   "openapi_scanner":         {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-200", "d3fend": "D3-RAC"},
   "mobile_app_endpoints":    {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-NTA"},
-  "host_recon":              {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1046", "attack_label": "Network Service Discovery", "cwe": "CWE-200", "d3fend": "D3-NTA"}
+  "host_recon":              {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1046", "attack_label": "Network Service Discovery", "cwe": "CWE-200", "d3fend": "D3-NTA"},
+
+  "gutenberg_blocks":        {"owasp": "A06:2021", "owasp_label": "Vulnerable & Outdated Components", "attack": "T1592.002", "attack_label": "Software", "cwe": "CWE-1104", "d3fend": "D3-SU"},
+  "wp_cron_dos":             {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1499.003", "attack_label": "Application Exhaustion Flood", "cwe": "CWE-400", "d3fend": "D3-IVA"},
+  "rest_permission_audit":   {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-862", "d3fend": "D3-RAC"},
+  "wp_query_sqli":           {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-89", "d3fend": "D3-IVA"},
+  "wp_salts_age":            {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552", "attack_label": "Unsecured Credentials", "cwe": "CWE-261", "d3fend": "D3-CR"},
+  "heartbeat_abuse":         {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1499", "attack_label": "Endpoint Denial of Service", "cwe": "CWE-400", "d3fend": "D3-IVA"},
+  "woocommerce_deep":        {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-639", "d3fend": "D3-RAC"},
+  "plugin_specific_audit":   {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-200", "d3fend": "D3-NTA"},
+  "hosting_platform_audit":  {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592.004", "attack_label": "Client Configurations", "cwe": "CWE-200", "d3fend": "D3-NTA"},
+  "origin_ip_discovery":     {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1590.005", "attack_label": "IP Addresses", "cwe": "CWE-200", "d3fend": "D3-NTA"},
+  "http2_smuggling":         {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-444", "d3fend": "D3-NTA"},
+  "upload_bypass_deep":      {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-434", "d3fend": "D3-IVA"},
+  "misc_injection_audit":    {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-74", "d3fend": "D3-IVA"},
+  "tls_reneg_dos":           {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1499", "attack_label": "Endpoint Denial of Service", "cwe": "CWE-400", "d3fend": "D3-CH"},
+  "cache_poisoning_v2":      {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-444", "d3fend": "D3-NTA"},
+  "osint_enrich":            {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-NTA"}
 }

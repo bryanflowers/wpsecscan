@@ -129,5 +129,22 @@
   "websocket_fuzz":          {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
   "openapi_scanner":         {"pci_dss": "6.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
   "mobile_app_endpoints":    {"pci_dss": "2.2", "nist_800_53": "CM-8", "iso_27001": "A.8.9"},
-  "host_recon":              {"pci_dss": "1.4", "nist_800_53": "SC-7", "iso_27001": "A.8.20"}
+  "host_recon":              {"pci_dss": "1.4", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
+
+  "gutenberg_blocks":        {"pci_dss": "6.3.3", "nist_800_53": "SI-2", "iso_27001": "A.8.8"},
+  "wp_cron_dos":             {"pci_dss": "6.2.4", "nist_800_53": "SC-5", "iso_27001": "A.8.16"},
+  "rest_permission_audit":   {"pci_dss": "6.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
+  "wp_query_sqli":           {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
+  "wp_salts_age":            {"pci_dss": "3.5.1", "nist_800_53": "SC-12", "iso_27001": "A.8.24"},
+  "heartbeat_abuse":         {"pci_dss": "6.2.4", "nist_800_53": "SC-5", "iso_27001": "A.8.16"},
+  "woocommerce_deep":        {"pci_dss": "3.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
+  "plugin_specific_audit":   {"pci_dss": "2.2", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
+  "hosting_platform_audit":  {"pci_dss": "2.2", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
+  "origin_ip_discovery":     {"pci_dss": "1.4", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
+  "http2_smuggling":         {"pci_dss": "6.4.2", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
+  "upload_bypass_deep":      {"pci_dss": "6.4.1", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
+  "misc_injection_audit":    {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
+  "tls_reneg_dos":           {"pci_dss": "6.2.4", "nist_800_53": "SC-13", "iso_27001": "A.8.24"},
+  "cache_poisoning_v2":      {"pci_dss": "6.4.2", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
+  "osint_enrich":            {"pci_dss": "1.4", "nist_800_53": "SI-4", "iso_27001": "A.8.7"}
 }
