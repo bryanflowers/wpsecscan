@@ -1,0 +1,34 @@
+{
+  "_meta": "#44 — extended compliance mappings beyond the OWASP/MITRE/PCI/NIST/ISO/CWE/D3FEND core. Adds HIPAA, FERPA, SOC 2, FedRAMP, GDPR Article references per check_id.",
+  "_schema": {
+    "hipaa": "HIPAA Security Rule reference (e.g. '164.312(a)(1)')",
+    "ferpa": "FERPA section reference (e.g. '34 CFR 99.31')",
+    "soc2": "SOC 2 Trust Services Criteria (e.g. 'CC6.1')",
+    "fedramp": "FedRAMP control (e.g. 'AC-3')",
+    "gdpr": "GDPR Article (e.g. 'Article 32 (Security of processing)')"
+  },
+
+  "tls_headers":     {"hipaa": "164.312(e)(1)", "soc2": "CC6.7", "fedramp": "SC-8",   "gdpr": "Article 32"},
+  "tls_deep":        {"hipaa": "164.312(e)(2)(i)", "soc2": "CC6.7", "fedramp": "SC-13", "gdpr": "Article 32"},
+  "tls_protocol_audit": {"hipaa": "164.312(e)(2)(i)", "soc2": "CC6.7", "fedramp": "SC-13", "gdpr": "Article 32"},
+  "cookies":         {"hipaa": "164.312(a)(2)(i)", "soc2": "CC6.1",  "fedramp": "AC-3", "gdpr": "Article 32"},
+  "session_fixation":{"hipaa": "164.312(a)(2)(i)", "soc2": "CC6.1",  "fedramp": "AC-3", "gdpr": "Article 32"},
+  "csrf_nonce":      {"hipaa": "164.312(c)(1)",   "soc2": "CC6.1",  "fedramp": "SI-10", "gdpr": "Article 32"},
+  "csrf_entropy":    {"hipaa": "164.312(c)(1)",   "soc2": "CC6.1",  "fedramp": "SI-10", "gdpr": "Article 32"},
+  "login":           {"hipaa": "164.312(d)",      "soc2": "CC6.1",  "fedramp": "IA-2", "gdpr": "Article 32"},
+  "login_throttle":  {"hipaa": "164.312(d)",      "soc2": "CC6.1",  "fedramp": "AC-7", "gdpr": "Article 32"},
+  "users":           {"hipaa": "164.312(a)(1)",   "soc2": "CC6.1",  "fedramp": "AC-2", "gdpr": "Article 32"},
+  "users_deep":      {"hipaa": "164.312(a)(1)",   "soc2": "CC6.1",  "fedramp": "AC-2", "gdpr": "Article 32"},
+  "secret_leak":     {"hipaa": "164.308(a)(4)",   "soc2": "CC6.7",  "fedramp": "IA-5", "gdpr": "Article 32"},
+  "premium_license_leak":{"hipaa": "164.308(a)(4)","soc2": "CC6.7", "fedramp": "IA-5", "gdpr": "Article 32"},
+  "github_leak_search":{"hipaa": "164.308(a)(4)", "soc2": "CC6.7",  "fedramp": "IA-5", "gdpr": "Article 32"},
+  "exposed_files":   {"hipaa": "164.312(c)(1)",   "soc2": "CC6.1",  "fedramp": "AC-3", "gdpr": "Article 32"},
+  "backup_file_fuzz":{"hipaa": "164.312(c)(1)",   "soc2": "CC6.1",  "fedramp": "AC-3", "gdpr": "Article 32"},
+  "forced_browse":   {"hipaa": "164.312(c)(1)",   "soc2": "CC6.1",  "fedramp": "AC-3", "gdpr": "Article 32"},
+  "rest_api":        {"hipaa": "164.312(a)(1)",   "soc2": "CC6.1",  "fedramp": "AC-3", "gdpr": "Article 32"},
+  "rest_permission_audit":{"hipaa": "164.312(a)(1)","soc2": "CC6.1","fedramp": "AC-3", "gdpr": "Article 32"},
+  "audit_log":       {"hipaa": "164.312(b)",      "soc2": "CC7.2",  "fedramp": "AU-2", "gdpr": "Article 30"},
+  "audit_log_ship":  {"hipaa": "164.312(b)",      "soc2": "CC7.2",  "fedramp": "AU-6", "gdpr": "Article 30"},
+  "dns_security":    {"hipaa": "164.312(e)(1)",   "soc2": "CC6.7",  "fedramp": "SC-8", "gdpr": "Article 32"},
+  "cloud_metadata_ssrf":{"hipaa": "164.308(a)(4)","soc2": "CC6.6", "fedramp": "SC-7", "gdpr": "Article 32"}
+}
