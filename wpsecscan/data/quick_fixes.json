@@ -1,0 +1,245 @@
+{
+  "_meta": "Per-check guidance: `fix` is a copy-pasteable code snippet; `verify` lists commands the user can run to manually confirm the issue and to confirm their fix landed.",
+  "fixes": {
+    "core_version": {
+      "title": "Suppress WordPress version disclosure",
+      "language": "php",
+      "where": "functions.php (active theme)",
+      "code": "remove_action('wp_head', 'wp_generator');\nadd_filter('the_generator', '__return_empty_string');\nadd_filter('style_loader_src', function($src){ return remove_query_arg('ver', $src); }, 9999);\nadd_filter('script_loader_src', function($src){ return remove_query_arg('ver', $src); }, 9999);"
+    },
+    "users": {
+      "title": "Block ?author= and REST user enumeration",
+      "language": "php",
+      "where": "functions.php",
+      "code": "// Block /?author=N redirects\nadd_action('template_redirect', function(){\n    if (!empty($_GET['author']) && is_numeric($_GET['author'])) {\n        wp_redirect(home_url(), 301); exit;\n    }\n});\n// Strip users endpoint from REST\nadd_filter('rest_endpoints', function($endpoints){\n    unset($endpoints['/wp/v2/users']);\n    unset($endpoints['/wp/v2/users/(?P<id>[\\d]+)']);\n    return $endpoints;\n});"
+    },
+    "login": {
+      "title": "Disable XML-RPC + system.multicall amplifier",
+      "language": "php",
+      "where": "functions.php",
+      "code": "add_filter('xmlrpc_enabled', '__return_false');\nadd_filter('xmlrpc_methods', function($m){ unset($m['system.multicall']); return $m; });"
+    },
+    "tls_headers": {
+      "title": "Add baseline security headers (Nginx)",
+      "language": "nginx",
+      "where": "nginx server block",
+      "code": "add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains; preload\" always;\nadd_header X-Content-Type-Options nosniff always;\nadd_header X-Frame-Options SAMEORIGIN always;\nadd_header Referrer-Policy strict-origin-when-cross-origin always;\nadd_header Permissions-Policy \"camera=(), microphone=(), geolocation=()\" always;\nadd_header Content-Security-Policy \"default-src 'self' https:; object-src 'none'; frame-ancestors 'self'; base-uri 'self'\" always;\nserver_tokens off;"
+    },
+    "csp": {
+      "title": "Tighter CSP (Apache)",
+      "language": "apache",
+      "where": ".htaccess (root)",
+      "code": "Header set Content-Security-Policy \"default-src 'self' https:; script-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'\"\nHeader set X-Content-Type-Options \"nosniff\"\nHeader set X-Frame-Options \"SAMEORIGIN\""
+    },
+    "directory_listing": {
+      "title": "Disable directory listing",
+      "language": "apache",
+      "where": ".htaccess (root)",
+      "code": "Options -Indexes"
+    },
+    "debug_leaks": {
+      "title": "Move debug log outside docroot",
+      "language": "php",
+      "where": "wp-config.php",
+      "code": "define('WP_DEBUG', true);\ndefine('WP_DEBUG_LOG', '/path/outside/docroot/wp-debug.log');\ndefine('WP_DEBUG_DISPLAY', false);\n@ini_set('display_errors', 0);"
+    },
+    "http_methods": {
+      "title": "Block dangerous HTTP methods (Nginx)",
+      "language": "nginx",
+      "where": "nginx server block",
+      "code": "if ($request_method !~ ^(GET|HEAD|POST|OPTIONS)$) { return 405; }"
+    },
+    "cookies": {
+      "title": "Force secure WP cookies",
+      "language": "php",
+      "where": "wp-config.php",
+      "code": "define('FORCE_SSL_ADMIN', true);\n@ini_set('session.cookie_secure', 1);\n@ini_set('session.cookie_httponly', 1);\n@ini_set('session.cookie_samesite', 'Lax');"
+    },
+    "exposed_files": {
+      "title": "Block common backup/source-leak paths (Nginx)",
+      "language": "nginx",
+      "where": "nginx server block",
+      "code": "location ~* \\.(bak|swp|sql|env|gitconfig|gitignore)$ { deny all; }\nlocation ~ /\\.git { deny all; }\nlocation = /wp-config.php { deny all; }\nlocation = /readme.html { deny all; }\nlocation = /xmlrpc.php { deny all; }"
+    },
+    "plugins": {
+      "title": "Block plugin readme.txt files",
+      "language": "nginx",
+      "where": "nginx server block",
+      "code": "location ~ ^/wp-content/plugins/.+/readme\\.txt$ { deny all; }\nlocation ~ ^/wp-content/plugins/.+/readme\\.md$ { deny all; }"
+    }
+  },
+  "verify": {
+    "core_version": [
+      "curl -s {target}/ | grep -i 'meta name=.generator'",
+      "curl -s {target}/feed/ | grep -i 'generator'",
+      "curl -sI {target}/readme.html"
+    ],
+    "plugins": [
+      "curl -s {target}/wp-content/plugins/<slug>/readme.txt | head -20",
+      "# To enumerate definitively, log in and visit /wp-admin/plugins.php"
+    ],
+    "themes": [
+      "curl -s {target}/wp-content/themes/<slug>/style.css | head -10"
+    ],
+    "users": [
+      "curl -s {target}/wp-json/wp/v2/users",
+      "curl -sI {target}/?author=1",
+      "curl -s {target}/?rest_route=/wp/v2/users"
+    ],
+    "exposed_files": [
+      "curl -sI {target}/wp-config.php.bak",
+      "curl -sI {target}/.env",
+      "curl -sI {target}/.git/config",
+      "curl -sI {target}/wp-content/debug.log"
+    ],
+    "login": [
+      "curl -sI {target}/wp-login.php",
+      "curl -s -X POST {target}/xmlrpc.php -H 'Content-Type: text/xml' --data '<?xml version=\"1.0\"?><methodCall><methodName>system.listMethods</methodName><params></params></methodCall>'"
+    ],
+    "tls_headers": [
+      "curl -sI {target}/ | grep -iE 'strict-transport-security|content-security-policy|x-frame-options|x-content-type-options|referrer-policy|permissions-policy'",
+      "# Deep TLS audit:",
+      "ssllabs-scan --quiet {target}",
+      "# Or in a browser: https://www.ssllabs.com/ssltest/analyze.html?d={host}"
+    ],
+    "csp": [
+      "curl -sI {target}/ | grep -i content-security-policy",
+      "# Mozilla Observatory grades your overall header config:",
+      "https://observatory.mozilla.org/analyze/{host}",
+      "# CSP-specific evaluator:",
+      "https://csp-evaluator.withgoogle.com/"
+    ],
+    "directory_listing": [
+      "curl -s {target}/wp-content/uploads/ | grep -i 'index of'",
+      "curl -s {target}/wp-content/plugins/ | grep -i 'index of'"
+    ],
+    "debug_leaks": [
+      "curl -sI {target}/wp-content/debug.log",
+      "curl -s {target}/?p\\[\\]=1 | head -20"
+    ],
+    "http_methods": [
+      "curl -sX OPTIONS {target}/ -i | grep -i allow",
+      "curl -sX TRACE {target}/ -i",
+      "curl -sX PUT {target}/ -i | head -5"
+    ],
+    "cookies": [
+      "curl -sI {target}/wp-login.php | grep -i set-cookie",
+      "curl -sI {target}/wp-admin/ | grep -i set-cookie"
+    ],
+    "robots_sitemap": [
+      "curl -s {target}/robots.txt",
+      "curl -s {target}/sitemap.xml | head -50",
+      "curl -s {target}/wp-sitemap.xml | head -50"
+    ],
+    "subdomains": [
+      "curl -s 'https://crt.sh/?q=%25.{host}&output=json' | jq -r '.[].name_value' | sort -u",
+      "# Manual takeover check for a suspect subdomain:",
+      "host <subdomain>",
+      "curl -sI https://<subdomain>/"
+    ],
+    "waf": [
+      "curl -sI {target}/?q='<script>alert(1)</script>'",
+      "# wafw00f gives a more detailed fingerprint:",
+      "wafw00f {target}"
+    ],
+    "core_cves": [
+      "# Compare your installed version to the advisory:",
+      "wp core version",
+      "wp core check-update"
+    ],
+    "plugin_cves": [
+      "# List installed plugins and versions (run on the server):",
+      "wp plugin list --format=table"
+    ],
+    "theme_cves": [
+      "wp theme list --format=table"
+    ],
+    "rest_api": [
+      "curl -s {target}/wp-json/ | jq '.namespaces'",
+      "curl -s {target}/wp-json/wp/v2/settings",
+      "# Restrict via rest_endpoints filter in functions.php"
+    ],
+    "cors": [
+      "curl -sI -H 'Origin: https://evil.example.com' {target}/",
+      "# Look at Access-Control-Allow-Origin in the response"
+    ],
+    "js_libraries": [
+      "curl -s {target}/ | grep -oE 'jquery[^\"\\']*\\.js'",
+      "# Snyk: https://security.snyk.io/package/npm/jquery",
+      "# Retire.js: npx retire --js"
+    ],
+    "secret_leak": [
+      "curl -s {target}/ | grep -oE 'sk_live_[A-Za-z0-9]+'",
+      "curl -s {target}/ | grep -oE 'AKIA[A-Z0-9]{16}'",
+      "# TruffleHog scans web assets for secrets:",
+      "trufflehog url {target}"
+    ],
+    "login_throttle_deep": [
+      "# Verify the threshold manually by repeating wrong-password attempts:",
+      "for i in {1..30}; do curl -s -X POST {target}/wp-login.php -d 'log=fakeuser&pwd=wrong' -o /dev/null -w '%{http_code} %{time_total}s\\n'; sleep 10; done"
+    ],
+    "wpgraphql": [
+      "curl -s {target}/graphql -X POST -H 'Content-Type: application/json' -d '{\"query\":\"{__schema{types{name}}}\"}'",
+      "# Disable introspection (functions.php):",
+      "# add_filter('graphql_introspection_enabled', '__return_false');"
+    ],
+    "ajax_surface": [
+      "curl -s '{target}/wp-admin/admin-ajax.php?action=<discovered-action>'",
+      "# Audit which nopriv handlers your plugins register:",
+      "grep -rE \"wp_ajax_nopriv_\" wp-content/plugins/ | head -50"
+    ],
+    "backup_exposure": [
+      "# Block backup paths at Nginx:",
+      "# location ~ ^/(wp-content/(updraft|backups-dup-lite|backups-dup-pro|ai1wm-backups|wpvividbackups|uploads/backwpup-backups|uploads/backupbuddy_backups))(/.*)?$ { deny all; }",
+      "curl -sI {target}/wp-content/updraft/",
+      "curl -sI {target}/wp-content/ai1wm-backups/"
+    ],
+    "core_tampering": [
+      "# Compare a suspect file against the same path in a clean WP of your version:",
+      "# https://wordpress.org/download/release-archive/",
+      "# Or run Wordfence / Sucuri SiteCheck for a full malware sweep",
+      "curl -sI {target}/wp-content/uploads/shell.php",
+      "curl -sI {target}/wp-admin/install.php"
+    ],
+    "dns_security": [
+      "# Email authentication records (SPF / DMARC / DKIM):",
+      "dig +short TXT {host}",
+      "dig +short TXT _dmarc.{host}",
+      "dig +short TXT default._domainkey.{host}",
+      "# Or on Windows:",
+      "nslookup -type=TXT {host}",
+      "nslookup -type=TXT _dmarc.{host}",
+      "# Online grader: https://www.dmarcanalyzer.com/dmarc-record-check/?domain={host}",
+      "# Then harden in your DNS provider — set 'v=spf1 ... -all' and 'v=DMARC1; p=quarantine; rua=mailto:...'"
+    ],
+    "source_maps": [
+      "curl -s {target}/ | grep -oE 'sourceMappingURL=[^ \"'\\''*]+'",
+      "# Grep a JS bundle for the trailing comment:",
+      "curl -s {target}/<path-to-bundle>.js | tail -2",
+      "# Fix at the build tool: Webpack `devtool: false` for prod; Vite `build.sourcemap: false`; Next.js `productionBrowserSourceMaps: false`",
+      "# Or block at the web server: `location ~ \\.map$ { deny all; }`"
+    ],
+    "js_supply_chain": [
+      "curl -s {target}/ | grep -oE '<script[^>]*src=\"[^\"]+\"[^>]*>' | head -40",
+      "# Look for missing integrity= attributes and unfamiliar hosts.",
+      "# Generate an SRI hash for an external script:",
+      "curl -s https://cdn.example.com/lib.js | openssl dgst -sha384 -binary | openssl base64 -A",
+      "# Add it to the tag: <script src=\"...\" integrity=\"sha384-...\" crossorigin=\"anonymous\">",
+      "# Polyfill.io / bootcdn.net etc. — REMOVE entirely or self-host."
+    ],
+    "server_timing": [
+      "curl -sI {target}/ | grep -iE 'server-timing|x-request-id|x-trace-id|x-debug-token|x-backend-server|x-aspnet-version|x-powered-by'",
+      "# Strip from Nginx:",
+      "# more_clear_headers 'Server-Timing' 'X-Powered-By' 'X-AspNet-Version' 'X-Debug-Token';",
+      "# Strip from Apache:",
+      "# Header always unset Server-Timing",
+      "# Header always unset X-Powered-By"
+    ],
+    "wp_rest_methods": [
+      "# Enumerate writable REST namespaces:",
+      "for ns in wp/v2/posts wp/v2/users wp/v2/comments wp/v2/media contact-form-7/v1 wc/v3; do echo \"--- $ns\"; curl -sX OPTIONS {target}/wp-json/$ns -i | grep -iE 'allow:|access-control'; done",
+      "# Lock down via rest_endpoints filter or rest_authentication_errors in functions.php",
+      "# WooCommerce: regenerate API keys at WooCommerce → Settings → Advanced → REST API"
+    ]
+  }
+}

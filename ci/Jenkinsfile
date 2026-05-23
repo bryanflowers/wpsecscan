@@ -1,0 +1,49 @@
+// Declarative Jenkins pipeline for WPSecScan
+pipeline {
+    agent { docker { image 'python:3.11-slim' } }
+
+    parameters {
+        string(name: 'TARGET_URL', defaultValue: 'https://your-wp-site.com',
+               description: 'WordPress URL to scan')
+        choice(name: 'FAIL_ON', choices: ['critical', 'high', 'medium', 'low'],
+               description: 'Fail the build if findings >= this severity exist')
+    }
+
+    triggers {
+        cron('H 3 * * *')  // nightly at ~3am
+    }
+
+    stages {
+        stage('Install') {
+            steps {
+                sh '''
+                    pip install --quiet httpx[http2] jinja2 rich openpyxl
+                    git clone --depth 1 https://github.com/bryan/wpsecscan.git _wpsecscan
+                    pip install --quiet -e ./_wpsecscan
+                '''
+            }
+        }
+        stage('Scan') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'wpscan-token', variable: 'WPSCAN_TOKEN'),
+                    string(credentialsId: 'patchstack-token', variable: 'PATCHSTACK_TOKEN')
+                ]) {
+                    sh '''
+                        python -m wpsecscan "${TARGET_URL}" \
+                            --json-only --no-color \
+                            --out ./reports \
+                            --fail-on "${FAIL_ON}" \
+                            ${WPSCAN_TOKEN:+--wpscan-token "$WPSCAN_TOKEN"} \
+                            ${PATCHSTACK_TOKEN:+--patchstack-token "$PATCHSTACK_TOKEN"}
+                    '''
+                }
+            }
+        }
+    }
+    post {
+        always {
+            archiveArtifacts artifacts: 'reports/**', fingerprint: true
+        }
+    }
+}

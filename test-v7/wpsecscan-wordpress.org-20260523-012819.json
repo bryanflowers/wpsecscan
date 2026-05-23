@@ -1,0 +1,1031 @@
+{
+  "target": "https://wordpress.org",
+  "scanned_at": "2026-05-22T18:26:04.247891+00:00",
+  "duration_ms": 135631,
+  "summary": {
+    "info": 43,
+    "low": 9,
+    "medium": 14,
+    "high": 4,
+    "critical": 0
+  },
+  "results": [
+    {
+      "check_id": "waf",
+      "check_name": "WAF / CDN detection",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No WAF / CDN fingerprints detected",
+          "evidence": "Headers, cookies, and a tripwire request did not match known WAF signatures.",
+          "remediation": "If you expect a WAF in front of this site, verify it's actually serving traffic for this hostname.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 2333
+    },
+    {
+      "check_id": "core_version",
+      "check_name": "WordPress core version",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "WordPress core is up to date (7.1)",
+          "evidence": "Detected 7.1 via meta generator tag on /; latest is 7.0.",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 2342
+    },
+    {
+      "check_id": "plugins",
+      "check_name": "Plugin enumeration",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "1 plugin(s) discovered via HTML asset paths",
+          "evidence": "Plugin slugs found across 4 probed page(s):\n  - gutenberg  (version: 23.2.2)",
+          "remediation": "Plugin slugs being discoverable is normal but useful to attackers. Keep all listed plugins updated. Consider a WAF that strips ?ver= asset query strings.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        },
+        {
+          "severity": "medium",
+          "title": "1 plugin(s) expose readme.txt with version",
+          "evidence": "readme.txt accessible for:\n  - gutenberg: version 23.2.2",
+          "remediation": "Block /wp-content/plugins/*/readme.txt at the server level. Public readme files leak exact plugin versions, making CVE matching trivial.",
+          "url": "https://wordpress.org/wp-content/plugins/",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 3415
+    },
+    {
+      "check_id": "themes",
+      "check_name": "Theme enumeration",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "2 theme(s) discovered via HTML asset paths",
+          "evidence": "Theme slugs found:\n  - wporg-parent-2021  (version: 1.0.0-6ebb648)\n  - wporg-main-2022  (version: 1.0.0-4837c60)",
+          "remediation": "Keep all installed themes updated, including inactive ones. Delete unused themes — inactive themes still receive PHP execution if a CVE lands.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 1134
+    },
+    {
+      "check_id": "users",
+      "check_name": "User enumeration",
+      "findings": [
+        {
+          "severity": "medium",
+          "title": "REST /wp-json/wp/v2/users exposes 6 user(s)",
+          "evidence": "Public REST endpoint returned:\n  - adamwood\n  - annezazu\n  - joen\n  - ryelle\n  - poliuk\n  - wordpressdotorg",
+          "remediation": "Restrict the users REST endpoint. In functions.php:\n  add_filter('rest_endpoints', function($e){ unset($e['/wp/v2/users']); unset($e['/wp/v2/users/(?P<id>[\\d]+)']); return $e; });\nOr use a security plugin's REST hardening rule.",
+          "url": "https://wordpress.org/wp-json/wp/v2/users",
+          "extra": {}
+        },
+        {
+          "severity": "medium",
+          "title": "REST users endpoint exposed via ?rest_route= query",
+          "evidence": "/?rest_route=/wp/v2/users returned 6 user(s).",
+          "remediation": "Same fix as /wp-json/wp/v2/users — filter out the users endpoint via rest_endpoints.",
+          "url": "https://wordpress.org/?rest_route=/wp/v2/users",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 4408
+    },
+    {
+      "check_id": "exposed_files",
+      "check_name": "Exposed files",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "Exposed: cron endpoint present at /wp-cron.php",
+          "evidence": "GET /wp-cron.php → 200 (text/html; charset=utf-8)\n  preview: (binary, 0 bytes)",
+          "remediation": "Remove /wp-cron.php from the document root immediately, or add a server-level deny rule. For backups/secrets, also rotate any credentials they contained — assume they are compromised.",
+          "url": "https://wordpress.org/wp-cron.php",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 22111
+    },
+    {
+      "check_id": "login",
+      "check_name": "Login surface",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "/wp-admin/ reachable",
+          "evidence": "GET /wp-admin/ → 302",
+          "remediation": "Same as wp-login.php — restrict by IP/2FA or rename the admin path.",
+          "url": "https://wordpress.org/wp-admin/",
+          "extra": {}
+        },
+        {
+          "severity": "medium",
+          "title": "XML-RPC endpoint is enabled",
+          "evidence": "POST /xmlrpc.php system.listMethods → 200 with valid methodResponse. system.multicall + wp.getUsersBlogs available — amplification + brute-force vector.",
+          "remediation": "If you don't use Jetpack or the WP mobile app, disable XML-RPC. Block /xmlrpc.php at the server (Nginx: `location = /xmlrpc.php { deny all; }`). If you need it, restrict by IP and disable system.multicall via the `xmlrpc_methods` filter to neutralize the brute-force amplifier.",
+          "url": "https://wordpress.org/xmlrpc.php",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 1561
+    },
+    {
+      "check_id": "login_throttle",
+      "check_name": "Login rate-limiting test",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "Login-throttling test skipped: /wp-login.php not reachable",
+          "evidence": "GET /wp-login.php -> 301",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org/wp-login.php",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 370
+    },
+    {
+      "check_id": "login_throttle_deep",
+      "check_name": "Deep throttle mapping (opt-in, 20 min)",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "Deep throttle mapping skipped (opt-in)",
+          "evidence": "Pass --deep-throttle on the CLI, or tick the GUI checkbox, to run this 20-minute defense map.",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 0
+    },
+    {
+      "check_id": "tls_headers",
+      "check_name": "TLS & security headers",
+      "findings": [
+        {
+          "severity": "medium",
+          "title": "Missing security header: content-security-policy",
+          "evidence": "GET / response did not include content-security-policy.",
+          "remediation": "Add a Content-Security-Policy. Start with a report-only policy to map your asset hosts, then enforce. Even a permissive `default-src 'self' https:; object-src 'none'` blocks the most common XSS payloads.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        },
+        {
+          "severity": "low",
+          "title": "Missing security header: x-content-type-options",
+          "evidence": "GET / response did not include x-content-type-options.",
+          "remediation": "Add `X-Content-Type-Options: nosniff` to stop MIME sniffing.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        },
+        {
+          "severity": "low",
+          "title": "Missing security header: referrer-policy",
+          "evidence": "GET / response did not include referrer-policy.",
+          "remediation": "Add `Referrer-Policy: strict-origin-when-cross-origin`.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        },
+        {
+          "severity": "low",
+          "title": "Missing security header: permissions-policy",
+          "evidence": "GET / response did not include permissions-policy.",
+          "remediation": "Add a `Permissions-Policy` header to disable powerful APIs (camera, microphone, geolocation, etc.) for any features you don't use.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        },
+        {
+          "severity": "low",
+          "title": "Server / X-Powered-By headers leak software info",
+          "evidence": "Server: nginx",
+          "remediation": "Suppress these headers. Nginx: `more_clear_headers Server X-Powered-By;` (headers-more module) or `server_tokens off;`. PHP: set `expose_php = Off` in php.ini.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 997
+    },
+    {
+      "check_id": "csp",
+      "check_name": "CSP deep analysis",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No Content-Security-Policy header present (deep grading skipped)",
+          "evidence": "See the 'TLS & security headers' check for the basic header-presence finding.",
+          "remediation": "Adding a baseline CSP — even `default-src 'self' https:; object-src 'none'; frame-ancestors 'self'` — blocks the most common XSS payloads.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 369
+    },
+    {
+      "check_id": "cookies",
+      "check_name": "Cookie hardening",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No cookies observed from probed endpoints",
+          "evidence": "GET /wp-login.php, /wp-admin/, and / returned no Set-Cookie headers.",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 1300
+    },
+    {
+      "check_id": "http_methods",
+      "check_name": "HTTP method enumeration",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No dangerous HTTP methods accepted",
+          "evidence": "Probed 7 methods; all rejected.",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 2391
+    },
+    {
+      "check_id": "directory_listing",
+      "check_name": "Directory listing",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No directory listings detected",
+          "evidence": "Probed 5 WP directories; none expose an index page.",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 1698
+    },
+    {
+      "check_id": "debug_leaks",
+      "check_name": "Debug & info leaks",
+      "findings": [
+        {
+          "severity": "low",
+          "title": "wp-emoji-release.min.js exposes WP version via ?ver= (7.1)",
+          "evidence": "Found `wp-emoji-release.min.js?ver=7.1` in homepage.",
+          "remediation": "Disable the emoji feature (it's rarely useful): `remove_action('wp_head','print_emoji_detection_script', 7);` and the related actions. Or strip ?ver= from all asset URLs via a filter.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 1463
+    },
+    {
+      "check_id": "robots_sitemap",
+      "check_name": "robots.txt / sitemap audit",
+      "findings": [
+        {
+          "severity": "low",
+          "title": "robots.txt advertises 1 sensitive-looking path(s)",
+          "evidence": "Disallow entries that look interesting:\n  - /wp-admin/",
+          "remediation": "robots.txt is read by everyone, including attackers. Don't list staging or admin URLs there — block them via auth or IP allow-listing instead. The Disallow only asks polite bots to stay away; it doesn't restrict access.",
+          "url": "https://wordpress.org/robots.txt",
+          "extra": {}
+        },
+        {
+          "severity": "info",
+          "title": "Sitemap discovered 19 URLs",
+          "evidence": "First 5:\n  - https://wordpress.org/sitemap-1.xml\n  - https://wordpress.org/image-sitemap-1.xml\n  - https://wordpress.org/video-sitemap-1.xml\n  - https://wordpress.org/\n  - https://wordpress.org/themes/sitemap-index-1.xml",
+          "remediation": "No action needed unless the sitemap is leaking pages you didn't intend to publish.",
+          "url": "https://wordpress.org/sitemap.xml",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 4597
+    },
+    {
+      "check_id": "subdomains",
+      "check_name": "Subdomain discovery",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No subdomains found via certificate transparency for wordpress.org",
+          "evidence": "crt.sh returned no records (or the query failed).",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 7551
+    },
+    {
+      "check_id": "rest_api",
+      "check_name": "WP REST API surface audit",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "WordPress REST API exposes 24 namespace(s)",
+          "evidence": "Namespaces:\n  - akismet/v1\n  - block-visibility/v1\n  - global-header-footer/v1\n  - jetpack-boost/v1\n  - jetpack/v4\n  - jetpack/v4/blaze\n  - jetpack/v4/blaze-app\n  - jetpack/v4/explat\n  - jetpack/v4/import\n  - jetpack/v4/stats-app\n  - mcp\n  - my-jetpack/v1\n  - oembed/1.0\n  - two-factor/1.0\n  - wp-abilities/v1\n  - wp-block-editor/v1\n  - wp-site-health/v1\n  - wp-sync/v1\n  - wp/v2\n  - wpcom/v2\n  - wpcom/v3\n  - wporg-site-quality/v1\n  - wporg-two-factor/1.0\n  - wporg/v1",
+          "remediation": "REST namespaces aren't sensitive by themselves but they reveal active plugins. Each namespace can be locked down via the rest_endpoints filter if exposure is unwanted.",
+          "url": "https://wordpress.org/wp-json/",
+          "extra": {
+            "namespaces": [
+              "oembed/1.0",
+              "wporg/v1",
+              "global-header-footer/v1",
+              "wporg-site-quality/v1",
+              "akismet/v1",
+              "jetpack/v4",
+              "wporg-two-factor/1.0",
+              "wp/v2",
+              "wp-sync/v1",
+              "wp-block-editor/v1",
+              "wpcom/v2",
+              "jetpack/v4/stats-app",
+              "jetpack/v4/import",
+              "wpcom/v3",
+              "block-visibility/v1",
+              "jetpack-boost/v1",
+              "my-jetpack/v1",
+              "jetpack/v4/explat",
+              "jetpack/v4/blaze-app",
+              "jetpack/v4/blaze",
+              "two-factor/1.0",
+              "mcp",
+              "wp-site-health/v1",
+              "wp-abilities/v1"
+            ]
+          }
+        },
+        {
+          "severity": "info",
+          "title": "Public REST endpoint exposes data: /wp-json/wp/v2/pages",
+          "evidence": "GET /wp-json/wp/v2/pages -> 200 with expected content marker present.\n  Endpoint description: All published pages",
+          "remediation": "If you don't need this endpoint publicly, restrict it via the rest_endpoints filter:\n  add_filter('rest_endpoints', function($e) {\n      unset($e['/wp/v2/pages']);\n      return $e;\n  });",
+          "url": "https://wordpress.org/wp-json/wp/v2/pages",
+          "extra": {}
+        },
+        {
+          "severity": "info",
+          "title": "Public REST endpoint exposes data: /wp-json/wp/v2/categories",
+          "evidence": "GET /wp-json/wp/v2/categories -> 200 with expected content marker present.\n  Endpoint description: Category tree",
+          "remediation": "If you don't need this endpoint publicly, restrict it via the rest_endpoints filter:\n  add_filter('rest_endpoints', function($e) {\n      unset($e['/wp/v2/categories']);\n      return $e;\n  });",
+          "url": "https://wordpress.org/wp-json/wp/v2/categories",
+          "extra": {}
+        },
+        {
+          "severity": "low",
+          "title": "Public REST endpoint exposes data: /wp-json/wp/v2/media",
+          "evidence": "GET /wp-json/wp/v2/media -> 200 with expected content marker present.\n  Endpoint description: Uploaded media files (including unpublished)",
+          "remediation": "If you don't need this endpoint publicly, restrict it via the rest_endpoints filter:\n  add_filter('rest_endpoints', function($e) {\n      unset($e['/wp/v2/media']);\n      return $e;\n  });",
+          "url": "https://wordpress.org/wp-json/wp/v2/media",
+          "extra": {}
+        },
+        {
+          "severity": "info",
+          "title": "Public REST endpoint exposes data: /wp-json/wp/v2/types",
+          "evidence": "GET /wp-json/wp/v2/types -> 200 with expected content marker present.\n  Endpoint description: Custom post type definitions",
+          "remediation": "If you don't need this endpoint publicly, restrict it via the rest_endpoints filter:\n  add_filter('rest_endpoints', function($e) {\n      unset($e['/wp/v2/types']);\n      return $e;\n  });",
+          "url": "https://wordpress.org/wp-json/wp/v2/types",
+          "extra": {}
+        },
+        {
+          "severity": "info",
+          "title": "Public REST endpoint exposes data: /wp-json/wp/v2/statuses",
+          "evidence": "GET /wp-json/wp/v2/statuses -> 200 with expected content marker present.\n  Endpoint description: Post status definitions",
+          "remediation": "If you don't need this endpoint publicly, restrict it via the rest_endpoints filter:\n  add_filter('rest_endpoints', function($e) {\n      unset($e['/wp/v2/statuses']);\n      return $e;\n  });",
+          "url": "https://wordpress.org/wp-json/wp/v2/statuses",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 12590
+    },
+    {
+      "check_id": "cors",
+      "check_name": "CORS misconfiguration",
+      "findings": [
+        {
+          "severity": "high",
+          "title": "CORS reflects attacker origin AND allows credentials at /wp-json/",
+          "evidence": "GET /wp-json/ with Origin: https://wpsecscan-cors-probe.invalid\n  Access-Control-Allow-Origin: https://wpsecscan-cors-probe.invalid\n  Access-Control-Allow-Credentials: true\n\nAttacker-origin reflection + credentials = any malicious page can read authenticated responses. Wildcard + credentials is rejected by browsers but honored by some non-browser clients.",
+          "remediation": "Use an explicit allow-list of trusted origins, never reflect the Origin header. For plugin-controlled CORS, audit the rest_pre_serve_request filter and any CORS-handling plugin. Server-level (Nginx): explicit static `add_header Access-Control-Allow-Origin https://trusted-origin.com always;`.",
+          "url": "https://wordpress.org/wp-json/",
+          "extra": {}
+        },
+        {
+          "severity": "high",
+          "title": "CORS reflects attacker origin AND allows credentials at /wp-json/wp/v2/users",
+          "evidence": "GET /wp-json/wp/v2/users with Origin: https://wpsecscan-cors-probe.invalid\n  Access-Control-Allow-Origin: https://wpsecscan-cors-probe.invalid\n  Access-Control-Allow-Credentials: true\n\nAttacker-origin reflection + credentials = any malicious page can read authenticated responses. Wildcard + credentials is rejected by browsers but honored by some non-browser clients.",
+          "remediation": "Use an explicit allow-list of trusted origins, never reflect the Origin header. For plugin-controlled CORS, audit the rest_pre_serve_request filter and any CORS-handling plugin. Server-level (Nginx): explicit static `add_header Access-Control-Allow-Origin https://trusted-origin.com always;`.",
+          "url": "https://wordpress.org/wp-json/wp/v2/users",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 2328
+    },
+    {
+      "check_id": "js_libraries",
+      "check_name": "JS library version audit",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No common JS libraries detected via filename / version-comment patterns",
+          "evidence": "Scanned 3 pages.",
+          "remediation": "No action needed. (Sites that bundle JS via webpack/Vite typically obfuscate version strings.)",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 2212
+    },
+    {
+      "check_id": "secret_leak",
+      "check_name": "Accidental API-key leak scan",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No accidental secret patterns detected",
+          "evidence": "Scanned 5 response bodies against 16 secret patterns.",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 3616
+    },
+    {
+      "check_id": "wpgraphql",
+      "check_name": "WPGraphQL endpoint audit",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "WPGraphQL endpoint not detected",
+          "evidence": "Probed 3 known WPGraphQL paths. None responded with a GraphQL data envelope.",
+          "remediation": "No action needed (WPGraphQL is not in use, or it's mounted at a custom path).",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 2577
+    },
+    {
+      "check_id": "backup_exposure",
+      "check_name": "Backup-plugin file exposure",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No backup-plugin exposure detected",
+          "evidence": "Probed 26 common backup-plugin paths; none returned anything that looked like an exposed backup.",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 10926
+    },
+    {
+      "check_id": "csrf_nonce",
+      "check_name": "CSRF / nonce form audit",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No POST forms found to audit for CSRF tokens",
+          "evidence": "Probed 6 pages; no `<form method=post>` HTML found.",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 2709
+    },
+    {
+      "check_id": "app_passwords",
+      "check_name": "Application Passwords audit",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "WordPress Application Passwords feature is enabled",
+          "evidence": "GET /wp-json/wp/v2/users/me with a fake Basic auth -> HTTP 401\n  WWW-Authenticate: (not present)\nApplication Passwords are how the REST API authenticates non-cookie clients (5.6+).\nBuilt-in feature; on by default unless explicitly disabled.",
+          "remediation": "If you don't integrate any external services with WordPress, disable Application Passwords:\n  add_filter('wp_is_application_passwords_available', '__return_false');\nIf you do use them, audit /wp-admin/profile.php under each admin's profile for unrecognized entries.",
+          "url": "https://wordpress.org/wp-json/wp/v2/users/me",
+          "extra": {}
+        },
+        {
+          "severity": "low",
+          "title": "Application Password authorize endpoint is reachable",
+          "evidence": "GET /wp-admin/authorize-application.php -> 302\nThis is the OAuth-style consent screen for issuing Application Passwords. An attacker with a phishing pretext can social-engineer an admin into authorizing a malicious client.",
+          "remediation": "Restrict the endpoint to a known set of IPs or behind an auth gate if not actively used. Educate admins to NEVER click 'Authorize' links they didn't initiate themselves.",
+          "url": "https://wordpress.org/wp-admin/authorize-application.php",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 1669
+    },
+    {
+      "check_id": "mixed_content",
+      "check_name": "Mixed-content (HTTP-in-HTTPS) audit",
+      "findings": [
+        {
+          "severity": "medium",
+          "title": "Mixed content: 1 HTTP resource(s) loaded from 1 host(s)",
+          "evidence": "  - wordpress.org (1 reference(s)):\n      from /: http://wordpress.org/news/feed/",
+          "remediation": "Replace every http:// with https:// (or //) in your theme + plugins. Common sources:\n  - Hardcoded image URLs in posts: search-and-replace via WP-CLI: `wp search-replace 'http://yourdomain' 'https://yourdomain'`\n  - Plugin assets pinned to http:// — update the plugin or override its enqueue\n  - 3rd-party widgets (analytics, fonts) — switch to their HTTPS endpoints\n  - Browser tip: open DevTools → Console → look for 'Mixed Content' warnings",
+          "url": "https://wordpress.org",
+          "extra": {
+            "hosts": [
+              "wordpress.org"
+            ]
+          }
+        }
+      ],
+      "error": null,
+      "duration_ms": 1920
+    },
+    {
+      "check_id": "tls_deep",
+      "check_name": "Deep TLS audit",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "Modern AEAD cipher in use",
+          "evidence": "Negotiated TLS: TLSv1.3\nCipher:         TLS_AES_256_GCM_SHA384\nCipher bits:    256\n",
+          "remediation": "Prefer AEAD ciphers (AES-GCM, CHACHA20-POLY1305). Nginx example:\n  ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;\n  ssl_prefer_server_ciphers on;",
+          "url": "https://wordpress.org",
+          "extra": {}
+        },
+        {
+          "severity": "info",
+          "title": "Certificate covers 2 SAN entries",
+          "evidence": "Sample SANs: *.wordpress.org, wordpress.org",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 567
+    },
+    {
+      "check_id": "multisite",
+      "check_name": "WordPress Multisite audit",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "Not a Multisite installation (no multisite endpoints detected)",
+          "evidence": "Probed 10 known multisite paths; none returned multisite-shaped responses.",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 3290
+    },
+    {
+      "check_id": "webhooks",
+      "check_name": "Webhook endpoint discovery",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "Webhook surface: 5 endpoint(s) found (0 auth-gated, 5 open)",
+          "evidence": "  - /?wc-api=stripe                                              HTTP 200  (WooCommerce Stripe Gateway)\n  - /?wc-api=WC_Gateway_Stripe                                   HTTP 200  (WooCommerce Stripe)\n  - /?wc-api=WC_Gateway_PayPal                                   HTTP 200  (WooCommerce PayPal)\n  - /?wc-api=ck                                                  HTTP 200  (WooCommerce ConvertKit)\n  - /?wc-api=mailchimp                                           HTTP 200  (WC Mailchimp)",
+          "remediation": "Webhook endpoints should verify signatures from the sender (Stripe-Signature, X-WC-Webhook-Signature, etc.). Audit each plugin's webhook handler — most have a documented secret/signature check that operators sometimes leave blank.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        },
+        {
+          "severity": "medium",
+          "title": "Open webhook endpoint: WooCommerce Stripe Gateway at /?wc-api=stripe",
+          "evidence": "GET /?wc-api=stripe -> 200, 200 bytes\n  Plugin: WooCommerce Stripe Gateway\n  body preview: '<!DOCTYPE html>\\n<html lang=\"en-US\">\\n<head>\\n\\t<meta charset=\"UTF-8\" />\\n\\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\\n<link rel=\\'preload\\''",
+          "remediation": "Audit the WooCommerce Stripe Gateway webhook handler. Look for `verify_signature()` or equivalent. Most webhook plugins ship with a 'webhook secret' field that must be configured.",
+          "url": "https://wordpress.org/?wc-api=stripe",
+          "extra": {}
+        },
+        {
+          "severity": "medium",
+          "title": "Open webhook endpoint: WooCommerce Stripe at /?wc-api=WC_Gateway_Stripe",
+          "evidence": "GET /?wc-api=WC_Gateway_Stripe -> 200, 200 bytes\n  Plugin: WooCommerce Stripe\n  body preview: '<!DOCTYPE html>\\n<html lang=\"en-US\">\\n<head>\\n\\t<meta charset=\"UTF-8\" />\\n\\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\\n<link rel=\\'preload\\''",
+          "remediation": "Audit the WooCommerce Stripe webhook handler. Look for `verify_signature()` or equivalent. Most webhook plugins ship with a 'webhook secret' field that must be configured.",
+          "url": "https://wordpress.org/?wc-api=WC_Gateway_Stripe",
+          "extra": {}
+        },
+        {
+          "severity": "medium",
+          "title": "Open webhook endpoint: WooCommerce PayPal at /?wc-api=WC_Gateway_PayPal",
+          "evidence": "GET /?wc-api=WC_Gateway_PayPal -> 200, 200 bytes\n  Plugin: WooCommerce PayPal\n  body preview: '<!DOCTYPE html>\\n<html lang=\"en-US\">\\n<head>\\n\\t<meta charset=\"UTF-8\" />\\n\\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\\n<link rel=\\'preload\\''",
+          "remediation": "Audit the WooCommerce PayPal webhook handler. Look for `verify_signature()` or equivalent. Most webhook plugins ship with a 'webhook secret' field that must be configured.",
+          "url": "https://wordpress.org/?wc-api=WC_Gateway_PayPal",
+          "extra": {}
+        },
+        {
+          "severity": "medium",
+          "title": "Open webhook endpoint: WooCommerce ConvertKit at /?wc-api=ck",
+          "evidence": "GET /?wc-api=ck -> 200, 200 bytes\n  Plugin: WooCommerce ConvertKit\n  body preview: '<!DOCTYPE html>\\n<html lang=\"en-US\">\\n<head>\\n\\t<meta charset=\"UTF-8\" />\\n\\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\\n<link rel=\\'preload\\''",
+          "remediation": "Audit the WooCommerce ConvertKit webhook handler. Look for `verify_signature()` or equivalent. Most webhook plugins ship with a 'webhook secret' field that must be configured.",
+          "url": "https://wordpress.org/?wc-api=ck",
+          "extra": {}
+        },
+        {
+          "severity": "medium",
+          "title": "Open webhook endpoint: WC Mailchimp at /?wc-api=mailchimp",
+          "evidence": "GET /?wc-api=mailchimp -> 200, 200 bytes\n  Plugin: WC Mailchimp\n  body preview: '<!DOCTYPE html>\\n<html lang=\"en-US\">\\n<head>\\n\\t<meta charset=\"UTF-8\" />\\n\\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\\n<link rel=\\'preload\\''",
+          "remediation": "Audit the WC Mailchimp webhook handler. Look for `verify_signature()` or equivalent. Most webhook plugins ship with a 'webhook secret' field that must be configured.",
+          "url": "https://wordpress.org/?wc-api=mailchimp",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 8549
+    },
+    {
+      "check_id": "cache_headers",
+      "check_name": "Cache-header audit",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No cache-header anomalies detected",
+          "evidence": "Cache-Control: (not set)\nVary:          accept-encoding, accept, content-type\nAge:           (not set)\nX-Cache:       (not set)",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 1037
+    },
+    {
+      "check_id": "xmlrpc_deep",
+      "check_name": "XML-RPC method enumeration",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "XML-RPC enumerated: 79 method(s)",
+          "evidence": "Sample (first 30):\n  blogger.deletePost\n  blogger.editPost\n  blogger.getPost\n  blogger.getRecentPosts\n  blogger.getUserInfo\n  blogger.getUsersBlogs\n  blogger.newPost\n  demo.sayHello\n  metaWeblog.deletePost\n  metaWeblog.editPost\n  metaWeblog.getCategories\n  metaWeblog.getPost\n  metaWeblog.getRecentPosts\n  metaWeblog.getUsersBlogs\n  metaWeblog.newMediaObject\n  metaWeblog.newPost\n  mt.getCategoryList\n  mt.getPostCategories\n  mt.getRecentPostTitles\n  mt.getTrackbackPings\n  mt.publishPost\n  mt.setPostCategories\n  mt.supportedMethods\n  mt.supportedTextFilters\n  pingback.extensions.getPingbacks\n  pingback.ping\n  system.getCapabilities\n  system.listMethods\n  system.multicall\n  wp.deleteCategory\n  ...",
+          "remediation": "If you don't use Jetpack / WP mobile / pingbacks, disable XML-RPC entirely:\n  add_filter('xmlrpc_enabled', '__return_false');\nOr block /xmlrpc.php at the web server.",
+          "url": "https://wordpress.org/xmlrpc.php",
+          "extra": {
+            "methods": [
+              "blogger.deletePost",
+              "blogger.editPost",
+              "blogger.getPost",
+              "blogger.getRecentPosts",
+              "blogger.getUserInfo",
+              "blogger.getUsersBlogs",
+              "blogger.newPost",
+              "demo.sayHello",
+              "metaWeblog.deletePost",
+              "metaWeblog.editPost",
+              "metaWeblog.getCategories",
+              "metaWeblog.getPost",
+              "metaWeblog.getRecentPosts",
+              "metaWeblog.getUsersBlogs",
+              "metaWeblog.newMediaObject",
+              "metaWeblog.newPost",
+              "mt.getCategoryList",
+              "mt.getPostCategories",
+              "mt.getRecentPostTitles",
+              "mt.getTrackbackPings",
+              "mt.publishPost",
+              "mt.setPostCategories",
+              "mt.supportedMethods",
+              "mt.supportedTextFilters",
+              "pingback.extensions.getPingbacks",
+              "pingback.ping",
+              "system.getCapabilities",
+              "system.listMethods",
+              "system.multicall",
+              "wp.deleteCategory",
+              "wp.deleteComment",
+              "wp.deleteFile",
+              "wp.deletePage",
+              "wp.deletePost",
+              "wp.deleteTerm",
+              "wp.editComment",
+              "wp.editPage",
+              "wp.editPost",
+              "wp.editProfile",
+              "wp.editTerm",
+              "wp.getAuthors",
+              "wp.getCategories",
+              "wp.getComment",
+              "wp.getCommentCount",
+              "wp.getCommentStatusList",
+              "wp.getComments",
+              "wp.getMediaItem",
+              "wp.getMediaLibrary",
+              "wp.getOptions",
+              "wp.getPage",
+              "wp.getPageList",
+              "wp.getPageStatusList",
+              "wp.getPageTemplates",
+              "wp.getPages",
+              "wp.getPost",
+              "wp.getPostFormats",
+              "wp.getPostStatusList",
+              "wp.getPostType",
+              "wp.getPostTypes",
+              "wp.getPosts",
+              "wp.getProfile",
+              "wp.getRevisions",
+              "wp.getTags",
+              "wp.getTaxonomies",
+              "wp.getTaxonomy",
+              "wp.getTerm",
+              "wp.getTerms",
+              "wp.getUser",
+              "wp.getUsers",
+              "wp.getUsersBlogs",
+              "wp.newCategory",
+              "wp.newComment",
+              "wp.newPage",
+              "wp.newPost",
+              "wp.newTerm",
+              "wp.restoreRevision",
+              "wp.setOptions",
+              "wp.suggestCategories",
+              "wp.uploadFile"
+            ]
+          }
+        },
+        {
+          "severity": "medium",
+          "title": "XML-RPC method exposed: pingback.ping",
+          "evidence": "system.listMethods includes 'pingback.ping'. SSRF amplifier — pingback.ping can be coerced into hitting internal hosts",
+          "remediation": "Disable this specific method:\n  add_filter('xmlrpc_methods', function($m){ unset($m['pingback.ping']); return $m; });",
+          "url": "https://wordpress.org/xmlrpc.php",
+          "extra": {}
+        },
+        {
+          "severity": "medium",
+          "title": "XML-RPC method exposed: system.multicall",
+          "evidence": "system.listMethods includes 'system.multicall'. Brute-force amplifier — bundles many auth attempts into one HTTP request",
+          "remediation": "Disable this specific method:\n  add_filter('xmlrpc_methods', function($m){ unset($m['system.multicall']); return $m; });",
+          "url": "https://wordpress.org/xmlrpc.php",
+          "extra": {}
+        },
+        {
+          "severity": "medium",
+          "title": "XML-RPC method exposed: wp.getUsersBlogs",
+          "evidence": "system.listMethods includes 'wp.getUsersBlogs'. Username/password validity oracle accessible over XML-RPC",
+          "remediation": "Disable this specific method:\n  add_filter('xmlrpc_methods', function($m){ unset($m['wp.getUsersBlogs']); return $m; });",
+          "url": "https://wordpress.org/xmlrpc.php",
+          "extra": {}
+        },
+        {
+          "severity": "high",
+          "title": "XML-RPC method exposed: wp.uploadFile",
+          "evidence": "system.listMethods includes 'wp.uploadFile'. File upload over XML-RPC — historically backdoored on misconfigured installs",
+          "remediation": "Disable this specific method:\n  add_filter('xmlrpc_methods', function($m){ unset($m['wp.uploadFile']); return $m; });",
+          "url": "https://wordpress.org/xmlrpc.php",
+          "extra": {}
+        },
+        {
+          "severity": "info",
+          "title": "XML-RPC method exposed: mt.supportedMethods",
+          "evidence": "system.listMethods includes 'mt.supportedMethods'. Legacy Movable Type compatibility methods exposed",
+          "remediation": "Disable this specific method:\n  add_filter('xmlrpc_methods', function($m){ unset($m['mt.supportedMethods']); return $m; });",
+          "url": "https://wordpress.org/xmlrpc.php",
+          "extra": {}
+        },
+        {
+          "severity": "info",
+          "title": "XML-RPC method exposed: blogger.getUsersBlogs",
+          "evidence": "system.listMethods includes 'blogger.getUsersBlogs'. Legacy Blogger API methods exposed",
+          "remediation": "Disable this specific method:\n  add_filter('xmlrpc_methods', function($m){ unset($m['blogger.getUsersBlogs']); return $m; });",
+          "url": "https://wordpress.org/xmlrpc.php",
+          "extra": {}
+        },
+        {
+          "severity": "high",
+          "title": "XML-RPC brute-force amplifier present: multicall + wp.getUsersBlogs",
+          "evidence": "Both system.multicall and wp.getUsersBlogs are exposed.\nAttackers wrap dozens of auth attempts in a single HTTP request (multicall) to bypass per-IP rate-limit that only sees one request per http hit.",
+          "remediation": "Disable at minimum system.multicall:\n  add_filter('xmlrpc_methods', function($m){ unset($m['system.multicall']); return $m; });\nOr fully block /xmlrpc.php at the server.",
+          "url": "https://wordpress.org/xmlrpc.php",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 789
+    },
+    {
+      "check_id": "redirect_chain",
+      "check_name": "Redirect chain analysis",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "Redirect chains look clean",
+          "evidence": "No off-domain hops, no HTTPS→HTTP downgrades, no excessive chain length from /, /wp-admin/.",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 2593
+    },
+    {
+      "check_id": "error_pages",
+      "check_name": "Error-page fingerprinting",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "Error pages don't leak stack/version info",
+          "evidence": "Probed 4 bad paths; no version strings or debug traces found.",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 2071
+    },
+    {
+      "check_id": "xss_dom_sinks",
+      "check_name": "DOM-XSS source/sink scan",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No source-sink combinations found in inline scripts",
+          "evidence": "Scanned 4 pages; no inline <script> block paired a tainted source with a dangerous sink.",
+          "remediation": "No action needed for this check (false-negatives possible — bundled JS isn't analyzed).",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 2075
+    },
+    {
+      "check_id": "nonce_freshness",
+      "check_name": "WP nonce freshness audit",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No WP nonces visible to anonymous clients",
+          "evidence": "Probed 3 pages; no `_wpnonce` field found.",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 6345
+    },
+    {
+      "check_id": "security_txt",
+      "check_name": "security.txt (RFC 9116) audit",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "security.txt present (good)",
+          "evidence": "GET https://wordpress.org/.well-known/security.txt -> 200\n  First 200 chars: 'Contact: https://hackerone.com/wordpress\\nExpires: 2026-12-31T15:00:00.000Z\\nAcknowledgments: https://hackerone.com/wordpress/thanks\\nCanonical: https://wordpress.org/.well-known/security.txt\\nPolicy: htt'",
+          "remediation": "Verify Contact and Expires are current.",
+          "url": "https://wordpress.org/.well-known/security.txt",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 361
+    },
+    {
+      "check_id": "favicon_fingerprint",
+      "check_name": "Favicon fingerprint",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "Favicon fingerprint (size=4286 bytes, md5=53a151ba1af3)",
+          "evidence": "MD5:  53a151ba1af3acdefe16fbbdad937ee4\nSHA1: 3f28635d8f9d4f0d8d555faf32b687385a27c8ef\nSize: 4286 bytes\nBase64 length: 5791 chars\n\nHash this against Shodan / Censys (`http.favicon.hash:` filter) to see which sites share your favicon. Identical favicons across many WP installs often means stock theme + minimal branding.",
+          "remediation": "If you'd rather not be indexed by favicon: serve a unique favicon per site, or set a 404 on /favicon.ico to avoid the hash entirely.",
+          "url": "https://wordpress.org/favicon.ico",
+          "extra": {
+            "md5": "53a151ba1af3acdefe16fbbdad937ee4",
+            "sha1": "3f28635d8f9d4f0d8d555faf32b687385a27c8ef",
+            "size": 4286
+          }
+        }
+      ],
+      "error": null,
+      "duration_ms": 270
+    },
+    {
+      "check_id": "admin_ajax_brute_surface",
+      "check_name": "admin-ajax throttle probe",
+      "findings": [
+        {
+          "severity": "low",
+          "title": "admin-ajax.php applies no per-request throttle (5 identical responses)",
+          "evidence": "5 calls to /wp-admin/admin-ajax.php?action=wp-link-ajax returned HTTP 400 every time.\nMany WP brute-force amplification attacks target admin-ajax actions rather than wp-login. If your login rate-limiter only covers wp-login.php, admin-ajax may be a back door.",
+          "remediation": "If you use a security plugin (Wordfence, Limit Login Attempts), verify its rate-limit covers /wp-admin/admin-ajax.php as well as /wp-login.php. Many configure only the latter.",
+          "url": "https://wordpress.org/wp-admin/admin-ajax.php",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 8816
+    },
+    {
+      "check_id": "hibp",
+      "check_name": "HaveIBeenPwned lookup",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "6 username(s) discoverable — check HIBP manually",
+          "evidence": "Discovered usernames:\n  - adamwood: https://haveibeenpwned.com/account/adamwood\n  - annezazu: https://haveibeenpwned.com/account/annezazu\n  - joen: https://haveibeenpwned.com/account/joen\n  - poliuk: https://haveibeenpwned.com/account/poliuk\n  - ryelle: https://haveibeenpwned.com/account/ryelle\n  - wordpressdotorg: https://haveibeenpwned.com/account/wordpressdotorg\n\nWithout a HIBP API token we can't query breaches automatically. Visit the links above (or pass --hibp-token <key>) to check each account.",
+          "remediation": "Force a password rotation for any user whose account email appears in known breaches. Buy a HIBP key at haveibeenpwned.com/API/Key (~$3.95/mo) to automate this.",
+          "url": "https://wordpress.org",
+          "extra": {
+            "next_steps": [
+              "# Manual lookup: https://haveibeenpwned.com/account/adamwood"
+            ]
+          }
+        }
+      ],
+      "error": null,
+      "duration_ms": 0
+    },
+    {
+      "check_id": "core_cves",
+      "check_name": "Core CVE matching",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No known core CVEs match installed WordPress 7.1",
+          "evidence": "DB source: embedded; 26 entries checked.",
+          "remediation": "No action needed for core. Keep auto-updates enabled.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 0
+    },
+    {
+      "check_id": "plugin_cves",
+      "check_name": "Plugin CVE matching",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No known-vulnerable plugin versions detected among 1 plugin(s)",
+          "evidence": "DB source: embedded (26 entries); embedded.",
+          "remediation": "No action needed. Keep all plugins updated — coverage depends on detected versions.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 0
+    },
+    {
+      "check_id": "theme_cves",
+      "check_name": "Theme CVE matching",
+      "findings": [
+        {
+          "severity": "info",
+          "title": "No known-vulnerable theme versions detected among 2 theme(s)",
+          "evidence": "DB source: embedded; 26 entries checked.",
+          "remediation": "No action needed.",
+          "url": "https://wordpress.org",
+          "extra": {}
+        }
+      ],
+      "error": null,
+      "duration_ms": 0
+    }
+  ]
+}

@@ -1,0 +1,1719 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WPSecScan — https://wordpress.org</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel2: #1f2630;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --border: #30363d;
+    --crit-bg: #67000d; --crit-fg: #ffd6d6;
+    --high-bg: #5a1816; --high-fg: #ff8a85;
+    --med-bg:  #4a3a10; --med-fg:  #f0c674;
+    --low-bg:  #133246; --low-fg:  #79c0ff;
+    --info-bg: #21262d; --info-fg: #8b949e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+  header{padding:32px 24px 16px;border-bottom:1px solid var(--border)}
+  header h1{margin:0 0 6px;font-size:22px}
+  header .meta{color:var(--muted);font-size:13px}
+  main{max-width:1100px;margin:0 auto;padding:24px}
+  .summary{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 24px}
+  .pill{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;border:1px solid var(--border)}
+  .pill.crit{background:var(--crit-bg);color:var(--crit-fg)}
+  .pill.high{background:var(--high-bg);color:var(--high-fg)}
+  .pill.med {background:var(--med-bg); color:var(--med-fg)}
+  .pill.low {background:var(--low-bg); color:var(--low-fg)}
+  .pill.info{background:var(--info-bg);color:var(--info-fg)}
+  details{background:var(--panel);border:1px solid var(--border);border-radius:8px;margin:0 0 12px;overflow:hidden}
+  details[open] summary{border-bottom:1px solid var(--border)}
+  summary{cursor:pointer;padding:12px 16px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  summary::-webkit-details-marker{display:none}
+  summary .title{font-weight:600}
+  summary .right{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  .badge.crit{background:var(--crit-bg);color:var(--crit-fg)}
+  .badge.high{background:var(--high-bg);color:var(--high-fg)}
+  .badge.med {background:var(--med-bg); color:var(--med-fg)}
+  .badge.low {background:var(--low-bg); color:var(--low-fg)}
+  .badge.info{background:var(--info-bg);color:var(--info-fg)}
+  .finding{padding:14px 16px;border-top:1px solid var(--border)}
+  .finding:first-child{border-top:none}
+  .finding h3{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:10px}
+  .finding pre{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:10px;margin:8px 0;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+  .finding .fix{margin-top:8px;color:var(--muted)}
+  .finding .fix strong{color:var(--fg)}
+  .finding a{color:#79c0ff}
+  .empty{color:var(--muted);font-style:italic;padding:12px 16px}
+  .err{color:#ff8a85;padding:12px 16px}
+  .quickfix{background:#0c2a18;border:1px solid #1b5e2a;border-radius:6px;margin:10px 0;padding:12px 14px}
+  .quickfix .head{display:flex;justify-content:space-between;align-items:center;font-weight:600;color:#6cc474;margin-bottom:8px}
+  .quickfix .lang{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  .quickfix .where{color:var(--muted);font-size:12px;margin-bottom:6px}
+  .quickfix pre{background:#0d1117;border:1px solid #1b5e2a;padding:10px;border-radius:4px;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;margin:0}
+  .quickfix button{background:#1b5e2a;border:none;color:#cfe5d0;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px}
+  .quickfix button:hover{background:#247035}
+  .proof{background:#0c1c2a;border:1px solid #1e4c70;border-radius:6px;margin:10px 0;padding:12px 14px}
+  .proof .head{font-weight:600;color:#79c0ff;margin-bottom:6px}
+  .proof .audit{color:var(--muted);font-size:11px;margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase}
+  .proof pre{background:#0d1117;border:1px solid #1e4c70;padding:8px;border-radius:4px;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;margin:0}
+  .nextsteps{background:#231a07;border:1px solid #5a4310;border-radius:6px;margin:10px 0;padding:12px 14px}
+  .nextsteps .head{font-weight:600;color:#f0c674;margin-bottom:6px}
+  .nextsteps .cmd{display:flex;align-items:center;gap:8px;background:#0d1117;border:1px solid #5a4310;padding:6px 8px;border-radius:4px;margin-top:6px}
+  .nextsteps .cmd code{font:12px/1.5 ui-monospace,Consolas,monospace;color:#f1b94c;flex:1;overflow-x:auto}
+  .nextsteps button{background:#5a4310;border:none;color:#f0c674;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:11px}
+  .nextsteps button:hover{background:#6e5414}
+  footer{text-align:center;color:var(--muted);font-size:12px;padding:24px}
+</style>
+</head>
+<body>
+<header>
+  <h1>WPSecScan — <span style="color:#79c0ff">https://wordpress.org</span></h1>
+  <div class="meta">Scanned 2026-05-22T17:01:18.611958+00:00 · 95640 ms total</div>
+  <div class="summary">
+    <span class="pill crit">0 critical</span>
+    <span class="pill high">2 high</span>
+    <span class="pill med">5 medium</span>
+    <span class="pill low">7 low</span>
+    <span class="pill info">25 info</span>
+  </div>
+</header>
+<main>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">WAF / CDN detection</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 2729 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>No WAF / CDN fingerprints detected</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Headers, cookies, and a tripwire request did not match known WAF signatures.</pre>
+          <div class="fix"><strong>Fix:</strong> If you expect a WAF in front of this site, verify it&#39;s actually serving traffic for this hostname.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">WordPress core version</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 2877 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>WordPress core is up to date (7.1)</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Detected 7.1 via meta generator tag on /; latest is 7.0.</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  
+  <details open>
+    <summary>
+      <span class="title">Plugin enumeration</span>
+      <span class="right">
+        <span class="badge med">medium</span>
+        <span>2 findings</span>
+        <span>· 3718 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>1 plugin(s) discovered via HTML asset paths</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Plugin slugs found across 4 probed page(s):
+  - gutenberg  (version: 23.2.2)</pre>
+          <div class="fix"><strong>Fix:</strong> Plugin slugs being discoverable is normal but useful to attackers. Keep all listed plugins updated. Consider a WAF that strips ?ver= asset query strings.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge med">medium</span>1 plugin(s) expose readme.txt with version</h3>
+          <div><a href="https://wordpress.org/wp-content/plugins/" target="_blank" rel="noopener">https://wordpress.org/wp-content/plugins/</a></div>
+          <pre>readme.txt accessible for:
+  - gutenberg: version 23.2.2</pre>
+          <div class="fix"><strong>Fix:</strong> Block /wp-content/plugins/*/readme.txt at the server level. Public readme files leak exact plugin versions, making CVE matching trivial.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+        <div class="finding">
+          <div class="quickfix">
+            <div class="head">
+              <span>Quick fix — Block plugin readme.txt files</span>
+              <span class="lang">nginx</span>
+            </div>
+            <div class="where">where: nginx server block</div>
+            <pre id="qf-plugins">location ~ ^/wp-content/plugins/.+/readme\.txt$ { deny all; }
+location ~ ^/wp-content/plugins/.+/readme\.md$ { deny all; }</pre>
+            <div style="margin-top:8px;text-align:right">
+              <button onclick="navigator.clipboard.writeText(document.getElementById('qf-plugins').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy snippet', 1500)">Copy snippet</button>
+            </div>
+          </div>
+        </div>
+      
+
+      
+      
+        <div class="finding">
+          <div class="nextsteps">
+            <div class="head">How to verify (manual)</div>
+            
+              
+              <div class="cmd">
+                <code id="vr-plugins-0">curl -s https://wordpress.org/wp-content/plugins/&lt;slug&gt;/readme.txt | head -20</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-plugins-0').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+              
+              <div class="cmd">
+                <code id="vr-plugins-1"># To enumerate definitively, log in and visit /wp-admin/plugins.php</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-plugins-1').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+          </div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Theme enumeration</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 1120 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>2 theme(s) discovered via HTML asset paths</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Theme slugs found:
+  - wporg-parent-2021  (version: 1.0.0-6ebb648)
+  - wporg-main-2022  (version: 1.0.0-4837c60)</pre>
+          <div class="fix"><strong>Fix:</strong> Keep all installed themes updated, including inactive ones. Delete unused themes — inactive themes still receive PHP execution if a CVE lands.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  
+  <details open>
+    <summary>
+      <span class="title">User enumeration</span>
+      <span class="right">
+        <span class="badge med">medium</span>
+        <span>2 findings</span>
+        <span>· 5310 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge med">medium</span>REST /wp-json/wp/v2/users exposes 6 user(s)</h3>
+          <div><a href="https://wordpress.org/wp-json/wp/v2/users" target="_blank" rel="noopener">https://wordpress.org/wp-json/wp/v2/users</a></div>
+          <pre>Public REST endpoint returned:
+  - adamwood
+  - annezazu
+  - joen
+  - ryelle
+  - poliuk
+  - wordpressdotorg</pre>
+          <div class="fix"><strong>Fix:</strong> Restrict the users REST endpoint. In functions.php:
+  add_filter(&#39;rest_endpoints&#39;, function($e){ unset($e[&#39;/wp/v2/users&#39;]); unset($e[&#39;/wp/v2/users/(?P&lt;id&gt;[\d]+)&#39;]); return $e; });
+Or use a security plugin&#39;s REST hardening rule.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge med">medium</span>REST users endpoint exposed via ?rest_route= query</h3>
+          <div><a href="https://wordpress.org/?rest_route=/wp/v2/users" target="_blank" rel="noopener">https://wordpress.org/?rest_route=/wp/v2/users</a></div>
+          <pre>/?rest_route=/wp/v2/users returned 6 user(s).</pre>
+          <div class="fix"><strong>Fix:</strong> Same fix as /wp-json/wp/v2/users — filter out the users endpoint via rest_endpoints.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+        <div class="finding">
+          <div class="quickfix">
+            <div class="head">
+              <span>Quick fix — Block ?author= and REST user enumeration</span>
+              <span class="lang">php</span>
+            </div>
+            <div class="where">where: functions.php</div>
+            <pre id="qf-users">// Block /?author=N redirects
+add_action(&#39;template_redirect&#39;, function(){
+    if (!empty($_GET[&#39;author&#39;]) &amp;&amp; is_numeric($_GET[&#39;author&#39;])) {
+        wp_redirect(home_url(), 301); exit;
+    }
+});
+// Strip users endpoint from REST
+add_filter(&#39;rest_endpoints&#39;, function($endpoints){
+    unset($endpoints[&#39;/wp/v2/users&#39;]);
+    unset($endpoints[&#39;/wp/v2/users/(?P&lt;id&gt;[\d]+)&#39;]);
+    return $endpoints;
+});</pre>
+            <div style="margin-top:8px;text-align:right">
+              <button onclick="navigator.clipboard.writeText(document.getElementById('qf-users').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy snippet', 1500)">Copy snippet</button>
+            </div>
+          </div>
+        </div>
+      
+
+      
+      
+        <div class="finding">
+          <div class="nextsteps">
+            <div class="head">How to verify (manual)</div>
+            
+              
+              <div class="cmd">
+                <code id="vr-users-0">curl -s https://wordpress.org/wp-json/wp/v2/users</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-users-0').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+              
+              <div class="cmd">
+                <code id="vr-users-1">curl -sI https://wordpress.org/?author=1</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-users-1').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+              
+              <div class="cmd">
+                <code id="vr-users-2">curl -s https://wordpress.org/?rest_route=/wp/v2/users</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-users-2').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+          </div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Exposed files</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 23940 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>Exposed: cron endpoint present at /wp-cron.php</h3>
+          <div><a href="https://wordpress.org/wp-cron.php" target="_blank" rel="noopener">https://wordpress.org/wp-cron.php</a></div>
+          <pre>GET /wp-cron.php → 200 (text/html; charset=utf-8)
+  preview: (binary, 0 bytes)</pre>
+          <div class="fix"><strong>Fix:</strong> Remove /wp-cron.php from the document root immediately, or add a server-level deny rule. For backups/secrets, also rotate any credentials they contained — assume they are compromised.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  
+  <details open>
+    <summary>
+      <span class="title">Login surface</span>
+      <span class="right">
+        <span class="badge med">medium</span>
+        <span>2 findings</span>
+        <span>· 1870 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>/wp-admin/ reachable</h3>
+          <div><a href="https://wordpress.org/wp-admin/" target="_blank" rel="noopener">https://wordpress.org/wp-admin/</a></div>
+          <pre>GET /wp-admin/ → 302</pre>
+          <div class="fix"><strong>Fix:</strong> Same as wp-login.php — restrict by IP/2FA or rename the admin path.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge med">medium</span>XML-RPC endpoint is enabled</h3>
+          <div><a href="https://wordpress.org/xmlrpc.php" target="_blank" rel="noopener">https://wordpress.org/xmlrpc.php</a></div>
+          <pre>POST /xmlrpc.php system.listMethods → 200 with valid methodResponse. system.multicall + wp.getUsersBlogs available — amplification + brute-force vector.</pre>
+          <div class="fix"><strong>Fix:</strong> If you don&#39;t use Jetpack or the WP mobile app, disable XML-RPC. Block /xmlrpc.php at the server (Nginx: `location = /xmlrpc.php { deny all; }`). If you need it, restrict by IP and disable system.multicall via the `xmlrpc_methods` filter to neutralize the brute-force amplifier.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+        <div class="finding">
+          <div class="quickfix">
+            <div class="head">
+              <span>Quick fix — Disable XML-RPC + system.multicall amplifier</span>
+              <span class="lang">php</span>
+            </div>
+            <div class="where">where: functions.php</div>
+            <pre id="qf-login">add_filter(&#39;xmlrpc_enabled&#39;, &#39;__return_false&#39;);
+add_filter(&#39;xmlrpc_methods&#39;, function($m){ unset($m[&#39;system.multicall&#39;]); return $m; });</pre>
+            <div style="margin-top:8px;text-align:right">
+              <button onclick="navigator.clipboard.writeText(document.getElementById('qf-login').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy snippet', 1500)">Copy snippet</button>
+            </div>
+          </div>
+        </div>
+      
+
+      
+      
+        <div class="finding">
+          <div class="nextsteps">
+            <div class="head">How to verify (manual)</div>
+            
+              
+              <div class="cmd">
+                <code id="vr-login-0">curl -sI https://wordpress.org/wp-login.php</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-login-0').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+              
+              <div class="cmd">
+                <code id="vr-login-1">curl -s -X POST https://wordpress.org/xmlrpc.php -H &#39;Content-Type: text/xml&#39; --data &#39;&lt;?xml version=&#34;1.0&#34;?&gt;&lt;methodCall&gt;&lt;methodName&gt;system.listMethods&lt;/methodName&gt;&lt;params&gt;&lt;/params&gt;&lt;/methodCall&gt;&#39;</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-login-1').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+          </div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Login rate-limiting test</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 411 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>Login-throttling test skipped: /wp-login.php not reachable</h3>
+          <div><a href="https://wordpress.org/wp-login.php" target="_blank" rel="noopener">https://wordpress.org/wp-login.php</a></div>
+          <pre>GET /wp-login.php -&gt; 301</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Deep throttle mapping (opt-in, 5 min)</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 0 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>Deep throttle mapping skipped (opt-in)</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Pass --deep-throttle on the CLI, or tick the GUI checkbox, to run this 5-minute defense map.</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  
+  <details open>
+    <summary>
+      <span class="title">TLS &amp; security headers</span>
+      <span class="right">
+        <span class="badge med">medium</span>
+        <span>5 findings</span>
+        <span>· 1427 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge med">medium</span>Missing security header: content-security-policy</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>GET / response did not include content-security-policy.</pre>
+          <div class="fix"><strong>Fix:</strong> Add a Content-Security-Policy. Start with a report-only policy to map your asset hosts, then enforce. Even a permissive `default-src &#39;self&#39; https:; object-src &#39;none&#39;` blocks the most common XSS payloads.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge low">low</span>Missing security header: x-content-type-options</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>GET / response did not include x-content-type-options.</pre>
+          <div class="fix"><strong>Fix:</strong> Add `X-Content-Type-Options: nosniff` to stop MIME sniffing.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge low">low</span>Missing security header: referrer-policy</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>GET / response did not include referrer-policy.</pre>
+          <div class="fix"><strong>Fix:</strong> Add `Referrer-Policy: strict-origin-when-cross-origin`.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge low">low</span>Missing security header: permissions-policy</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>GET / response did not include permissions-policy.</pre>
+          <div class="fix"><strong>Fix:</strong> Add a `Permissions-Policy` header to disable powerful APIs (camera, microphone, geolocation, etc.) for any features you don&#39;t use.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge low">low</span>Server / X-Powered-By headers leak software info</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Server: nginx</pre>
+          <div class="fix"><strong>Fix:</strong> Suppress these headers. Nginx: `more_clear_headers Server X-Powered-By;` (headers-more module) or `server_tokens off;`. PHP: set `expose_php = Off` in php.ini.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+        <div class="finding">
+          <div class="quickfix">
+            <div class="head">
+              <span>Quick fix — Add baseline security headers (Nginx)</span>
+              <span class="lang">nginx</span>
+            </div>
+            <div class="where">where: nginx server block</div>
+            <pre id="qf-tls_headers">add_header Strict-Transport-Security &#34;max-age=31536000; includeSubDomains; preload&#34; always;
+add_header X-Content-Type-Options nosniff always;
+add_header X-Frame-Options SAMEORIGIN always;
+add_header Referrer-Policy strict-origin-when-cross-origin always;
+add_header Permissions-Policy &#34;camera=(), microphone=(), geolocation=()&#34; always;
+add_header Content-Security-Policy &#34;default-src &#39;self&#39; https:; object-src &#39;none&#39;; frame-ancestors &#39;self&#39;; base-uri &#39;self&#39;&#34; always;
+server_tokens off;</pre>
+            <div style="margin-top:8px;text-align:right">
+              <button onclick="navigator.clipboard.writeText(document.getElementById('qf-tls_headers').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy snippet', 1500)">Copy snippet</button>
+            </div>
+          </div>
+        </div>
+      
+
+      
+      
+        <div class="finding">
+          <div class="nextsteps">
+            <div class="head">How to verify (manual)</div>
+            
+              
+              <div class="cmd">
+                <code id="vr-tls_headers-0">curl -sI https://wordpress.org/ | grep -iE &#39;strict-transport-security|content-security-policy|x-frame-options|x-content-type-options|referrer-policy|permissions-policy&#39;</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-tls_headers-0').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+              
+              <div class="cmd">
+                <code id="vr-tls_headers-1"># Deep TLS audit:</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-tls_headers-1').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+              
+              <div class="cmd">
+                <code id="vr-tls_headers-2">ssllabs-scan --quiet https://wordpress.org</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-tls_headers-2').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+              
+              <div class="cmd">
+                <code id="vr-tls_headers-3"># Or in a browser: https://www.ssllabs.com/ssltest/analyze.html?d=wordpress.org</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-tls_headers-3').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+          </div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">CSP deep analysis</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 633 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>No Content-Security-Policy header present (deep grading skipped)</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>See the &#39;TLS &amp; security headers&#39; check for the basic header-presence finding.</pre>
+          <div class="fix"><strong>Fix:</strong> Adding a baseline CSP — even `default-src &#39;self&#39; https:; object-src &#39;none&#39;; frame-ancestors &#39;self&#39;` — blocks the most common XSS payloads.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Cookie hardening</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 1826 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>No cookies observed from probed endpoints</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>GET /wp-login.php, /wp-admin/, and / returned no Set-Cookie headers.</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">HTTP method enumeration</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 2313 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>No dangerous HTTP methods accepted</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Probed 7 methods; all rejected.</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Directory listing</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 1961 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>No directory listings detected</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Probed 5 WP directories; none expose an index page.</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Debug &amp; info leaks</span>
+      <span class="right">
+        <span class="badge low">low</span>
+        <span>1 finding</span>
+        <span>· 1834 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge low">low</span>wp-emoji-release.min.js exposes WP version via ?ver= (7.1)</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Found `wp-emoji-release.min.js?ver=7.1` in homepage.</pre>
+          <div class="fix"><strong>Fix:</strong> Disable the emoji feature (it&#39;s rarely useful): `remove_action(&#39;wp_head&#39;,&#39;print_emoji_detection_script&#39;, 7);` and the related actions. Or strip ?ver= from all asset URLs via a filter.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+        <div class="finding">
+          <div class="quickfix">
+            <div class="head">
+              <span>Quick fix — Move debug log outside docroot</span>
+              <span class="lang">php</span>
+            </div>
+            <div class="where">where: wp-config.php</div>
+            <pre id="qf-debug_leaks">define(&#39;WP_DEBUG&#39;, true);
+define(&#39;WP_DEBUG_LOG&#39;, &#39;/path/outside/docroot/wp-debug.log&#39;);
+define(&#39;WP_DEBUG_DISPLAY&#39;, false);
+@ini_set(&#39;display_errors&#39;, 0);</pre>
+            <div style="margin-top:8px;text-align:right">
+              <button onclick="navigator.clipboard.writeText(document.getElementById('qf-debug_leaks').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy snippet', 1500)">Copy snippet</button>
+            </div>
+          </div>
+        </div>
+      
+
+      
+      
+        <div class="finding">
+          <div class="nextsteps">
+            <div class="head">How to verify (manual)</div>
+            
+              
+              <div class="cmd">
+                <code id="vr-debug_leaks-0">curl -sI https://wordpress.org/wp-content/debug.log</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-debug_leaks-0').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+              
+              <div class="cmd">
+                <code id="vr-debug_leaks-1">curl -s https://wordpress.org/?p\[\]=1 | head -20</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-debug_leaks-1').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+          </div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">robots.txt / sitemap audit</span>
+      <span class="right">
+        <span class="badge low">low</span>
+        <span>2 findings</span>
+        <span>· 4847 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge low">low</span>robots.txt advertises 1 sensitive-looking path(s)</h3>
+          <div><a href="https://wordpress.org/robots.txt" target="_blank" rel="noopener">https://wordpress.org/robots.txt</a></div>
+          <pre>Disallow entries that look interesting:
+  - /wp-admin/</pre>
+          <div class="fix"><strong>Fix:</strong> robots.txt is read by everyone, including attackers. Don&#39;t list staging or admin URLs there — block them via auth or IP allow-listing instead. The Disallow only asks polite bots to stay away; it doesn&#39;t restrict access.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>Sitemap discovered 19 URLs</h3>
+          <div><a href="https://wordpress.org/sitemap.xml" target="_blank" rel="noopener">https://wordpress.org/sitemap.xml</a></div>
+          <pre>First 5:
+  - https://wordpress.org/sitemap-1.xml
+  - https://wordpress.org/image-sitemap-1.xml
+  - https://wordpress.org/video-sitemap-1.xml
+  - https://wordpress.org/
+  - https://wordpress.org/themes/sitemap-index-1.xml</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed unless the sitemap is leaking pages you didn&#39;t intend to publish.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+        <div class="finding">
+          <div class="nextsteps">
+            <div class="head">How to verify (manual)</div>
+            
+              
+              <div class="cmd">
+                <code id="vr-robots_sitemap-0">curl -s https://wordpress.org/robots.txt</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-robots_sitemap-0').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+              
+              <div class="cmd">
+                <code id="vr-robots_sitemap-1">curl -s https://wordpress.org/sitemap.xml | head -50</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-robots_sitemap-1').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+              
+              <div class="cmd">
+                <code id="vr-robots_sitemap-2">curl -s https://wordpress.org/wp-sitemap.xml | head -50</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-robots_sitemap-2').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+          </div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Subdomain discovery</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 14895 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>No subdomains found via certificate transparency for wordpress.org</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>crt.sh returned no records (or the query failed).</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">WP REST API surface audit</span>
+      <span class="right">
+        <span class="badge low">low</span>
+        <span>6 findings</span>
+        <span>· 14619 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>WordPress REST API exposes 24 namespace(s)</h3>
+          <div><a href="https://wordpress.org/wp-json/" target="_blank" rel="noopener">https://wordpress.org/wp-json/</a></div>
+          <pre>Namespaces:
+  - akismet/v1
+  - block-visibility/v1
+  - global-header-footer/v1
+  - jetpack-boost/v1
+  - jetpack/v4
+  - jetpack/v4/blaze
+  - jetpack/v4/blaze-app
+  - jetpack/v4/explat
+  - jetpack/v4/import
+  - jetpack/v4/stats-app
+  - mcp
+  - my-jetpack/v1
+  - oembed/1.0
+  - two-factor/1.0
+  - wp-abilities/v1
+  - wp-block-editor/v1
+  - wp-site-health/v1
+  - wp-sync/v1
+  - wp/v2
+  - wpcom/v2
+  - wpcom/v3
+  - wporg-site-quality/v1
+  - wporg-two-factor/1.0
+  - wporg/v1</pre>
+          <div class="fix"><strong>Fix:</strong> REST namespaces aren&#39;t sensitive by themselves but they reveal active plugins. Each namespace can be locked down via the rest_endpoints filter if exposure is unwanted.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>Public REST endpoint exposes data: /wp-json/wp/v2/pages</h3>
+          <div><a href="https://wordpress.org/wp-json/wp/v2/pages" target="_blank" rel="noopener">https://wordpress.org/wp-json/wp/v2/pages</a></div>
+          <pre>GET /wp-json/wp/v2/pages -&gt; 200 with expected content marker present.
+  Endpoint description: All published pages</pre>
+          <div class="fix"><strong>Fix:</strong> If you don&#39;t need this endpoint publicly, restrict it via the rest_endpoints filter:
+  add_filter(&#39;rest_endpoints&#39;, function($e) {
+      unset($e[&#39;/wp/v2/pages&#39;]);
+      return $e;
+  });</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>Public REST endpoint exposes data: /wp-json/wp/v2/categories</h3>
+          <div><a href="https://wordpress.org/wp-json/wp/v2/categories" target="_blank" rel="noopener">https://wordpress.org/wp-json/wp/v2/categories</a></div>
+          <pre>GET /wp-json/wp/v2/categories -&gt; 200 with expected content marker present.
+  Endpoint description: Category tree</pre>
+          <div class="fix"><strong>Fix:</strong> If you don&#39;t need this endpoint publicly, restrict it via the rest_endpoints filter:
+  add_filter(&#39;rest_endpoints&#39;, function($e) {
+      unset($e[&#39;/wp/v2/categories&#39;]);
+      return $e;
+  });</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge low">low</span>Public REST endpoint exposes data: /wp-json/wp/v2/media</h3>
+          <div><a href="https://wordpress.org/wp-json/wp/v2/media" target="_blank" rel="noopener">https://wordpress.org/wp-json/wp/v2/media</a></div>
+          <pre>GET /wp-json/wp/v2/media -&gt; 200 with expected content marker present.
+  Endpoint description: Uploaded media files (including unpublished)</pre>
+          <div class="fix"><strong>Fix:</strong> If you don&#39;t need this endpoint publicly, restrict it via the rest_endpoints filter:
+  add_filter(&#39;rest_endpoints&#39;, function($e) {
+      unset($e[&#39;/wp/v2/media&#39;]);
+      return $e;
+  });</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>Public REST endpoint exposes data: /wp-json/wp/v2/types</h3>
+          <div><a href="https://wordpress.org/wp-json/wp/v2/types" target="_blank" rel="noopener">https://wordpress.org/wp-json/wp/v2/types</a></div>
+          <pre>GET /wp-json/wp/v2/types -&gt; 200 with expected content marker present.
+  Endpoint description: Custom post type definitions</pre>
+          <div class="fix"><strong>Fix:</strong> If you don&#39;t need this endpoint publicly, restrict it via the rest_endpoints filter:
+  add_filter(&#39;rest_endpoints&#39;, function($e) {
+      unset($e[&#39;/wp/v2/types&#39;]);
+      return $e;
+  });</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>Public REST endpoint exposes data: /wp-json/wp/v2/statuses</h3>
+          <div><a href="https://wordpress.org/wp-json/wp/v2/statuses" target="_blank" rel="noopener">https://wordpress.org/wp-json/wp/v2/statuses</a></div>
+          <pre>GET /wp-json/wp/v2/statuses -&gt; 200 with expected content marker present.
+  Endpoint description: Post status definitions</pre>
+          <div class="fix"><strong>Fix:</strong> If you don&#39;t need this endpoint publicly, restrict it via the rest_endpoints filter:
+  add_filter(&#39;rest_endpoints&#39;, function($e) {
+      unset($e[&#39;/wp/v2/statuses&#39;]);
+      return $e;
+  });</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+        <div class="finding">
+          <div class="nextsteps">
+            <div class="head">How to verify (manual)</div>
+            
+              
+              <div class="cmd">
+                <code id="vr-rest_api-0">curl -s https://wordpress.org/wp-json/ | jq &#39;.namespaces&#39;</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-rest_api-0').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+              
+              <div class="cmd">
+                <code id="vr-rest_api-1">curl -s https://wordpress.org/wp-json/wp/v2/settings</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-rest_api-1').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+              
+              <div class="cmd">
+                <code id="vr-rest_api-2"># Restrict via rest_endpoints filter in functions.php</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-rest_api-2').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+          </div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  
+  <details open>
+    <summary>
+      <span class="title">CORS misconfiguration</span>
+      <span class="right">
+        <span class="badge high">high</span>
+        <span>2 findings</span>
+        <span>· 2869 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge high">high</span>CORS reflects attacker origin AND allows credentials at /wp-json/</h3>
+          <div><a href="https://wordpress.org/wp-json/" target="_blank" rel="noopener">https://wordpress.org/wp-json/</a></div>
+          <pre>GET /wp-json/ with Origin: https://wpsecscan-cors-probe.invalid
+  Access-Control-Allow-Origin: https://wpsecscan-cors-probe.invalid
+  Access-Control-Allow-Credentials: true
+
+Attacker-origin reflection + credentials = any malicious page can read authenticated responses. Wildcard + credentials is rejected by browsers but honored by some non-browser clients.</pre>
+          <div class="fix"><strong>Fix:</strong> Use an explicit allow-list of trusted origins, never reflect the Origin header. For plugin-controlled CORS, audit the rest_pre_serve_request filter and any CORS-handling plugin. Server-level (Nginx): explicit static `add_header Access-Control-Allow-Origin https://trusted-origin.com always;`.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge high">high</span>CORS reflects attacker origin AND allows credentials at /wp-json/wp/v2/users</h3>
+          <div><a href="https://wordpress.org/wp-json/wp/v2/users" target="_blank" rel="noopener">https://wordpress.org/wp-json/wp/v2/users</a></div>
+          <pre>GET /wp-json/wp/v2/users with Origin: https://wpsecscan-cors-probe.invalid
+  Access-Control-Allow-Origin: https://wpsecscan-cors-probe.invalid
+  Access-Control-Allow-Credentials: true
+
+Attacker-origin reflection + credentials = any malicious page can read authenticated responses. Wildcard + credentials is rejected by browsers but honored by some non-browser clients.</pre>
+          <div class="fix"><strong>Fix:</strong> Use an explicit allow-list of trusted origins, never reflect the Origin header. For plugin-controlled CORS, audit the rest_pre_serve_request filter and any CORS-handling plugin. Server-level (Nginx): explicit static `add_header Access-Control-Allow-Origin https://trusted-origin.com always;`.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+        <div class="finding">
+          <div class="nextsteps">
+            <div class="head">How to verify (manual)</div>
+            
+              
+              <div class="cmd">
+                <code id="vr-cors-0">curl -sI -H &#39;Origin: https://evil.example.com&#39; https://wordpress.org/</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-cors-0').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+              
+              <div class="cmd">
+                <code id="vr-cors-1"># Look at Access-Control-Allow-Origin in the response</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('vr-cors-1').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            
+          </div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">JS library version audit</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 2283 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>No common JS libraries detected via filename / version-comment patterns</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Scanned 3 pages.</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed. (Sites that bundle JS via webpack/Vite typically obfuscate version strings.)</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Accidental API-key leak scan</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 3859 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>No accidental secret patterns detected</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Scanned 5 response bodies against 16 secret patterns.</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">HaveIBeenPwned lookup</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 0 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>6 username(s) discoverable — check HIBP manually</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Discovered usernames:
+  - adamwood: https://haveibeenpwned.com/account/adamwood
+  - annezazu: https://haveibeenpwned.com/account/annezazu
+  - joen: https://haveibeenpwned.com/account/joen
+  - poliuk: https://haveibeenpwned.com/account/poliuk
+  - ryelle: https://haveibeenpwned.com/account/ryelle
+  - wordpressdotorg: https://haveibeenpwned.com/account/wordpressdotorg
+
+Without a HIBP API token we can&#39;t query breaches automatically. Visit the links above (or pass --hibp-token &lt;key&gt;) to check each account.</pre>
+          <div class="fix"><strong>Fix:</strong> Force a password rotation for any user whose account email appears in known breaches. Buy a HIBP key at haveibeenpwned.com/API/Key (~$3.95/mo) to automate this.</div>
+
+          
+          
+
+          
+          
+          
+            <div class="nextsteps">
+              <div class="head">Next steps for manual verification</div>
+              
+              
+                
+                <div class="cmd">
+                  <code id="ns-hibp-0-0"># Manual lookup: https://haveibeenpwned.com/account/adamwood</code>
+                  <button onclick="navigator.clipboard.writeText(document.getElementById('ns-hibp-0-0').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+                </div>
+              
+            </div>
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Core CVE matching</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 0 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>No known core CVEs match installed WordPress 7.1</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>DB source: embedded; 26 entries checked.</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed for core. Keep auto-updates enabled.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Plugin CVE matching</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 0 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>No known-vulnerable plugin versions detected among 1 plugin(s)</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>DB source: embedded (26 entries); embedded.</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed. Keep all plugins updated — coverage depends on detected versions.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Theme CVE matching</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 0 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>No known-vulnerable theme versions detected among 2 theme(s)</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>DB source: embedded; 26 entries checked.</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed.</div>
+
+          
+          
+
+          
+          
+          
+        </div>
+      
+      
+      
+      
+
+      
+      
+    
+  </details>
+
+</main>
+<footer>Generated by WPSecScan · defensive recon only</footer>
+</body>
+</html>

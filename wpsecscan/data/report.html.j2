@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WPSecScan — {{ report.target }}</title>
+<script>function _wpsecPrint(){window.print()}</script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel2: #1f2630;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --border: #30363d;
+    --crit-bg: #67000d; --crit-fg: #ffd6d6;
+    --high-bg: #5a1816; --high-fg: #ff8a85;
+    --med-bg:  #4a3a10; --med-fg:  #f0c674;
+    --low-bg:  #133246; --low-fg:  #79c0ff;
+    --info-bg: #21262d; --info-fg: #8b949e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+  header{padding:32px 24px 16px;border-bottom:1px solid var(--border)}
+  header h1{margin:0 0 6px;font-size:22px}
+  header .meta{color:var(--muted);font-size:13px}
+  main{max-width:1100px;margin:0 auto;padding:24px}
+  .summary{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 24px}
+  .pill{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;border:1px solid var(--border)}
+  .pill.crit{background:var(--crit-bg);color:var(--crit-fg)}
+  .pill.high{background:var(--high-bg);color:var(--high-fg)}
+  .pill.med {background:var(--med-bg); color:var(--med-fg)}
+  .pill.low {background:var(--low-bg); color:var(--low-fg)}
+  .pill.info{background:var(--info-bg);color:var(--info-fg)}
+  details{background:var(--panel);border:1px solid var(--border);border-radius:8px;margin:0 0 12px;overflow:hidden}
+  details[open] summary{border-bottom:1px solid var(--border)}
+  summary{cursor:pointer;padding:12px 16px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  summary::-webkit-details-marker{display:none}
+  summary .title{font-weight:600}
+  summary .right{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  .badge.crit{background:var(--crit-bg);color:var(--crit-fg)}
+  .badge.high{background:var(--high-bg);color:var(--high-fg)}
+  .badge.med {background:var(--med-bg); color:var(--med-fg)}
+  .badge.low {background:var(--low-bg); color:var(--low-fg)}
+  .badge.info{background:var(--info-bg);color:var(--info-fg)}
+  .finding{padding:14px 16px;border-top:1px solid var(--border)}
+  .finding:first-child{border-top:none}
+  .finding h3{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:10px}
+  .finding pre{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:10px;margin:8px 0;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+  .finding .fix{margin-top:8px;color:var(--muted)}
+  .finding .fix strong{color:var(--fg)}
+  .finding a{color:#79c0ff}
+  .empty{color:var(--muted);font-style:italic;padding:12px 16px}
+  .err{color:#ff8a85;padding:12px 16px}
+  .quickfix{background:#0c2a18;border:1px solid #1b5e2a;border-radius:6px;margin:10px 0;padding:12px 14px}
+  .quickfix .head{display:flex;justify-content:space-between;align-items:center;font-weight:600;color:#6cc474;margin-bottom:8px}
+  .quickfix .lang{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  .quickfix .where{color:var(--muted);font-size:12px;margin-bottom:6px}
+  .quickfix pre{background:#0d1117;border:1px solid #1b5e2a;padding:10px;border-radius:4px;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;margin:0}
+  .quickfix button{background:#1b5e2a;border:none;color:#cfe5d0;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px}
+  .quickfix button:hover{background:#247035}
+  .proof{background:#0c1c2a;border:1px solid #1e4c70;border-radius:6px;margin:10px 0;padding:12px 14px}
+  .proof .head{font-weight:600;color:#79c0ff;margin-bottom:6px}
+  .proof .audit{color:var(--muted);font-size:11px;margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase}
+  .proof pre{background:#0d1117;border:1px solid #1e4c70;padding:8px;border-radius:4px;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;margin:0}
+  .nextsteps{background:#231a07;border:1px solid #5a4310;border-radius:6px;margin:10px 0;padding:12px 14px}
+  .nextsteps .head{font-weight:600;color:#f0c674;margin-bottom:6px}
+  .nextsteps .cmd{display:flex;align-items:center;gap:8px;background:#0d1117;border:1px solid #5a4310;padding:6px 8px;border-radius:4px;margin-top:6px}
+  .nextsteps .cmd code{font:12px/1.5 ui-monospace,Consolas,monospace;color:#f1b94c;flex:1;overflow-x:auto}
+  .nextsteps button{background:#5a4310;border:none;color:#f0c674;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:11px}
+  .nextsteps button:hover{background:#6e5414}
+  .riskbanner{display:flex;align-items:center;gap:18px;padding:14px 18px;margin:14px 0;border-radius:8px;border:2px solid}
+  .riskbanner.green {background:#0c2a18;border-color:#1b5e2a;color:#cfe5d0}
+  .riskbanner.yellow{background:#2a2410;border-color:#5a4310;color:#f0c674}
+  .riskbanner.orange{background:#2a1d10;border-color:#7a4c10;color:#f0a050}
+  .riskbanner.red   {background:#2a1010;border-color:#7a1d1d;color:#ff8a85}
+  .riskbanner .score{font-size:36px;font-weight:800;line-height:1}
+  .riskbanner .scoreof{font-size:14px;opacity:.7;margin-left:-6px}
+  .riskbanner .label{font-size:14px;flex:1}
+  /* #13 exploit confidence chip on each finding */
+  .conf{display:inline-block;padding:1px 7px;margin-left:8px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;vertical-align:middle}
+  .conf-high  {background:#0c2a18;color:#79e0d0;border:1px solid #1b5e2a}
+  .conf-medium{background:#2a2410;color:#f0c674;border:1px solid #5a4310}
+  .conf-low   {background:#1c1f24;color:#8b949e;border:1px solid #30363d}
+  /* #9 OWASP / ATT&CK chips next to check name */
+  .chip{display:inline-block;padding:1px 7px;margin-left:6px;border-radius:3px;font-size:10px;font-weight:600;letter-spacing:.04em;vertical-align:middle;cursor:help}
+  .chip.owasp {background:#2a1d10;color:#f0a050;border:1px solid #7a4c10}
+  .chip.attack{background:#1a0e1f;color:#dca6e8;border:1px solid #6b2675}
+  .chip.pci   {background:#0c1e2a;color:#79b8ff;border:1px solid #1e4c70}
+  .chip.nist  {background:#1a2010;color:#a3c170;border:1px solid #4a5e30}
+  .chip.iso   {background:#2a1a0e;color:#e8b675;border:1px solid #6b4625}
+  /* D4 WAF rule snippet block — blue accent to distinguish from exploit playbook (purple) */
+  .wafrule{background:#0c1c2a;border:1px solid #1e4c70;border-radius:6px;margin:10px 0;padding:0}
+  .wafrule>summary{padding:10px 14px;cursor:pointer;font-weight:600;color:#79c0ff;list-style:none}
+  .wafrule>summary::-webkit-details-marker{display:none}
+  .wafrule .body{padding:12px 14px;border-top:1px solid #1e4c70}
+  .wafrule .hau{color:#a8c8e8;font-size:13px;line-height:1.5;margin-bottom:12px}
+  .wafrule .blabel.waf-cloudflare{background:#2a1d10;color:#f0a050}
+  .wafrule .blabel.waf-modsecurity{background:#5a1816;color:#ff8a85}
+  .wafrule .blabel.waf-nginx{background:#0c2a18;color:#6cc474}
+  .wafrule .bucket .blabel{display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+  .wafrule .cmd{display:flex;align-items:flex-start;gap:8px;background:#0d1117;border:1px solid #30363d;padding:6px 8px;border-radius:4px;margin-top:4px}
+  .wafrule .cmd code{font:12px/1.5 ui-monospace,Consolas,monospace;color:#e6edf3;flex:1;overflow-x:auto}
+  .wafrule .cmd button{background:#30363d;border:none;color:#79c0ff;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:11px}
+  .wafrule .cmd button:hover{background:#1e4c70}
+  /* Exploit playbook (collapsible per check) */
+  .playbook{background:#1a0e1f;border:1px solid #6b2675;border-radius:6px;margin:10px 0;padding:0}
+  .playbook>summary{padding:10px 14px;cursor:pointer;font-weight:600;color:#dca6e8;list-style:none;display:flex;justify-content:space-between;align-items:center}
+  .playbook>summary::-webkit-details-marker{display:none}
+  .playbook>summary::after{content:"▸";font-size:11px;color:#dca6e8;transition:transform .15s}
+  .playbook[open]>summary::after{transform:rotate(90deg)}
+  .playbook .body{padding:12px 14px;border-top:1px solid #6b2675}
+  .playbook .hau{color:#e6c7ee;font-size:13px;line-height:1.5;margin-bottom:12px;padding:8px 10px;background:#15081a;border-left:3px solid #b66bc8;border-radius:0 4px 4px 0}
+  .playbook .bucket{margin-top:10px}
+  .playbook .bucket .blabel{display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+  .playbook .bucket.tool-sqlmap .blabel{background:#5a0d10;color:#ff8a85}
+  .playbook .bucket.tool-metasploit .blabel{background:#3a1a5a;color:#c8a6f0}
+  .playbook .bucket.tool-curl .blabel{background:#1c2a36;color:#79c0ff}
+  .playbook .bucket.tool-nuclei .blabel{background:#0a3a4a;color:#79e0d0}
+  .playbook .bucket.tool-wpscan .blabel{background:#2c2c5a;color:#a6b6f0}
+  .playbook .bucket.tool-ffuf .blabel{background:#4a3a10;color:#f0c674}
+  .playbook .bucket.tool-refs .blabel{background:#21262d;color:#8b949e}
+  .playbook .cmd{display:flex;align-items:center;gap:8px;background:#0d1117;border:1px solid #30363d;padding:6px 8px;border-radius:4px;margin-top:4px}
+  .playbook .cmd code{font:12px/1.5 ui-monospace,Consolas,monospace;color:#e6edf3;flex:1;overflow-x:auto;white-space:pre}
+  .playbook .cmd button{background:#30363d;border:none;color:#dca6e8;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:11px}
+  .playbook .cmd button:hover{background:#6b2675}
+  .playbook .ref a{color:#79c0ff;font-size:12px}
+  /* #10 PDF / Print button */
+  .printbtn{position:fixed;top:14px;right:18px;background:#21262d;border:1px solid var(--border);color:var(--fg);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;z-index:99}
+  .printbtn:hover{background:#30363d}
+  .themebtn{position:fixed;top:14px;right:170px;background:#21262d;border:1px solid var(--border);color:var(--fg);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;z-index:99}
+  .themebtn:hover{background:#30363d}
+  /* I18 — Light-theme overrides (root[data-theme=light]) */
+  :root[data-theme="light"] {
+    --bg:#f6f8fa; --panel:#ffffff; --panel2:#f0f3f6; --fg:#0d1117; --muted:#586069; --border:#d0d7de;
+    --crit-bg:#ffd6d6; --crit-fg:#67000d;
+    --high-bg:#ffe1de; --high-fg:#5a1816;
+    --med-bg:#fff0c2;  --med-fg:#5d4500;
+    --low-bg:#dbeafe;  --low-fg:#133246;
+    --info-bg:#eef0f2; --info-fg:#586069;
+  }
+  /* O50 — Color-blind-safe palette (deuteranopia/protanopia friendly).
+     Activated via root[data-palette=cb]. Hue-shifts severity tiers to
+     blue/yellow/purple instead of red/green so the contrast survives most
+     forms of color vision deficiency. */
+  :root[data-palette="cb"] {
+    --crit-bg:#3a004f; --crit-fg:#f5c6ff;  /* purple */
+    --high-bg:#003a4f; --high-fg:#9ce4ff;  /* teal-blue */
+    --med-bg:#4f3a00;  --med-fg:#ffd76b;   /* mustard */
+    --low-bg:#1a1a1a;  --low-fg:#bbbbbb;   /* grey */
+    --info-bg:#1f1f1f; --info-fg:#888888;
+  }
+  :root[data-palette="cb"][data-theme="light"] {
+    --crit-bg:#f3d8ff; --crit-fg:#3a004f;
+    --high-bg:#d6efff; --high-fg:#003a4f;
+    --med-bg:#fff0bf;  --med-fg:#4f3a00;
+    --low-bg:#e6e6e6;  --low-fg:#333333;
+    --info-bg:#eee;    --info-fg:#555;
+  }
+  @media print {
+    .printbtn{display:none}
+    body{background:#fff;color:#111}
+    header,main{background:#fff;color:#111}
+    .summary .pill,.badge{border:1px solid #999;color:#111;background:#eee}
+    details,.finding pre,.quickfix,.proof,.nextsteps,.playbook{background:#fff;color:#111;border-color:#ccc;page-break-inside:avoid}
+    details{break-inside:avoid}
+    a{color:#0055cc;text-decoration:underline}
+    .riskbanner{border:2px solid #000;color:#000;background:#fff}
+    .chip,.conf{border:1px solid #999;color:#222;background:#eee}
+  }
+  footer{text-align:center;color:var(--muted);font-size:12px;padding:24px}
+</style>
+</head>
+<body>
+<button class="printbtn" onclick="_wpsecPrint()">🖨 Print / Save as PDF</button>
+<button class="themebtn" onclick="(function(){var r=document.documentElement;var n=r.getAttribute('data-theme')==='light'?'dark':'light';r.setAttribute('data-theme',n);try{localStorage.setItem('wpsec_theme',n)}catch(e){}})()">🌓 Theme</button>
+<button class="themebtn" style="right:240px" onclick="(function(){var r=document.documentElement;var n=r.getAttribute('data-palette')==='cb'?'':'cb';if(n)r.setAttribute('data-palette',n);else r.removeAttribute('data-palette');try{localStorage.setItem('wpsec_palette',n)}catch(e){}})()">👁 Palette</button>
+<script>try{var t=localStorage.getItem('wpsec_theme');if(t)document.documentElement.setAttribute('data-theme',t);var p=localStorage.getItem('wpsec_palette');if(p)document.documentElement.setAttribute('data-palette',p)}catch(e){}</script>
+<header>
+  <h1>WPSecScan — <span style="color:#79c0ff">{{ report.target }}</span></h1>
+  <div class="meta">Scanned {{ report.scanned_at }} · {{ report.duration_ms }} ms total</div>
+  <div class="riskbanner {{ risk_tier }}">
+    <div><span class="score">{{ risk_score }}</span><span class="scoreof">/100</span></div>
+    <div class="grade" style="font-size:42px;font-weight:900;line-height:1;padding:0 14px;border-left:1px solid currentColor;border-right:1px solid currentColor;margin:0 8px">{{ risk_grade }}</div>
+    <div class="label"><strong>Risk score</strong> — {{ risk_label }}</div>
+  </div>
+  <div class="summary">
+    <span class="pill crit">{{ report.summary.critical }} critical</span>
+    <span class="pill high">{{ report.summary.high }} high</span>
+    <span class="pill med">{{ report.summary.medium }} medium</span>
+    <span class="pill low">{{ report.summary.low }} low</span>
+    <span class="pill info">{{ report.summary.info }} info</span>
+  </div>
+  {% if heatmap_svg %}
+  <details style="margin:14px 0 0 0;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 14px">
+    <summary style="cursor:pointer;font-weight:600;padding:6px 0">Severity × OWASP heatmap</summary>
+    <div style="padding:10px 0;overflow-x:auto">
+      {{ heatmap_svg | safe }}
+    </div>
+  </details>
+  {% endif %}
+</header>
+<main>
+{% for r in report.results %}
+  {% set worst = (r.findings | map(attribute='severity') | list) %}
+  {% set sev = 'info' %}
+  {% if 'critical' in worst %}{% set sev = 'critical' %}
+  {% elif 'high' in worst %}{% set sev = 'high' %}
+  {% elif 'medium' in worst %}{% set sev = 'medium' %}
+  {% elif 'low' in worst %}{% set sev = 'low' %}
+  {% endif %}
+  {% set short = sev[:4] if sev != 'critical' else 'crit' %}
+  {% set short = 'crit' if sev == 'critical' else ('med' if sev == 'medium' else sev) %}
+  <details {% if sev in ('critical','high','medium') %}open{% endif %}>
+    <summary>
+      <span class="title">
+        {{ r.check_name }}
+        {% set tg = check_tags.get(r.check_id) %}
+        {% if tg %}
+          <span class="chip owasp" title="{{ tg.owasp_label }}">{{ tg.owasp }}</span>
+          <span class="chip attack" title="{{ tg.attack_label }}">{{ tg.attack }}</span>
+        {% endif %}
+        {% set cm = compliance.get(r.check_id) %}
+        {% if cm %}
+          {% if cm.pci_dss and cm.pci_dss != "n/a" %}<span class="chip pci" title="PCI-DSS 4.0">PCI {{ cm.pci_dss }}</span>{% endif %}
+          {% if cm.nist_800_53 and cm.nist_800_53 != "n/a" %}<span class="chip nist" title="NIST 800-53 Rev.5">NIST {{ cm.nist_800_53 }}</span>{% endif %}
+          {% if cm.iso_27001 and cm.iso_27001 != "n/a" %}<span class="chip iso" title="ISO 27001:2022">ISO {{ cm.iso_27001 }}</span>{% endif %}
+        {% endif %}
+      </span>
+      <span class="right">
+        <span class="badge {{ short }}">{{ sev }}</span>
+        <span>{{ r.findings | length }} finding{{ '' if r.findings|length == 1 else 's' }}</span>
+        <span>· {{ r.duration_ms }} ms</span>
+      </span>
+    </summary>
+    {% if r.error %}
+      <div class="err">⚠ {{ r.error }}</div>
+    {% elif not r.findings %}
+      <div class="empty">No findings.</div>
+    {% else %}
+      {% for f in r.findings %}
+        {% set finding_idx = loop.index0 %}
+        {% set fshort = 'crit' if f.severity == 'critical' else ('med' if f.severity == 'medium' else f.severity) %}
+        {% set conf = confidence.get(r.check_id ~ "::" ~ finding_idx, 'medium') %}
+        <div class="finding">
+          <h3><span class="badge {{ fshort }}">{{ f.severity }}</span>{{ f.title }}<span class="conf conf-{{ conf }}">{{ conf }}-confidence</span></h3>
+          {% if f.url %}<div><a href="{{ f.url }}" target="_blank" rel="noopener">{{ f.url }}</a></div>{% endif %}
+          {% if f.evidence %}<pre>{{ f.evidence }}</pre>{% endif %}
+          {% if f.remediation %}<div class="fix"><strong>Fix:</strong> {{ f.remediation }}</div>{% endif %}
+
+          {% set proof = f.extra.get('proof') if f.extra else None %}
+          {% if proof %}
+            <div class="proof">
+              <div class="head">Verified evidence</div>
+              <div class="audit">{{ proof.safe_audit }}</div>
+              <pre>{{ proof.summary }}{% if proof.extracted %}
+
+{% for k, v in proof.extracted.items() %}  {{ k }}: {{ v }}
+{% endfor %}{% endif %}</pre>
+            </div>
+          {% endif %}
+
+          {% set replay = f.extra.get('replay') if f.extra else None %}
+          {% set next_steps = f.extra.get('next_steps') if f.extra else None %}
+          {% if replay or next_steps %}
+            <div class="nextsteps">
+              <div class="head">Next steps for manual verification</div>
+              {% if replay %}
+                {% set replay_id = "rp-" ~ r.check_id ~ "-" ~ finding_idx %}
+                <div class="cmd">
+                  <code id="{{ replay_id }}">{{ replay }}</code>
+                  <button onclick="navigator.clipboard.writeText(document.getElementById('{{ replay_id }}').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+                </div>
+              {% endif %}
+              {% for s in next_steps or [] %}
+                {% set step_id = "ns-" ~ r.check_id ~ "-" ~ finding_idx ~ "-" ~ loop.index0 %}
+                <div class="cmd">
+                  <code id="{{ step_id }}">{{ s }}</code>
+                  <button onclick="navigator.clipboard.writeText(document.getElementById('{{ step_id }}').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+      {% set qf = quick_fixes.get(r.check_id) %}
+      {% set has_actionable = r.findings | selectattr('severity', 'ne', 'info') | list | length > 0 %}
+      {% if qf and has_actionable %}
+        <div class="finding">
+          <div class="quickfix">
+            <div class="head">
+              <span>Quick fix — {{ qf.title }}</span>
+              <span class="lang">{{ qf.language }}</span>
+            </div>
+            <div class="where">where: {{ qf.where }}</div>
+            <pre id="qf-{{ r.check_id }}">{{ qf.code }}</pre>
+            <div style="margin-top:8px;text-align:right">
+              <button onclick="navigator.clipboard.writeText(document.getElementById('qf-{{ r.check_id }}').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy snippet', 1500)">Copy snippet</button>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      {% set verify_lines = verify_commands.get(r.check_id) %}
+      {% if verify_lines and has_actionable %}
+        <div class="finding">
+          <div class="nextsteps">
+            <div class="head">How to verify (manual)</div>
+            {% for line in verify_lines %}
+              {% set vid = "vr-" ~ r.check_id ~ "-" ~ loop.index0 %}
+              <div class="cmd">
+                <code id="{{ vid }}">{{ line }}</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('{{ vid }}').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      {% set pb_buckets = exploit_playbooks.get(r.check_id) %}
+      {% if pb_buckets and has_actionable %}
+        <div class="finding" style="padding:0">
+          <details class="playbook">
+            <summary>How an attacker exploits this · curl / sqlmap / Metasploit / nuclei</summary>
+            <div class="body">
+              {% for field, label, content in pb_buckets %}
+                {% if field == "how_an_attacker_uses_this" %}
+                  <div class="hau">{{ content }}</div>
+                {% elif field == "references" %}
+                  <div class="bucket tool-refs">
+                    <span class="blabel">{{ label }}</span>
+                    {% for line in content %}
+                      <div class="ref"><a href="{{ line }}" target="_blank" rel="noopener">{{ line }}</a></div>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  {% set tool_class =
+                    "tool-sqlmap" if field == "sqlmap"
+                    else "tool-metasploit" if field == "metasploit"
+                    else "tool-curl" if field == "manual_curl_pocs"
+                    else "tool-nuclei" if field == "nuclei"
+                    else "tool-wpscan" if field == "wpscan"
+                    else "tool-ffuf" if field == "ffuf_gobuster"
+                    else "" %}
+                  <div class="bucket {{ tool_class }}">
+                    <span class="blabel">{{ label }}</span>
+                    {% for line in content %}
+                      {% set pid = "pb-" ~ r.check_id ~ "-" ~ field ~ "-" ~ loop.index0 %}
+                      <div class="cmd">
+                        <code id="{{ pid }}">{{ line }}</code>
+                        <button onclick="navigator.clipboard.writeText(document.getElementById('{{ pid }}').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </details>
+        </div>
+      {% endif %}
+
+      {% set wr = waf_rules.get(r.check_id) %}
+      {% if wr and has_actionable %}
+        <div class="finding" style="padding:0">
+          <details class="wafrule">
+            <summary>🛡 WAF rule snippet — block this at the edge</summary>
+            <div class="body">
+              <div class="hau">{{ wr.title }}</div>
+              {% for engine, label in [("cloudflare","Cloudflare Custom Rule"),("modsecurity","ModSecurity / Apache"),("nginx","Nginx")] %}
+                {% if wr[engine] %}
+                  <div class="bucket">
+                    <span class="blabel waf-{{ engine }}">{{ label }}</span>
+                    {% set wid = "wr-" ~ r.check_id ~ "-" ~ engine %}
+                    <div class="cmd">
+                      <code id="{{ wid }}" style="white-space:pre">{{ wr[engine] }}</code>
+                      <button onclick="navigator.clipboard.writeText(document.getElementById('{{ wid }}').innerText); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy',1500)">Copy</button>
+                    </div>
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </details>
+        </div>
+      {% endif %}
+    {% endif %}
+  </details>
+{% endfor %}
+
+{% if recommendations %}
+<div style="margin:24px 0">
+  <h2 style="font-size:16px;color:#6cc474">Recommended fixes ({{ recommendations|length }})</h2>
+  <p style="color:var(--muted);font-size:13px">Based on the findings above, install or configure these to clear multiple issues at once.</p>
+  {% for rec in recommendations %}
+  <details class="recblock" style="background:#0c2a18;border:1px solid #1b5e2a;border-radius:6px;margin:8px 0;padding:0">
+    <summary style="padding:10px 14px;cursor:pointer;font-weight:600;color:#6cc474">→ {{ rec.title }}  ·  Plugin: {{ rec.plugin }}</summary>
+    <div style="padding:12px 14px;border-top:1px solid #1b5e2a;color:var(--fg)">
+      <p style="margin:0 0 8px"><strong>Why:</strong> {{ rec.why }}</p>
+      <p style="margin:0 0 8px"><strong>Command:</strong></p>
+      <pre style="background:#0d1117;border:1px solid #1b5e2a;padding:8px;border-radius:4px;color:#79c0ff">{{ rec.wp_cli }}</pre>
+      <p style="margin:8px 0 0;color:var(--muted);font-size:11px">Triggered by: {{ rec.triggered_by|join(', ') }}</p>
+    </div>
+  </details>
+  {% endfor %}
+</div>
+{% endif %}
+</main>
+<footer>Generated by WPSecScan · defensive recon only</footer>
+</body>
+</html>

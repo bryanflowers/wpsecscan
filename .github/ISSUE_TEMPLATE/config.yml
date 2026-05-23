@@ -1,0 +1,18 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability in WPSecScan itself
+    url: https://github.com/bryanflowers/wpsecscan/security/advisories/new
+    about: |
+      DO NOT file a public issue. Use GitHub Security Advisories (private)
+      or email bryaninbangkok@gmail.com.
+
+  - name: Question / discussion
+    url: https://github.com/bryanflowers/wpsecscan/discussions
+    about: For usage questions, design ideas, or general chat.
+
+  - name: Report a finding from a website scan
+    url: https://github.com/bryanflowers/wpsecscan/issues/new?labels=triage&template=bug_report.yml
+    about: |
+      If you scanned a site and want to discuss the finding itself, that's
+      a question about the SITE, not about WPSecScan. Use Discussions.
+      Only file a bug if WPSecScan reported something inaccurately.

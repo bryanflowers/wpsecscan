@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WPSecScan — https://wordpress.org</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel2: #1f2630;
+    --fg: #e6edf3;
+    --muted: #8b949e;
+    --border: #30363d;
+    --crit-bg: #67000d; --crit-fg: #ffd6d6;
+    --high-bg: #5a1816; --high-fg: #ff8a85;
+    --med-bg:  #4a3a10; --med-fg:  #f0c674;
+    --low-bg:  #133246; --low-fg:  #79c0ff;
+    --info-bg: #21262d; --info-fg: #8b949e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+  header{padding:32px 24px 16px;border-bottom:1px solid var(--border)}
+  header h1{margin:0 0 6px;font-size:22px}
+  header .meta{color:var(--muted);font-size:13px}
+  main{max-width:1100px;margin:0 auto;padding:24px}
+  .summary{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 24px}
+  .pill{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;border:1px solid var(--border)}
+  .pill.crit{background:var(--crit-bg);color:var(--crit-fg)}
+  .pill.high{background:var(--high-bg);color:var(--high-fg)}
+  .pill.med {background:var(--med-bg); color:var(--med-fg)}
+  .pill.low {background:var(--low-bg); color:var(--low-fg)}
+  .pill.info{background:var(--info-bg);color:var(--info-fg)}
+  details{background:var(--panel);border:1px solid var(--border);border-radius:8px;margin:0 0 12px;overflow:hidden}
+  details[open] summary{border-bottom:1px solid var(--border)}
+  summary{cursor:pointer;padding:12px 16px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  summary::-webkit-details-marker{display:none}
+  summary .title{font-weight:600}
+  summary .right{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  .badge.crit{background:var(--crit-bg);color:var(--crit-fg)}
+  .badge.high{background:var(--high-bg);color:var(--high-fg)}
+  .badge.med {background:var(--med-bg); color:var(--med-fg)}
+  .badge.low {background:var(--low-bg); color:var(--low-fg)}
+  .badge.info{background:var(--info-bg);color:var(--info-fg)}
+  .finding{padding:14px 16px;border-top:1px solid var(--border)}
+  .finding:first-child{border-top:none}
+  .finding h3{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:10px}
+  .finding pre{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:10px;margin:8px 0;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+  .finding .fix{margin-top:8px;color:var(--muted)}
+  .finding .fix strong{color:var(--fg)}
+  .finding a{color:#79c0ff}
+  .empty{color:var(--muted);font-style:italic;padding:12px 16px}
+  .err{color:#ff8a85;padding:12px 16px}
+  footer{text-align:center;color:var(--muted);font-size:12px;padding:24px}
+</style>
+</head>
+<body>
+<header>
+  <h1>WPSecScan — <span style="color:#79c0ff">https://wordpress.org</span></h1>
+  <div class="meta">Scanned 2026-05-22T12:52:23.438115+00:00 · 26674 ms total</div>
+  <div class="summary">
+    <span class="pill crit">0 critical</span>
+    <span class="pill high">1 high</span>
+    <span class="pill med">8 medium</span>
+    <span class="pill low">5 low</span>
+    <span class="pill info">8 info</span>
+  </div>
+</header>
+<main>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">WordPress core version</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 4396 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>WordPress core is up to date (7.1)</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Detected 7.1 via meta generator tag on /; latest is 7.0.</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed.</div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  
+  <details open>
+    <summary>
+      <span class="title">Plugin enumeration</span>
+      <span class="right">
+        <span class="badge med">medium</span>
+        <span>2 findings</span>
+        <span>· 5901 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>1 plugin(s) discovered via HTML asset paths</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Plugin slugs found across 5 probed page(s):
+  - gutenberg  (version: 23.2.2)</pre>
+          <div class="fix"><strong>Fix:</strong> Plugin slugs being discoverable is normal but useful to attackers. Keep all listed plugins updated. Consider a WAF that strips ?ver= asset query strings.</div>
+        </div>
+      
+        
+        <div class="finding">
+          <h3><span class="badge med">medium</span>1 plugin(s) expose readme.txt with version</h3>
+          <div><a href="https://wordpress.org/wp-content/plugins/" target="_blank" rel="noopener">https://wordpress.org/wp-content/plugins/</a></div>
+          <pre>readme.txt accessible for:
+  - gutenberg: version 23.2.2</pre>
+          <div class="fix"><strong>Fix:</strong> Block /wp-content/plugins/*/readme.txt at the server level. Public readme files leak exact plugin versions, making CVE matching trivial.</div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Theme enumeration</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 3780 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>2 theme(s) discovered via HTML asset paths</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Theme slugs found:
+  - wporg-parent-2021  (version: 1.0.0-6ebb648)
+  - wporg-main-2022  (version: 1.0.0-4837c60)</pre>
+          <div class="fix"><strong>Fix:</strong> Keep all installed themes updated, including inactive ones. Delete unused themes — inactive themes still receive PHP execution if a CVE lands.</div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  
+  <details open>
+    <summary>
+      <span class="title">User enumeration</span>
+      <span class="right">
+        <span class="badge med">medium</span>
+        <span>2 findings</span>
+        <span>· 7664 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        <div class="finding">
+          <h3><span class="badge med">medium</span>REST /wp-json/wp/v2/users exposes 6 user(s)</h3>
+          <div><a href="https://wordpress.org/wp-json/wp/v2/users" target="_blank" rel="noopener">https://wordpress.org/wp-json/wp/v2/users</a></div>
+          <pre>Public REST endpoint returned:
+  - adamwood
+  - annezazu
+  - joen
+  - ryelle
+  - poliuk
+  - wordpressdotorg</pre>
+          <div class="fix"><strong>Fix:</strong> Restrict the users REST endpoint. In functions.php:
+  add_filter(&#39;rest_endpoints&#39;, function($e){ unset($e[&#39;/wp/v2/users&#39;]); unset($e[&#39;/wp/v2/users/(?P&lt;id&gt;[\d]+)&#39;]); return $e; });
+Or use a security plugin&#39;s REST hardening rule.</div>
+        </div>
+      
+        
+        <div class="finding">
+          <h3><span class="badge med">medium</span>REST users endpoint exposed via ?rest_route= query</h3>
+          <div><a href="https://wordpress.org/?rest_route=/wp/v2/users" target="_blank" rel="noopener">https://wordpress.org/?rest_route=/wp/v2/users</a></div>
+          <pre>/?rest_route=/wp/v2/users returned 6 user(s).</pre>
+          <div class="fix"><strong>Fix:</strong> Same fix as /wp-json/wp/v2/users — filter out the users endpoint via rest_endpoints.</div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Exposed files</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 26319 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>Exposed: cron endpoint present at /wp-cron.php</h3>
+          <div><a href="https://wordpress.org/wp-cron.php" target="_blank" rel="noopener">https://wordpress.org/wp-cron.php</a></div>
+          <pre>GET /wp-cron.php → 200 (text/html; charset=utf-8)
+  preview: (binary, 0 bytes)</pre>
+          <div class="fix"><strong>Fix:</strong> Remove /wp-cron.php from the document root immediately, or add a server-level deny rule. For backups/secrets, also rotate any credentials they contained — assume they are compromised.</div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  
+  <details open>
+    <summary>
+      <span class="title">Login surface</span>
+      <span class="right">
+        <span class="badge med">medium</span>
+        <span>1 finding</span>
+        <span>· 3253 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        <div class="finding">
+          <h3><span class="badge med">medium</span>XML-RPC endpoint is enabled</h3>
+          <div><a href="https://wordpress.org/xmlrpc.php" target="_blank" rel="noopener">https://wordpress.org/xmlrpc.php</a></div>
+          <pre>POST /xmlrpc.php system.listMethods → 200 with valid methodResponse. system.multicall + wp.getUsersBlogs available — amplification + brute-force vector.</pre>
+          <div class="fix"><strong>Fix:</strong> If you don&#39;t use Jetpack or the WP mobile app, disable XML-RPC. Block /xmlrpc.php at the server (Nginx: `location = /xmlrpc.php { deny all; }`). If you need it, restrict by IP and disable system.multicall via the `xmlrpc_methods` filter to neutralize the brute-force amplifier.</div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  
+  <details open>
+    <summary>
+      <span class="title">TLS &amp; security headers</span>
+      <span class="right">
+        <span class="badge high">high</span>
+        <span>7 findings</span>
+        <span>· 3236 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        <div class="finding">
+          <h3><span class="badge high">high</span>Missing security header: strict-transport-security</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>GET / response did not include strict-transport-security.</pre>
+          <div class="fix"><strong>Fix:</strong> Add HSTS: `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`. Without it, the very first request to your domain can be downgraded to HTTP.</div>
+        </div>
+      
+        
+        <div class="finding">
+          <h3><span class="badge med">medium</span>Missing security header: content-security-policy</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>GET / response did not include content-security-policy.</pre>
+          <div class="fix"><strong>Fix:</strong> Add a Content-Security-Policy. Start with a report-only policy to map your asset hosts, then enforce. Even a permissive `default-src &#39;self&#39; https:; object-src &#39;none&#39;` blocks the most common XSS payloads.</div>
+        </div>
+      
+        
+        <div class="finding">
+          <h3><span class="badge med">medium</span>Missing security header: x-frame-options</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>GET / response did not include x-frame-options.</pre>
+          <div class="fix"><strong>Fix:</strong> Add `X-Frame-Options: SAMEORIGIN` (or a CSP frame-ancestors directive) to prevent clickjacking.</div>
+        </div>
+      
+        
+        <div class="finding">
+          <h3><span class="badge low">low</span>Missing security header: x-content-type-options</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>GET / response did not include x-content-type-options.</pre>
+          <div class="fix"><strong>Fix:</strong> Add `X-Content-Type-Options: nosniff` to stop MIME sniffing.</div>
+        </div>
+      
+        
+        <div class="finding">
+          <h3><span class="badge low">low</span>Missing security header: referrer-policy</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>GET / response did not include referrer-policy.</pre>
+          <div class="fix"><strong>Fix:</strong> Add `Referrer-Policy: strict-origin-when-cross-origin`.</div>
+        </div>
+      
+        
+        <div class="finding">
+          <h3><span class="badge low">low</span>Missing security header: permissions-policy</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>GET / response did not include permissions-policy.</pre>
+          <div class="fix"><strong>Fix:</strong> Add a `Permissions-Policy` header to disable powerful APIs (camera, microphone, geolocation, etc.) for any features you don&#39;t use.</div>
+        </div>
+      
+        
+        <div class="finding">
+          <h3><span class="badge low">low</span>Server / X-Powered-By headers leak software info</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Server: nginx</pre>
+          <div class="fix"><strong>Fix:</strong> Suppress these headers. Nginx: `more_clear_headers Server X-Powered-By;` (headers-more module) or `server_tokens off;`. PHP: set `expose_php = Off` in php.ini.</div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Directory listing</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 4323 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>No directory listings detected</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Probed 5 WP directories; none expose an index page.</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed.</div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Debug &amp; info leaks</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 3251 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>No debug / info leaks detected</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>debug.log not readable, no stack traces from crafted query, no emoji version fingerprint.</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed.</div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Plugin CVE matching</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 0 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>No plugins to cross-reference against CVE database</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>The plugin-enumeration check did not discover any plugin slugs in the homepage HTML.</pre>
+          <div class="fix"><strong>Fix:</strong> If you know plugins are installed but not detected, run the scanner against a page that loads them (e.g. a contact form page).</div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">SQL injection probes</span>
+      <span class="right">
+        <span class="badge info">info</span>
+        <span>1 finding</span>
+        <span>· 18509 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        <div class="finding">
+          <h3><span class="badge info">info</span>No SQL injection indicators on tested parameters</h3>
+          <div><a href="https://wordpress.org" target="_blank" rel="noopener">https://wordpress.org</a></div>
+          <pre>Probed 5 common WP parameters with error/boolean/time payloads. WP core has long been hardened against these vectors; real-world WP SQLi usually lives in plugins. This is reassuring but not exhaustive.</pre>
+          <div class="fix"><strong>Fix:</strong> No action needed for the tested endpoints. Keep all plugins updated and prefer plugins from reputable maintainers.</div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  
+  <details >
+    <summary>
+      <span class="title">Reflected XSS probes</span>
+      <span class="right">
+        <span class="badge low">low</span>
+        <span>1 finding</span>
+        <span>· 3787 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        <div class="finding">
+          <h3><span class="badge low">low</span>Parameter &#39;author_name&#39; is reflected (brackets escaped)</h3>
+          <div><a href="https://wordpress.org/?author_name=&lt;wpsxb24a9e94&gt;&#34;&#39;" target="_blank" rel="noopener">https://wordpress.org/?author_name=&lt;wpsxb24a9e94&gt;&#34;&#39;</a></div>
+          <pre>Marker &#39;wpsxb24a9e94&#39; reflected; angle brackets appear escaped. Low risk on its own, but quote-context bugs can still enable attribute-break XSS.</pre>
+          <div class="fix"><strong>Fix:</strong> Ensure attribute values in PHP templates are wrapped with esc_attr().</div>
+        </div>
+      
+    
+  </details>
+
+  
+  
+  
+  
+  
+  
+  <details open>
+    <summary>
+      <span class="title">Open-redirect probes</span>
+      <span class="right">
+        <span class="badge med">medium</span>
+        <span>2 findings</span>
+        <span>· 6840 ms</span>
+      </span>
+    </summary>
+    
+      
+        
+        <div class="finding">
+          <h3><span class="badge med">medium</span>Open redirect via wp-login.php?redirect_to=https://...</h3>
+          <div><a href="https://wordpress.org/wp-login.php" target="_blank" rel="noopener">https://wordpress.org/wp-login.php</a></div>
+          <pre>GET /wp-login.php with {&#39;redirect_to&#39;: &#39;https://wpsecscan-redirect-test.invalid/landed&#39;} -&gt; 301
+  Location: https://login.wordpress.org/?redirect_to=https%3A%2F%2Fwordpress.org%2F
+  Target host &#39;login.wordpress.org&#39; is not the scanned host &#39;wordpress.org&#39;.</pre>
+          <div class="fix"><strong>Fix:</strong> Validate redirect targets against an allow-list, or use wp_safe_redirect() which strips off-host destinations. Open redirects are commonly chained into phishing campaigns and OAuth-token theft.</div>
+        </div>
+      
+        
+        <div class="finding">
+          <h3><span class="badge med">medium</span>Open redirect via wp-login.php?redirect_to=//host (protocol-relative)</h3>
+          <div><a href="https://wordpress.org/wp-login.php" target="_blank" rel="noopener">https://wordpress.org/wp-login.php</a></div>
+          <pre>GET /wp-login.php with {&#39;redirect_to&#39;: &#39;//wpsecscan-redirect-test.invalid&#39;} -&gt; 301
+  Location: https://login.wordpress.org/?redirect_to=https%3A%2F%2Fwordpress.org%2F
+  Target host &#39;login.wordpress.org&#39; is not the scanned host &#39;wordpress.org&#39;.</pre>
+          <div class="fix"><strong>Fix:</strong> Validate redirect targets against an allow-list, or use wp_safe_redirect() which strips off-host destinations. Open redirects are commonly chained into phishing campaigns and OAuth-token theft.</div>
+        </div>
+      
+    
+  </details>
+
+</main>
+<footer>Generated by WPSecScan · defensive recon only</footer>
+</body>
+</html>

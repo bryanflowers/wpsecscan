@@ -1,0 +1,56 @@
+name: Feature request
+description: Suggest a new check, reporter, integration, or UX improvement.
+title: "[Feature] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea!  Before filing, scan the [CONTRIBUTING.md](../CONTRIBUTING.md)
+        "What we accept" section — some ideas (online password brute-force,
+        auto-exploitation, detection-bypass tooling) are out of scope by policy.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of feature?
+      options:
+        - New check (passive)
+        - New check (aggressive / active payload)
+        - New reporter / export format
+        - New integration (threat-intel, SIEM, chat, etc.)
+        - GUI improvement
+        - CLI flag / behaviour
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: One paragraph — the user goal, not the implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach (optional)
+      description: |
+        Rough sketch — module name, CLI flag, GUI menu entry, etc.
+        If you don't have one yet, leave blank; that's fine.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered (optional)
+
+  - type: checkboxes
+    id: policy
+    attributes:
+      label: Policy check
+      options:
+        - label: I've read CONTRIBUTING.md "What we accept" and this request fits.
+          required: true

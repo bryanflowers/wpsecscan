@@ -1,0 +1,29 @@
+# Drop into .gitlab-ci.yml. Set WPSEC_TARGET as a CI/CD variable.
+# Optional vars: WPSCAN_TOKEN, PATCHSTACK_TOKEN, HIBP_TOKEN
+wpsecscan:
+  stage: test
+  image: python:3.11-slim
+  variables:
+    WPSEC_TARGET: "https://your-wp-site.com"
+  before_script:
+    - pip install --quiet httpx[http2] jinja2 rich openpyxl
+    - git clone --depth 1 https://github.com/bryan/wpsecscan.git _wpsecscan
+    - pip install --quiet -e ./_wpsecscan
+  script:
+    - python -m wpsecscan "$WPSEC_TARGET"
+        --json-only --no-color
+        --out ./reports
+        --fail-on critical
+        ${WPSCAN_TOKEN:+--wpscan-token "$WPSCAN_TOKEN"}
+        ${PATCHSTACK_TOKEN:+--patchstack-token "$PATCHSTACK_TOKEN"}
+  artifacts:
+    when: always
+    paths:
+      - reports/
+    reports:
+      junit: reports/*.json
+    expire_in: 30 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - when: manual

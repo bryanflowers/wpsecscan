@@ -1,0 +1,92 @@
+name: Bug report
+description: Report a bug in WPSecScan (the scanner — NOT in a website you scanned).
+title: "[Bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting!  Please fill in the details below.
+
+        **If you found a security issue in WPSecScan itself**, do NOT use this
+        form — see [SECURITY.md](../SECURITY.md) for the private disclosure
+        channel.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This is a bug in WPSecScan, not a finding produced by a scan.
+          required: true
+        - label: I have searched existing issues and this is not a duplicate.
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: WPSecScan version
+      description: "Run `wpsecscan --version`."
+      placeholder: "v1.x.y"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did the bug happen?
+      options:
+        - CLI (wpsecscan.exe)
+        - GUI (wpsecscan-gui.exe)
+        - From source (python -m wpsecscan)
+        - API server (--api-server)
+        - Daemon (--daemon)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS + Python version
+      placeholder: "Windows 11 / Python 3.12.4"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Be as concrete as possible.
+      placeholder: |
+        1. Ran `wpsecscan --demo`
+        2. Pressed Ctrl+C during the second activity-feed event
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened
+      description: Stack traces / log output / screenshots welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: crash_log
+    attributes:
+      label: Crash log (if any)
+      description: |
+        WPSecScan writes crash logs to `~/.wpsecscan/crash-*.txt`. Paste the
+        most recent one here, **after redacting any tokens / target URLs you
+        consider sensitive**. Tip: the in-app helper auto-redacts common
+        secret patterns.
+      render: shell

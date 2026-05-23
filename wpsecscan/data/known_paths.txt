@@ -1,0 +1,41 @@
+# path|severity|label
+wp-config.php.bak|critical|wp-config backup
+wp-config.php~|critical|wp-config backup
+wp-config.php.old|critical|wp-config backup
+wp-config.php.save|critical|wp-config backup
+wp-config.php.swp|critical|vim swap of wp-config
+wp-config.txt|critical|wp-config as txt
+wp-config-sample.php.bak|high|wp-config sample backup
+.env|critical|env file
+.env.local|critical|env file
+.env.backup|critical|env file
+.git/HEAD|high|git repo exposed
+.git/config|high|git repo exposed
+.git/index|high|git repo exposed
+.svn/entries|high|svn repo exposed
+.hg/store/00manifest.i|high|hg repo exposed
+.DS_Store|low|macOS metadata leak
+backup.zip|high|generic backup archive
+backup.tar.gz|high|generic backup archive
+backup.sql|critical|database dump
+db.sql|critical|database dump
+dump.sql|critical|database dump
+database.sql|critical|database dump
+site.zip|high|site archive
+wp-content/debug.log|high|WP debug log
+wp-content/uploads/error_log|medium|PHP error log in uploads
+error_log|medium|PHP error log
+errors.log|medium|error log
+phpinfo.php|critical|phpinfo() page
+info.php|critical|phpinfo() page
+test.php|medium|generic test file
+adminer.php|critical|Adminer DB UI
+phpmyadmin/|high|phpMyAdmin install
+pma/|high|phpMyAdmin install
+.htaccess.bak|high|htaccess backup
+.htaccess~|high|htaccess backup
+readme.html|low|WP readme
+license.txt|low|WP license file
+wp-content/plugins/akismet/_inc/img/logo-full-2x.png|info|akismet asset (fingerprint)
+xmlrpc.php|info|xmlrpc endpoint present
+wp-cron.php|info|cron endpoint present

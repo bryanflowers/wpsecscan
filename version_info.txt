@@ -1,0 +1,38 @@
+# PyInstaller version-resource block.
+# Shown to users in:
+#   - Windows Properties dialog (right-click .exe -> Properties -> Details)
+#   - SmartScreen "Unknown publisher" warning (the FileDescription line)
+#   - Task Manager process descriptions
+#
+# Helps distinguish the binary from a generic unsigned .exe and reduces the
+# "this looks suspicious" reaction users have when Defender flags it.
+
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(1, 0, 0, 0),
+    prodvers=(1, 0, 0, 0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+  ),
+  kids=[
+    StringFileInfo(
+      [
+      StringTable(
+        '040904B0',
+        [StringStruct('CompanyName', 'WPSecScan defensive security tool'),
+        StringStruct('FileDescription', 'WPSecScan — defensive WordPress recon scanner (use on sites you own only)'),
+        StringStruct('FileVersion', '1.0.0'),
+        StringStruct('InternalName', 'wpsecscan'),
+        StringStruct('LegalCopyright', 'Defensive recon tool — read-only HTTP probes, no auto-exploitation, no backdoor functionality.'),
+        StringStruct('OriginalFilename', 'wpsecscan.exe'),
+        StringStruct('ProductName', 'WPSecScan'),
+        StringStruct('ProductVersion', '1.0.0'),
+        StringStruct('Comments', 'NOT MALWARE. Detects webshell + RCE patterns on YOUR OWN sites. Defender may flag pattern strings — this is a known false positive on offensive-security tooling. See README.md.')])
+      ]),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])])
+  ]
+)
