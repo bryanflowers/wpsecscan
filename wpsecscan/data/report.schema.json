@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wpsecscan.org/schema/report-v2.json",
+  "title": "WPSecScan scan report",
+  "description": "L32 — versioned JSON schema for the wpsecscan JSON reporter output. Increment $id on breaking changes.",
+  "type": "object",
+  "required": ["target", "scanned_at", "duration_ms", "summary", "risk_score", "results"],
+  "additionalProperties": true,
+  "properties": {
+    "target":      { "type": "string", "format": "uri" },
+    "scanned_at":  { "type": "string", "description": "ISO 8601 timestamp" },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "critical": { "type": "integer", "minimum": 0 },
+        "high":     { "type": "integer", "minimum": 0 },
+        "medium":   { "type": "integer", "minimum": 0 },
+        "low":      { "type": "integer", "minimum": 0 },
+        "info":     { "type": "integer", "minimum": 0 }
+      }
+    },
+    "risk_score":  { "type": "integer", "minimum": 0, "maximum": 100 },
+    "threat_intel": {
+      "type": "object",
+      "description": "Optional enrichment from CISA KEV / EPSS lookups",
+      "additionalProperties": true
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["check_id", "check_name", "findings"],
+        "additionalProperties": true,
+        "properties": {
+          "check_id":   { "type": "string" },
+          "check_name": { "type": "string" },
+          "error":      { "type": ["string", "null"] },
+          "duration_ms":{ "type": "integer", "minimum": 0 },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["severity", "title"],
+              "additionalProperties": true,
+              "properties": {
+                "severity":    { "enum": ["info", "low", "medium", "high", "critical"] },
+                "title":       { "type": "string" },
+                "evidence":    { "type": "string" },
+                "remediation": { "type": "string" },
+                "url":         { "type": "string" },
+                "extra":       { "type": "object", "additionalProperties": true }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

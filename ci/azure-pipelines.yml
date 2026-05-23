@@ -1,0 +1,46 @@
+# Azure DevOps pipeline for WPSecScan
+trigger:
+  branches:
+    include: [main]
+
+schedules:
+  - cron: "30 3 * * *"
+    displayName: Nightly WPSecScan
+    branches:
+      include: [main]
+    always: true
+
+variables:
+  WPSEC_TARGET: "https://your-wp-site.com"  # override via pipeline variable
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.11"
+
+  - bash: |
+      pip install --quiet httpx[http2] jinja2 rich openpyxl
+      git clone --depth 1 https://github.com/bryan/wpsecscan.git _wpsecscan
+      pip install --quiet -e ./_wpsecscan
+    displayName: Install WPSecScan
+
+  - bash: |
+      python -m wpsecscan "$WPSEC_TARGET" \
+        --json-only --no-color \
+        --out ./reports \
+        --fail-on critical \
+        ${WPSCAN_TOKEN:+--wpscan-token "$WPSCAN_TOKEN"} \
+        ${PATCHSTACK_TOKEN:+--patchstack-token "$PATCHSTACK_TOKEN"}
+    displayName: Run scan
+    env:
+      WPSCAN_TOKEN: $(WPSCAN_TOKEN)
+      PATCHSTACK_TOKEN: $(PATCHSTACK_TOKEN)
+
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    inputs:
+      pathToPublish: reports
+      artifactName: wpsecscan-report

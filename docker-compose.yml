@@ -1,0 +1,30 @@
+# WPSecScan via docker-compose.
+#
+# Usage:
+#   docker-compose run --rm wpsecscan https://your-site.com --aggressive
+#
+# Configure target + tokens in a `.env` file alongside this:
+#   WPSEC_TARGET=https://your-site.com
+#   WPSCAN_TOKEN=...
+#   PATCHSTACK_TOKEN=...
+
+services:
+  wpsecscan:
+    build: .
+    image: wpsecscan:latest
+    environment:
+      WPSCAN_TOKEN: ${WPSCAN_TOKEN:-}
+      PATCHSTACK_TOKEN: ${PATCHSTACK_TOKEN:-}
+      HIBP_TOKEN: ${HIBP_TOKEN:-}
+      ABUSEIPDB_TOKEN: ${ABUSEIPDB_TOKEN:-}
+    volumes:
+      - ./reports:/reports
+      - wpsec-state:/root/.wpsecscan
+    command: >
+      ${WPSEC_TARGET:-https://example.com}
+      --out /reports
+      --json-only
+      --aggressive
+
+volumes:
+  wpsec-state:

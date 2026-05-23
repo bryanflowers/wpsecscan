@@ -1,0 +1,87 @@
+name: WPSecScan
+
+# Drop this in `.github/workflows/wpsecscan.yml` of any repo to auto-scan a
+# WordPress URL on every PR + nightly. The scan posts a comment on the PR
+# with the risk score delta vs main.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "URL to scan"
+        required: true
+        default: "https://your-wp-site.com"
+  schedule:
+    # Nightly at 03:30 UTC
+    - cron: "30 3 * * *"
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    env:
+      WPSEC_TARGET: ${{ github.event.inputs.target_url || vars.WPSEC_TARGET || 'https://your-wp-site.com' }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install wpsecscan (from source)
+        run: |
+          pip install httpx[http2] jinja2 rich openpyxl
+          # If/when wpsecscan is published to PyPI: `pip install wpsecscan`
+          git clone --depth 1 https://github.com/bryan/wpsecscan.git _wpsecscan
+          pip install -e ./_wpsecscan
+
+      - name: Run scan
+        run: |
+          python -m wpsecscan "${WPSEC_TARGET}" \
+            --json-only --no-color \
+            --out ./reports \
+            --fail-on critical \
+            ${{ secrets.WPSCAN_TOKEN && format('--wpscan-token {0}', secrets.WPSCAN_TOKEN) || '' }} \
+            ${{ secrets.PATCHSTACK_TOKEN && format('--patchstack-token {0}', secrets.PATCHSTACK_TOKEN) || '' }}
+        continue-on-error: true
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wpsecscan-report
+          path: reports/
+
+      - name: Comment on PR with risk score
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const files = fs.readdirSync('reports').filter(f => f.endsWith('.json'));
+            if (!files.length) return;
+            const data = JSON.parse(fs.readFileSync(path.join('reports', files[0]), 'utf-8'));
+            const s = data.summary || {};
+            const body = `## 🔍 WPSecScan results for \`${data.target}\`\n\n` +
+              `**Risk score**: ${data.risk_score}/100 (grade ${data.risk_grade})\n\n` +
+              `- 🔴 Critical: ${s.critical || 0}\n` +
+              `- 🟠 High: ${s.high || 0}\n` +
+              `- 🟡 Medium: ${s.medium || 0}\n` +
+              `- 🔵 Low: ${s.low || 0}\n` +
+              `- ⚪ Info: ${s.info || 0}\n\n` +
+              `Full report in the **wpsecscan-report** artifact.`;
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

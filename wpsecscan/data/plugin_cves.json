@@ -1,0 +1,42 @@
+{
+  "_meta": {
+    "description": "Hand-curated WordPress plugin vulnerability database for offline matching. Versions follow semver-ish comparison rules used by ver_lt().",
+    "source": "Public advisories (Wordfence, WPScan, NVD). Not exhaustive — update as needed.",
+    "format": {
+      "slug": "wp-content/plugins slug",
+      "fixed_in": "first patched version (vulnerable < fixed_in)",
+      "severity": "info|low|medium|high|critical",
+      "cve": "CVE id or advisory ref",
+      "title": "short description",
+      "remediation": "what to do"
+    }
+  },
+  "vulns": [
+    {"slug":"file-manager","fixed_in":"6.9","severity":"critical","cve":"CVE-2020-25213","title":"File Manager < 6.9: unauthenticated RCE via elFinder","remediation":"Update to 6.9+ immediately. Audit /wp-content/uploads for backdoors (look for *.php files, especially under uploads/wp-file-manager-pro/)."},
+    {"slug":"wp-file-manager","fixed_in":"6.9","severity":"critical","cve":"CVE-2020-25213","title":"wp-file-manager < 6.9: unauthenticated RCE","remediation":"Update to 6.9+ immediately and audit uploads for webshells."},
+    {"slug":"elementor","fixed_in":"3.5.5","severity":"high","cve":"CVE-2022-1329","title":"Elementor < 3.5.5: authenticated RCE","remediation":"Update to 3.5.5+. Restrict 'edit_pages' role assignments."},
+    {"slug":"elementor-pro","fixed_in":"3.11.7","severity":"high","cve":"CVE-2023-3914","title":"Elementor Pro < 3.11.7: arbitrary file upload","remediation":"Update Elementor Pro to 3.11.7+."},
+    {"slug":"wpbakery-page-builder","fixed_in":"6.4.1","severity":"high","cve":"WPVDB-9890","title":"WPBakery < 6.4.1: stored XSS via custom_html","remediation":"Update WPBakery (Visual Composer) to 6.4.1+."},
+    {"slug":"js_composer","fixed_in":"6.4.1","severity":"high","cve":"WPVDB-9890","title":"WPBakery (js_composer) < 6.4.1: stored XSS","remediation":"Update WPBakery to 6.4.1+."},
+    {"slug":"wp-statistics","fixed_in":"13.1.5","severity":"high","cve":"CVE-2022-25148","title":"WP Statistics < 13.1.5: SQL injection","remediation":"Update WP Statistics to 13.1.5+."},
+    {"slug":"contact-form-7","fixed_in":"5.7.1","severity":"high","cve":"CVE-2023-6449","title":"Contact Form 7 < 5.7.1: unrestricted file upload","remediation":"Update CF7 to 5.7.1+. Audit uploads for executable content."},
+    {"slug":"wp-super-cache","fixed_in":"1.7.2","severity":"high","cve":"CVE-2021-24209","title":"WP Super Cache < 1.7.2: authenticated RCE","remediation":"Update WP Super Cache to 1.7.2+."},
+    {"slug":"duplicator","fixed_in":"1.4.7","severity":"high","cve":"CVE-2022-3590","title":"Duplicator < 1.4.7: backup leak via /wp-content/backups-dup-lite/","remediation":"Update Duplicator to 1.4.7+ and rotate DB credentials (backups contain wp_users)."},
+    {"slug":"wpforms-lite","fixed_in":"1.7.5.4","severity":"medium","cve":"WPVDB-7d5b","title":"WPForms Lite < 1.7.5.4: stored XSS in form entries","remediation":"Update WPForms to 1.7.5.4+."},
+    {"slug":"all-in-one-seo-pack","fixed_in":"4.1.5.3","severity":"high","cve":"CVE-2021-24307","title":"AIOSEO < 4.1.5.3: privilege escalation + SQLi","remediation":"Update AIOSEO to 4.1.5.3+. Rotate admin credentials."},
+    {"slug":"wordpress-seo","fixed_in":"16.5","severity":"medium","cve":"CVE-2021-25118","title":"Yoast SEO < 16.5: information disclosure","remediation":"Update Yoast SEO to 16.5+."},
+    {"slug":"jetpack","fixed_in":"9.8","severity":"high","cve":"WPVDB-jet9.8","title":"Jetpack < 9.8: privilege escalation in REST endpoints","remediation":"Update Jetpack to 9.8+."},
+    {"slug":"woocommerce","fixed_in":"5.5.1","severity":"high","cve":"CVE-2021-32789","title":"WooCommerce < 5.5.1: SQL injection in webhooks","remediation":"Update WooCommerce to 5.5.1+."},
+    {"slug":"learnpress","fixed_in":"4.2.0","severity":"critical","cve":"CVE-2022-45808","title":"LearnPress < 4.2.0: unauthenticated SQLi","remediation":"Update LearnPress to 4.2.0+ immediately."},
+    {"slug":"ultimate-member","fixed_in":"2.6.7","severity":"critical","cve":"CVE-2023-3460","title":"Ultimate Member < 2.6.7: unauthenticated privilege escalation","remediation":"Update Ultimate Member to 2.6.7+ immediately. Audit users in wp_users with 'wp_capabilities' = administrator that you didn't create."},
+    {"slug":"wp-fastest-cache","fixed_in":"1.2.2","severity":"high","cve":"CVE-2023-6063","title":"WP Fastest Cache < 1.2.2: SQL injection","remediation":"Update WP Fastest Cache to 1.2.2+."},
+    {"slug":"essential-addons-for-elementor-lite","fixed_in":"5.7.2","severity":"critical","cve":"CVE-2023-32243","title":"Essential Addons < 5.7.2: unauthenticated privilege escalation","remediation":"Update Essential Addons to 5.7.2+. Rotate admin credentials."},
+    {"slug":"backup-backup","fixed_in":"1.2.12","severity":"high","cve":"CVE-2023-6553","title":"Backup Migration < 1.2.12: unauthenticated RCE","remediation":"Update Backup Migration to 1.2.12+ immediately."},
+    {"slug":"forminator","fixed_in":"1.24.7","severity":"high","cve":"CVE-2024-28890","title":"Forminator < 1.24.7: unrestricted file upload","remediation":"Update Forminator to 1.24.7+ and audit uploads."},
+    {"slug":"litespeed-cache","fixed_in":"6.4.1","severity":"high","cve":"CVE-2024-28000","title":"LiteSpeed Cache < 6.4.1: privilege escalation","remediation":"Update LiteSpeed Cache to 6.4.1+. Rotate admin credentials."},
+    {"slug":"wp-automatic","fixed_in":"3.92.1","severity":"critical","cve":"CVE-2024-27956","title":"WP Automatic < 3.92.1: unauthenticated SQLi","remediation":"Update WP Automatic to 3.92.1+. Audit for new admin users."},
+    {"slug":"bricks","fixed_in":"1.9.6.1","severity":"critical","cve":"CVE-2024-25600","title":"Bricks Builder < 1.9.6.1: unauthenticated RCE","remediation":"Update Bricks to 1.9.6.1+ immediately."},
+    {"slug":"royal-elementor-addons","fixed_in":"1.3.79","severity":"critical","cve":"CVE-2023-5360","title":"Royal Elementor Addons < 1.3.79: unauthenticated arbitrary file upload","remediation":"Update Royal Elementor Addons to 1.3.79+ and audit uploads for webshells."},
+    {"slug":"wp-mail-smtp","fixed_in":"3.7.0","severity":"high","cve":"CVE-2023-1142","title":"WP Mail SMTP < 3.7.0: email leak via debug log","remediation":"Update WP Mail SMTP to 3.7.0+."}
+  ]
+}

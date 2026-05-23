@@ -1,0 +1,37 @@
+version: 2
+updates:
+  # Python dependencies
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    open-pull-requests-limit: 5
+    labels: [dependencies, automated]
+    groups:
+      # Group patch-only bumps together so we get one PR per week
+      patch-bumps:
+        update-types: [patch]
+      # Group dev/test deps separately
+      test-deps:
+        patterns:
+          - "pytest*"
+          - "pyflakes"
+      # Treat optional extras as one group so we don't get 8 PRs for every minor
+      optional-extras:
+        patterns:
+          - "reportlab"
+          - "playwright"
+          - "pyyaml"
+          - "redis"
+          - "bcrypt"
+          - "opentelemetry-*"
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [ci, automated]

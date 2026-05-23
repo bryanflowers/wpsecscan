@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WPSecScan — batch dashboard</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1f2630;
+    --fg: #e6edf3; --muted: #8b949e; --border: #30363d;
+    --crit-bg: #67000d; --crit-fg: #ffd6d6;
+    --high-bg: #5a1816; --high-fg: #ff8a85;
+    --med-bg:  #4a3a10; --med-fg:  #f0c674;
+    --low-bg:  #133246; --low-fg:  #79c0ff;
+    --info-bg: #21262d; --info-fg: #8b949e;
+    --ok-bg:   #133320; --ok-fg:   #6cc474;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,"Segoe UI",system-ui,sans-serif}
+  header{padding:32px 24px 16px;border-bottom:1px solid var(--border)}
+  header h1{margin:0 0 6px;font-size:22px}
+  header .meta{color:var(--muted);font-size:13px}
+  main{max-width:1400px;margin:0 auto;padding:24px}
+  table{width:100%;border-collapse:collapse;margin-top:16px}
+  th, td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}
+  th{background:var(--panel);color:var(--fg);font-weight:600;cursor:pointer}
+  th:hover{background:var(--panel2)}
+  tr:hover{background:var(--panel)}
+  .pill{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  .pill.crit{background:var(--crit-bg);color:var(--crit-fg)}
+  .pill.high{background:var(--high-bg);color:var(--high-fg)}
+  .pill.med {background:var(--med-bg); color:var(--med-fg)}
+  .pill.low {background:var(--low-bg); color:var(--low-fg)}
+  .pill.info{background:var(--info-bg);color:var(--info-fg)}
+  .pill.ok  {background:var(--ok-bg);  color:var(--ok-fg)}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .num.crit{color:#ff5252;font-weight:700}
+  .num.high{color:#ff8a85;font-weight:700}
+  .num.med {color:#f0c674}
+  .num.low {color:#79c0ff}
+  .num.info{color:#8b949e}
+  a{color:#79c0ff;text-decoration:none}
+  a:hover{text-decoration:underline}
+  .summary{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>WPSecScan — batch dashboard</h1>
+  <div class="meta">Generated {{ generated_at }} · {{ reports|length }} site(s) scanned</div>
+  <div class="summary">
+    <span class="pill crit">{{ totals.critical }} critical</span>
+    <span class="pill high">{{ totals.high }} high</span>
+    <span class="pill med">{{ totals.medium }} medium</span>
+    <span class="pill low">{{ totals.low }} low</span>
+    <span class="pill info">{{ totals.info }} info</span>
+  </div>
+</header>
+<main>
+<table>
+<thead>
+<tr>
+  <th>Site</th>
+  <th>Worst</th>
+  <th class="num">Crit</th>
+  <th class="num">High</th>
+  <th class="num">Med</th>
+  <th class="num">Low</th>
+  <th class="num">Info</th>
+  <th class="num">Duration</th>
+  <th>Per-site report</th>
+</tr>
+</thead>
+<tbody>
+{% for row in reports %}
+  {% set sev = row.worst or 'ok' %}
+  {% set short = 'crit' if sev=='critical' else ('med' if sev=='medium' else sev) %}
+  <tr>
+    <td>{{ row.target }}</td>
+    <td><span class="pill {{ short }}">{{ sev|upper }}</span></td>
+    <td class="num crit">{{ row.summary.critical }}</td>
+    <td class="num high">{{ row.summary.high }}</td>
+    <td class="num med">{{ row.summary.medium }}</td>
+    <td class="num low">{{ row.summary.low }}</td>
+    <td class="num info">{{ row.summary.info }}</td>
+    <td class="num">{{ row.duration_ms }} ms</td>
+    <td><a href="{{ row.html_filename }}" target="_blank">open ↗</a></td>
+  </tr>
+{% endfor %}
+</tbody>
+</table>
+</main>
+</body>
+</html>

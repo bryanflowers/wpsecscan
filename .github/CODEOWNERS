@@ -1,0 +1,55 @@
+# CODEOWNERS for wpsecscan
+# Lines auto-request review from the listed owners when matching files change.
+# Syntax: https://docs.github.com/en/repositories/managing-your-repositories-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner — everything else
+*                                       @bryanflowers
+
+# Active-payload checks: anything that sends real attack traffic.
+# Touching these needs explicit review so a new contributor can't accidentally
+# turn a passive scanner into a brute-force tool.
+wpsecscan/checks/sqli.py                @bryanflowers
+wpsecscan/checks/xss_reflected.py       @bryanflowers
+wpsecscan/checks/ssrf.py                @bryanflowers
+wpsecscan/checks/path_traversal.py      @bryanflowers
+wpsecscan/checks/file_upload.py         @bryanflowers
+wpsecscan/checks/default_creds.py       @bryanflowers
+wpsecscan/checks/open_redirect.py       @bryanflowers
+wpsecscan/checks/ssti.py                @bryanflowers
+wpsecscan/checks/nosql_injection.py     @bryanflowers
+wpsecscan/checks/race_condition.py      @bryanflowers
+wpsecscan/checks/dom_xss_headless.py    @bryanflowers
+wpsecscan/checks/cloud_metadata_ssrf.py @bryanflowers
+wpsecscan/checks/dns_rebinding.py       @bryanflowers
+wpsecscan/checks/hpp.py                 @bryanflowers
+wpsecscan/checks/header_smuggling_case.py @bryanflowers
+wpsecscan/checks/path_bypass.py         @bryanflowers
+wpsecscan/checks/smuggling_probe.py     @bryanflowers
+wpsecscan/checks/login_throttle_deep.py @bryanflowers
+wpsecscan/checks/waf_bypass_probe.py    @bryanflowers
+wpsecscan/checks/xxe_upload.py          @bryanflowers
+wpsecscan/checks/prototype_pollution.py @bryanflowers
+wpsecscan/checks/graphql_field_dos.py   @bryanflowers
+
+# Payload data files — any change here ships new payloads to every user
+wpsecscan/data/payloads.json            @bryanflowers
+wpsecscan/data/exploit_signatures.json  @bryanflowers
+wpsecscan/data/exploit_playbook.json    @bryanflowers
+wpsecscan/payloads.py                   @bryanflowers
+
+# Security-sensitive infrastructure
+wpsecscan/api_server.py                 @bryanflowers
+wpsecscan/rbac.py                       @bryanflowers
+wpsecscan/crash_submit.py               @bryanflowers
+wpsecscan/audit_log_ship.py             @bryanflowers
+
+# Build / release pipeline
+build.ps1                               @bryanflowers
+scripts/                                @bryanflowers
+.github/                                @bryanflowers
+*.spec                                  @bryanflowers
+
+# Policy docs — should be reviewed by the maintainer
+SECURITY.md                             @bryanflowers
+CODE_OF_CONDUCT.md                      @bryanflowers
+LICENSE                                 @bryanflowers

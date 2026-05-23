@@ -1,0 +1,149 @@
+{
+  "_meta": "I12 — per-check reference URLs. Reporters render these alongside the remediation so the user can read a fuller writeup. Mappings are best-effort; favour OWASP / PortSwigger / HackTricks / official docs.",
+  "_schema": {
+    "primary":   "Definitive writeup for this class of bug",
+    "deep_dive": "PortSwigger or HackTricks deep dive",
+    "video":     "YouTube / conference talk if there's a canonical one"
+  },
+
+  "sqli": {
+    "primary":   "https://owasp.org/Top10/A03_2021-Injection/",
+    "deep_dive": "https://portswigger.net/web-security/sql-injection",
+    "video":     "https://www.youtube.com/watch?v=NoZSlYNAYzE"
+  },
+  "xss_reflected": {
+    "primary":   "https://owasp.org/www-community/attacks/xss/",
+    "deep_dive": "https://portswigger.net/web-security/cross-site-scripting/reflected"
+  },
+  "xss_dom_sinks": {
+    "primary":   "https://owasp.org/www-community/attacks/DOM_Based_XSS",
+    "deep_dive": "https://portswigger.net/web-security/cross-site-scripting/dom-based"
+  },
+  "dom_xss_headless": {
+    "primary":   "https://owasp.org/www-community/attacks/DOM_Based_XSS",
+    "deep_dive": "https://portswigger.net/web-security/cross-site-scripting/dom-based"
+  },
+  "ssrf": {
+    "primary":   "https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/",
+    "deep_dive": "https://portswigger.net/web-security/ssrf"
+  },
+  "cloud_metadata_ssrf": {
+    "primary":   "https://hackingthe.cloud/aws/exploitation/ec2-metadata-ssrf/",
+    "deep_dive": "https://book.hacktricks.xyz/pentesting-web/ssrf-server-side-request-forgery/cloud-ssrf",
+    "video":     "https://www.youtube.com/watch?v=jBgnTd0jD4M"
+  },
+  "dns_rebinding": {
+    "primary":   "https://en.wikipedia.org/wiki/DNS_rebinding",
+    "deep_dive": "https://book.hacktricks.xyz/pentesting-web/ssrf-server-side-request-forgery#bypass-via-open-redirect"
+  },
+  "ssti": {
+    "primary":   "https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/07-Input_Validation_Testing/18-Testing_for_Server-side_Template_Injection",
+    "deep_dive": "https://portswigger.net/web-security/server-side-template-injection"
+  },
+  "nosql_injection": {
+    "primary":   "https://owasp.org/www-community/Injection_Theory",
+    "deep_dive": "https://book.hacktricks.xyz/pentesting-web/nosql-injection"
+  },
+  "open_redirect": {
+    "primary":   "https://cwe.mitre.org/data/definitions/601.html",
+    "deep_dive": "https://portswigger.net/kb/issues/00500100_open-redirection-reflected"
+  },
+  "path_traversal": {
+    "primary":   "https://owasp.org/www-community/attacks/Path_Traversal",
+    "deep_dive": "https://portswigger.net/web-security/file-path-traversal"
+  },
+  "path_bypass": {
+    "primary":   "https://owasp.org/www-community/attacks/Path_Traversal",
+    "deep_dive": "https://portswigger.net/web-security/access-control/url-based"
+  },
+  "cors": {
+    "primary":   "https://portswigger.net/web-security/cors",
+    "deep_dive": "https://book.hacktricks.xyz/pentesting-web/cors-bypass"
+  },
+  "cors_origin_null": {
+    "primary":   "https://portswigger.net/web-security/cors/access-control-allow-origin#error-bypass-with-null-origin"
+  },
+  "smuggling_probe": {
+    "primary":   "https://portswigger.net/web-security/request-smuggling",
+    "deep_dive": "https://portswigger.net/research/http-desync-attacks",
+    "video":     "https://www.youtube.com/watch?v=w-eJM2Pc0KI"
+  },
+  "header_smuggling_case": {
+    "primary":   "https://portswigger.net/research/http-desync-attacks"
+  },
+  "subdomains": {
+    "primary":   "https://github.com/EdOverflow/can-i-take-over-xyz",
+    "deep_dive": "https://book.hacktricks.xyz/pentesting-web/domain-subdomain-takeover"
+  },
+  "saml_xsw": {
+    "primary":   "https://research.aurainfosec.io/pentest/the-malicious-use-of-iam-credentials/",
+    "deep_dive": "https://book.hacktricks.xyz/pentesting-web/saml-attacks/xml-signature-wrap-attacks-xsw"
+  },
+  "oauth_oidc": {
+    "primary":   "https://portswigger.net/web-security/oauth",
+    "deep_dive": "https://book.hacktricks.xyz/pentesting-web/oauth-to-account-takeover"
+  },
+  "jwt_audit": {
+    "primary":   "https://jwt.io/",
+    "deep_dive": "https://portswigger.net/web-security/jwt",
+    "video":     "https://www.youtube.com/watch?v=3OpQi65s_ME"
+  },
+  "csrf_nonce": {
+    "primary":   "https://owasp.org/www-community/attacks/csrf",
+    "deep_dive": "https://portswigger.net/web-security/csrf"
+  },
+  "csrf_entropy": {
+    "primary":   "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+  },
+  "session_fixation": {
+    "primary":   "https://owasp.org/www-community/attacks/Session_fixation",
+    "deep_dive": "https://book.hacktricks.xyz/pentesting-web/session-fixation"
+  },
+  "race_condition": {
+    "primary":   "https://portswigger.net/web-security/race-conditions",
+    "video":     "https://www.youtube.com/watch?v=tKJzsaB1ZvI"
+  },
+  "hpp": {
+    "primary":   "https://owasp.org/www-community/HTTP_Parameter_Pollution",
+    "deep_dive": "https://book.hacktricks.xyz/pentesting-web/parameter-pollution"
+  },
+  "default_creds": {
+    "primary":   "https://owasp.org/www-community/vulnerabilities/Use_of_hard-coded_password"
+  },
+  "file_upload": {
+    "primary":   "https://owasp.org/www-community/vulnerabilities/Unrestricted_File_Upload",
+    "deep_dive": "https://portswigger.net/web-security/file-upload"
+  },
+  "xxe_upload": {
+    "primary":   "https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing",
+    "deep_dive": "https://portswigger.net/web-security/xxe"
+  },
+  "secret_leak": {
+    "primary":   "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/"
+  },
+  "github_leak_search": {
+    "primary":   "https://docs.github.com/en/code-security/secret-scanning/about-secret-scanning"
+  },
+  "s3_bucket_discovery": {
+    "primary":   "https://book.hacktricks.xyz/network-services-pentesting/pentesting-web/aws-amplify"
+  },
+  "waf": {
+    "primary":   "https://portswigger.net/web-security/ssrf/bypassing-ssrf-filters"
+  },
+  "waf_bypass_probe": {
+    "primary":   "https://portswigger.net/web-security/ssrf/bypassing-ssrf-filters"
+  },
+  "tls_headers": {
+    "primary":   "https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html"
+  },
+  "csp": {
+    "primary":   "https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html",
+    "deep_dive": "https://csp.withgoogle.com/docs/index.html"
+  },
+  "cache_poisoning": {
+    "primary":   "https://portswigger.net/web-security/web-cache-poisoning"
+  },
+  "prototype_pollution": {
+    "primary":   "https://learn.snyk.io/lesson/prototype-pollution/"
+  }
+}

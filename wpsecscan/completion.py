@@ -1,0 +1,136 @@
+"""O47 Shell completion generation.
+
+Reads the argparse parser and emits a bash / zsh / PowerShell completion
+script. Invoke via `wpsecscan --completion bash > /etc/bash_completion.d/wpsecscan`.
+
+Uses the parser introspection in `__main__.main()` — we re-build a minimal
+duplicate flag list rather than coupling the two modules.
+"""
+from __future__ import annotations
+
+# All long flags exposed by __main__.py. Source of truth: grep -E
+# 'add_argument\(\s*"-' wpsecscan/__main__.py | sed ... | sort -u
+# Keep alphabetical so a sync diff is easy to spot.
+FLAGS = [
+    "--abuseipdb-token",
+    "--aggressive",
+    "--api-server",
+    "--api-token",
+    "--attestation",
+    "--attestation-customer",
+    "--attestation-vendor",
+    "--auth-pass",
+    "--auth-user",
+    "--auto-pr",
+    "--auto-pr-repo",
+    "--burp-export",
+    "--checkpoint",
+    "--completion",
+    "--concurrency",
+    "--csv",
+    "--daemon",
+    "--dashboard",
+    "--debug",
+    "--deep-throttle",
+    "--deep-throttle-attempts",
+    "--deep-throttle-pacing",
+    "--diff",
+    "--diff-against",
+    "--exec-pdf",
+    "--fail-on",
+    "--file",
+    "--github-search-token",
+    "--har",
+    "--hibp-token",
+    "--html-only",
+    "--insecure",
+    "--json-only",
+    "--md",
+    "--no-color",
+    "--no-console",
+    "--no-update-check",
+    "--out",
+    "--parallel-groups",
+    "--password-audit",
+    "--patchstack-token",
+    "--prove",
+    "--query",
+    "--region",
+    "--replay-har",
+    "--sarif",
+    "--sbom",
+    "--shell",
+    "--since",
+    "--ssh-audit",
+    "--timeout",
+    "--update-db",
+    "--user-agent",
+    "--version",
+    "--vt-token",
+    "--wpscan-token",
+    "--xlsx",
+]
+
+
+def bash() -> str:
+    flag_list = " ".join(FLAGS)
+    return f"""# WPSecScan bash completion
+_wpsecscan_completions() {{
+    local cur prev opts
+    COMPREPLY=()
+    cur="${{COMP_WORDS[COMP_CWORD]}}"
+    opts="{flag_list}"
+    if [[ ${{cur}} == -* ]] ; then
+        COMPREPLY=( $(compgen -W "${{opts}}" -- ${{cur}}) )
+        return 0
+    fi
+    # File-completion for known flags
+    case "${{prev:-}}" in
+        --file|--out|--har|--diff-against|--daemon|--replay-har|--sbom|--attestation|--auto-pr)
+            COMPREPLY=( $(compgen -f -- ${{cur}}) )
+            ;;
+    esac
+}}
+complete -F _wpsecscan_completions wpsecscan
+complete -F _wpsecscan_completions wpsecscan-gui
+"""
+
+
+def zsh() -> str:
+    flag_list = " ".join(f"'{f}'" for f in FLAGS)
+    return f"""#compdef wpsecscan wpsecscan-gui
+# WPSecScan zsh completion
+_wpsecscan() {{
+    local -a flags
+    flags=({flag_list})
+    _arguments -s "*::flag:->flags"
+    case $state in
+        flags) _describe -t flags 'wpsecscan flags' flags ;;
+    esac
+}}
+_wpsecscan
+"""
+
+
+def powershell() -> str:
+    flag_list = ",\n        ".join(f"'{f}'" for f in FLAGS)
+    return f"""# WPSecScan PowerShell completion
+Register-ArgumentCompleter -Native -CommandName wpsecscan,wpsecscan-gui -ScriptBlock {{
+    param($wordToComplete, $commandAst, $cursorPosition)
+    @(
+        {flag_list}
+    ) | Where-Object {{ $_ -like "$wordToComplete*" }} |
+        ForEach-Object {{ [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterName', $_) }}
+}}
+"""
+
+
+def generate(shell: str) -> str:
+    shell = (shell or "bash").lower()
+    if shell == "bash":
+        return bash()
+    if shell == "zsh":
+        return zsh()
+    if shell in ("powershell", "pwsh"):
+        return powershell()
+    raise ValueError(f"unsupported shell {shell!r}; use bash/zsh/powershell")

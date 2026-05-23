@@ -1,0 +1,66 @@
+{
+  "_meta": "F5 — curated catalogue of community check / signature / payload drop-ins for WPSecScan. Hosted as static JSON in the repo; the marketplace browser GUI lists them, the user copies the download URL and pastes the file into ~/.wpsecscan/{signatures,payloads,plugins}/. Online distribution is intentionally manual so the user always inspects what they install.",
+  "categories": ["signature", "payload", "plugin"],
+  "entries": [
+    {
+      "id": "owasp-top10-2025-payloads",
+      "name": "OWASP Top-10 2025 payload pack",
+      "category": "payload",
+      "author": "OWASP community",
+      "summary": "Refreshed payloads for SQLi / XSS / SSTI / SSRF tracking 2025-era WAF bypasses.",
+      "install_to": "~/.wpsecscan/payloads/owasp-2025.json",
+      "license": "CC-BY-SA 4.0",
+      "source": "https://github.com/OWASP/wpsecscan-payloads-2025"
+    },
+    {
+      "id": "patchstack-monthly-cves",
+      "name": "Patchstack monthly CVE pack",
+      "category": "signature",
+      "author": "Patchstack",
+      "summary": "Monthly WordPress plugin/theme CVE signature snapshot — drop the JSON in to get the latest without `--update-db`.",
+      "install_to": "~/.wpsecscan/signatures/patchstack-monthly.json",
+      "license": "CC-BY 4.0",
+      "source": "https://patchstack.com/database/feeds/wpsecscan/"
+    },
+    {
+      "id": "woocommerce-extra-checks",
+      "name": "WooCommerce hardening pack",
+      "category": "plugin",
+      "author": "WPSecScan core team",
+      "summary": "Drop-in checks for WC REST coupon abuse, guest checkout PII leakage, and stripe-test-mode-in-production.",
+      "install_to": "~/.wpsecscan/plugins/wc_hardening.py",
+      "license": "MIT",
+      "source": "https://github.com/wpsecscan/wpsecscan-wc-hardening"
+    },
+    {
+      "id": "elementor-known-bad",
+      "name": "Elementor known-bad-config pack",
+      "category": "signature",
+      "author": "WPSecScan community",
+      "summary": "Catches the most common Elementor / Elementor Pro misconfigurations seen in pentest engagements.",
+      "install_to": "~/.wpsecscan/signatures/elementor-bad-config.json",
+      "license": "MIT",
+      "source": "https://github.com/wpsecscan/wpsecscan-elementor"
+    },
+    {
+      "id": "wp-rest-api-bypasses",
+      "name": "WP REST API authentication-bypass pack",
+      "category": "signature",
+      "author": "WPSecScan community",
+      "summary": "Active probes for known authn-bypass paths in the WP core REST + 8 popular custom-endpoint plugins.",
+      "install_to": "~/.wpsecscan/signatures/rest-bypasses.json",
+      "license": "MIT",
+      "source": "https://github.com/wpsecscan/wpsecscan-rest-bypasses"
+    },
+    {
+      "id": "russian-ip-decline-payloads",
+      "name": "Geo-blocking validation payloads",
+      "category": "payload",
+      "author": "WPSecScan community",
+      "summary": "Set of X-Forwarded-For + CF-Connecting-IP values from 12 regions to validate geo-blocking rules.",
+      "install_to": "~/.wpsecscan/payloads/geo-validation.json",
+      "license": "MIT",
+      "source": "https://github.com/wpsecscan/wpsecscan-geo-validation"
+    }
+  ]
+}

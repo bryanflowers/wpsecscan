@@ -1,0 +1,92 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+develop-eggs/
+downloads/
+parts/
+sdist/
+var/
+wheels/
+
+# --- Virtual envs ---
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# --- PyInstaller outputs ---
+# Keep wpsecscan.spec / wpsecscan-gui.spec in the repo so users can
+# build from source; ignore the generated artifacts.
+dist/
+build/
+*.exe.manifest
+*.exe.log
+
+# --- IDE / editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Test + coverage ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+.tox/
+
+# --- Tooling / linters ---
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+
+# --- Local secrets / config ---
+# Never commit. Use SETUP / Tools → Setup wizard in the GUI.
+.env
+.env.*
+secrets.json
+credentials.json
+*.pfx
+*.p12
+*.pem
+*.key
+cert.pfx
+
+# --- WPSecScan local state ---
+# These live in ~/.wpsecscan by default; ignored here in case the user
+# symlinks the directory or runs WPSECSCAN_HOME=. on a checkout.
+.wpsecscan/
+wpsecscan-reports/
+*.har
+*-burp-scope.xml
+audit.log.jsonl
+crash-*.txt
+
+# --- Build / release scratch ---
+build.log
+release-*.zip
+release-notes-*.md
+
+# --- Local target lists (often contain customer URLs) ---
+targets.txt
+targets.*.txt
+
+# --- Misc ---
+*.bak
+*.tmp
+*.orig
