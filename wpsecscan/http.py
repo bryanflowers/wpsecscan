@@ -43,11 +43,13 @@ class Client:
         cache: bool = False,
         adaptive_throttle: bool = True,
         har: bool = False,
+        rotate_ua: bool = False,  # #3 — randomise UA per request from ua_rotation pool
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self._initial_concurrency = concurrency
         self._current_concurrency = concurrency
         self._sem = asyncio.Semaphore(concurrency)
+        self._rotate_ua = rotate_ua
         self._client = httpx.AsyncClient(
             timeout=timeout,
             headers={"User-Agent": user_agent, "Accept": "*/*"},
@@ -223,6 +225,15 @@ class Client:
                 delay = self._extra_delay_s
             if delay > 0:
                 await asyncio.sleep(delay)
+        # #3 UA rotation — if enabled, override User-Agent per request
+        if getattr(self, "_rotate_ua", False):
+            try:
+                from . import ua_rotation as _ua
+                merged_headers = dict(kwargs.get("headers") or {})
+                merged_headers.setdefault("User-Agent", _ua.random_ua())
+                kwargs["headers"] = merged_headers
+            except ImportError:
+                pass
         async with self._sem:
             t0 = time.perf_counter()
             try:

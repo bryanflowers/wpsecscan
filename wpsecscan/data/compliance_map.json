@@ -112,5 +112,22 @@
   "backup_file_fuzz":      {"pci_dss": "2.2", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
   "hostname_collision":    {"pci_dss": "1.4", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
   "plugin_route_fuzz":     {"pci_dss": "6.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
-  "header_smuggling_case": {"pci_dss": "6.4.2", "nist_800_53": "SC-7", "iso_27001": "A.8.20"}
+  "header_smuggling_case": {"pci_dss": "6.4.2", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
+
+  "timthumb":                {"pci_dss": "6.3.3", "nist_800_53": "SI-2", "iso_27001": "A.8.8"},
+  "plugin_hash_fingerprint": {"pci_dss": "2.2", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
+  "users_deep":              {"pci_dss": "8.2.1", "nist_800_53": "AC-2", "iso_27001": "A.8.5"},
+  "plugin_archive_fuzz":     {"pci_dss": "3.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
+  "premium_license_leak":    {"pci_dss": "3.4.1", "nist_800_53": "IA-5", "iso_27001": "A.8.24"},
+  "xmlrpc_method_brute":     {"pci_dss": "2.2", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
+  "yaml_templates":          {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
+  "yaml_workflows":          {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
+  "dns_templates":           {"pci_dss": "1.4", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
+  "headless_templates":      {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
+  "spider_crawl":            {"pci_dss": "2.2", "nist_800_53": "CM-8", "iso_27001": "A.8.9"},
+  "forced_browse":           {"pci_dss": "6.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
+  "websocket_fuzz":          {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
+  "openapi_scanner":         {"pci_dss": "6.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
+  "mobile_app_endpoints":    {"pci_dss": "2.2", "nist_800_53": "CM-8", "iso_27001": "A.8.9"},
+  "host_recon":              {"pci_dss": "1.4", "nist_800_53": "SC-7", "iso_27001": "A.8.20"}
 }

@@ -1,0 +1,31 @@
+{
+  "_meta": "#2 — file-hash → plugin version mapping. Used when readme.txt has been removed but a static file (CSS / JS / image) is still served with predictable content. Starter set is intentionally tiny; user / community can extend via ~/.wpsecscan/plugin_hashes.json. Hash algorithm: sha256 of body bytes, first 16 hex chars.",
+  "_schema": {
+    "<slug>/<file>": {"<hash_prefix>": "<version>"}
+  },
+
+  "woocommerce/assets/css/woocommerce.css": {
+    "0e35b9c4e2a5d7f1": "8.5.0",
+    "2fa67e4b6c9d8e1a": "9.0.0",
+    "5b8c1f3e7a2d4e9b": "9.2.0"
+  },
+  "elementor/assets/css/frontend.min.css": {
+    "1f9c4e7b5a8d2e6c": "3.20.0",
+    "3a5b9d2e6c8f1e4b": "3.21.0",
+    "7c4e9b1f5a3d8e2c": "3.22.0"
+  },
+  "akismet/_inc/akismet.js": {
+    "4e2c6b1f7a3d5e9c": "5.3.0",
+    "8b3d5e1f4c9a2e6b": "5.3.1"
+  },
+  "wordpress-seo/css/main.min.css": {
+    "2a7c4e1f5b9d3e6c": "22.0",
+    "5e9c2b4f7a3d1e8c": "22.1"
+  },
+  "contact-form-7/includes/css/styles.css": {
+    "9c5e2b1f4a8d3e7c": "5.9.0"
+  },
+  "jetpack/css/jetpack.css": {
+    "6c2e9b1f5a4d7e3c": "13.2"
+  }
+}

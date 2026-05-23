@@ -90,6 +90,23 @@ from .backup_file_fuzz import check as backup_file_fuzz
 from .hostname_collision import check as hostname_collision
 from .plugin_route_fuzz import check as plugin_route_fuzz
 from .header_smuggling_case import check as header_smuggling_case
+# Round-57 (40 features): new checks
+from .timthumb import check as timthumb
+from .plugin_hash_fingerprint import check as plugin_hash_fingerprint
+from .users_deep import check as users_deep
+from .plugin_archive_fuzz import check as plugin_archive_fuzz
+from .premium_license_leak import check as premium_license_leak
+from .xmlrpc_method_brute import check as xmlrpc_method_brute
+from .yaml_templates import check as yaml_templates
+from .yaml_workflows import check as yaml_workflows
+from .dns_templates import check as dns_templates
+from .headless_templates import check as headless_templates
+from .spider_crawl import check as spider_crawl
+from .forced_browse import check as forced_browse
+from .websocket_fuzz import check as websocket_fuzz
+from .openapi_scanner import check as openapi_scanner
+from .mobile_app_endpoints import check as mobile_app_endpoints
+from .host_recon import check as host_recon
 
 # CVE matching (uses the Wordfence DB; runs whenever DB is present)
 from .core_cves import check as core_cves
@@ -229,6 +246,24 @@ ALL_CHECKS = [
     ("header_smuggling_case","Header smuggling via case sensitivity", header_smuggling_case, True),
     ("cloud_metadata_ssrf","Cloud-metadata SSRF chain (needs SSRF candidate)", cloud_metadata_ssrf, True),
     ("dns_rebinding",      "DNS-rebinding SSRF probe",   dns_rebinding,        True),
+    # ---- Round-57 passive checks (wpscan / nuclei / ZAP parity) ----
+    ("timthumb",           "timthumb.php CVE detection (#1)", timthumb,         False),
+    ("plugin_hash_fingerprint", "Plugin file-hash fingerprint (#2)", plugin_hash_fingerprint, False),
+    ("users_deep",         "Deep user enumeration — 10 sources (#5)", users_deep, False),
+    ("premium_license_leak","Premium plugin license-key leak scan (#7)", premium_license_leak, False),
+    ("xmlrpc_method_brute","XML-RPC hidden-method brute-force (#8)", xmlrpc_method_brute, False),
+    ("yaml_templates",     "YAML templates (nuclei-style) (#9)", yaml_templates, False),
+    ("yaml_workflows",     "YAML workflow chaining (#11)", yaml_workflows, False),
+    ("dns_templates",      "DNS templates (#13)", dns_templates, False),
+    ("spider_crawl",       "Spider — recursive link crawler (#18)", spider_crawl, False),
+    ("forced_browse",      "Forced-browse hidden-path discovery (#21)", forced_browse, False),
+    ("openapi_scanner",    "OpenAPI / Swagger endpoint scanner (#26)", openapi_scanner, False),
+    ("mobile_app_endpoints","Mobile-app association discovery (#38)", mobile_app_endpoints, False),
+    ("host_recon",         "Host port recon — Docker/Redis/k8s/etc. (#40)", host_recon, False),
+    # ---- Round-57 aggressive checks ----
+    ("plugin_archive_fuzz","Plugin source-archive fuzz (#6)", plugin_archive_fuzz, True),
+    ("headless_templates", "Headless DOM templates (Playwright) (#14)", headless_templates, True),
+    ("websocket_fuzz",     "WebSocket frame fuzzer (#23)", websocket_fuzz, True),
     # Deep throttle runs last (~20 min) so all fast checks complete first — risk score
     # and findings appear in ~1-2 min instead of after the throttle test finishes.
     # Self-skips unless ctx["deep_throttle"] is set, so position is harmless when off.

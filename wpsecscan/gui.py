@@ -329,6 +329,9 @@ class App:
         help_menu.add_command(label="Tutorial (guided tour)", command=self._open_tutorial)
         # O49: token-setup wizard — reachable any time, not just first launch
         help_menu.add_command(label="Setup wizard (API tokens)", command=self._open_onboarding_wizard)
+        # Round-57: manual update check (always re-fetches, ignoring the 24h cache)
+        help_menu.add_command(label="Check for updates now",
+                              command=lambda: self._maybe_show_update_notice(force=True))
         help_menu.add_command(label="About Windows Defender warnings",
                               command=lambda: self._open_defender_dialog(is_first_run=False))
         help_menu.add_command(label=f"About {APP_NAME}", command=self._show_about)
@@ -699,6 +702,9 @@ class App:
         self.root.after(600, self._maybe_show_tutorial_first_run)
         # O49 onboarding wizard — first-run token setup (after tutorial closes naturally).
         self.root.after(1200, self._maybe_show_onboarding_wizard_first_run)
+        # Round-57: silently check GitHub releases on launch — show a click-to-download
+        # popup if an update is available. Runs after the other first-run dialogs.
+        self.root.after(2000, self._maybe_show_update_notice)
         # E9 voice readout — opt-in via preference; default off.
         self.tts_enabled = self._load_pref("tts_enabled", False)
 
@@ -2299,6 +2305,72 @@ class App:
             _gw.open_onboarding_wizard(self)
         except Exception:  # noqa: BLE001
             pass
+
+    def _maybe_show_update_notice(self, *, force: bool = False) -> None:
+        """Round-57: check GitHub releases on launch. If a newer version is
+        available, show a popup with a 'Download' button that opens the
+        release page in the browser.
+
+        force=True bypasses the 24-hour cache (used by Help → Check for updates)."""
+        try:
+            from . import auto_update as _au
+            from . import __version__ as _ver
+            rel = _au.check_for_update(_ver, channel="stable", force=force)
+        except Exception:  # noqa: BLE001
+            return
+        if not rel:
+            if force:
+                try:
+                    messagebox.showinfo(APP_NAME, f"You're on the latest version (v{_ver}).")
+                except Exception:  # noqa: BLE001
+                    pass
+            return
+        tag = rel.get("tag_name", "")
+        url = rel.get("html_url", "")
+        # Suppress the popup if the user already saw this tag and clicked Later
+        suppressed = self._load_pref("update_dismissed_tag", "") if hasattr(self, "_load_pref") else ""
+        if suppressed == tag and not force:
+            return
+
+        win = _tk_mod.Toplevel(self.root)
+        win.title("Update available")
+        win.configure(bg=BG)
+        win.transient(self.root)
+        win.geometry("460x180")
+        win.bind("<Escape>", lambda _e: win.destroy())
+
+        body = ttk.Frame(win, padding=18)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text=f"WPSecScan {tag} is available", font=("Segoe UI", 13, "bold"),
+                  foreground="#79c0ff").pack(anchor="w")
+        ttk.Label(body, text=f"You're on v{_ver}.", foreground=MUTED).pack(anchor="w", pady=(2, 12))
+        ttk.Label(body, text=("Updates ship as new wpsecscan.exe + wpsecscan-gui.exe files. "
+                              "Click Download to open the release page, grab both binaries, "
+                              "and drop them in place of the current ones."),
+                  wraplength=420, foreground=FG).pack(anchor="w")
+
+        btns = ttk.Frame(body)
+        btns.pack(fill="x", pady=(14, 0))
+
+        def _open_download():
+            import webbrowser
+            try:
+                webbrowser.open(url)
+            except Exception:  # noqa: BLE001
+                pass
+            win.destroy()
+
+        def _later():
+            try:
+                if hasattr(self, "_save_pref"):
+                    self._save_pref("update_dismissed_tag", tag)
+            except Exception:  # noqa: BLE001
+                pass
+            win.destroy()
+
+        ttk.Button(btns, text="Download", style="Accent.TButton", command=_open_download).pack(side="left")
+        ttk.Button(btns, text="Later", command=_later).pack(side="left", padx=(8, 0))
+        ttk.Button(btns, text="Close", command=win.destroy).pack(side="right")
 
     def _open_defender_dialog(self, is_first_run: bool = False) -> None:
         """Dialog explaining why Windows Defender may flag this binary and offering
