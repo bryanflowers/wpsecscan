@@ -149,5 +149,20 @@
   "misc_injection_audit":    {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-74", "d3fend": "D3-IVA"},
   "tls_reneg_dos":           {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1499", "attack_label": "Endpoint Denial of Service", "cwe": "CWE-400", "d3fend": "D3-CH"},
   "cache_poisoning_v2":      {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-444", "d3fend": "D3-NTA"},
-  "osint_enrich":            {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-NTA"}
+  "osint_enrich":            {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-NTA"},
+
+  "wp_builder_audit":          {"owasp": "A06:2021", "owasp_label": "Vulnerable & Outdated Components", "attack": "T1592.002", "attack_label": "Software", "cwe": "CWE-1104", "d3fend": "D3-SU"},
+  "wp_form_audit":             {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-200", "d3fend": "D3-NTA"},
+  "wp_membership_lms_audit":   {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-285", "d3fend": "D3-RAC"},
+  "wp_commerce_alt_audit":     {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-639", "d3fend": "D3-RAC"},
+  "wp_plugin_ecosystem_audit": {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592.002", "attack_label": "Software", "cwe": "CWE-200", "d3fend": "D3-NTA"},
+  "privacy_inventory":         {"owasp": "A09:2021", "owasp_label": "Security Logging & Monitoring Failures", "attack": "T1593", "attack_label": "Search Open Websites", "cwe": "CWE-359", "d3fend": "D3-NTA"},
+  "email_security_deep":       {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1566", "attack_label": "Phishing", "cwe": "CWE-290", "d3fend": "D3-NTA"},
+  "dns_deep":                  {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1071.004", "attack_label": "Application Layer Protocol: DNS", "cwe": "CWE-693", "d3fend": "D3-DNSTI"},
+  "auth_modernisation":        {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1110", "attack_label": "Brute Force", "cwe": "CWE-308", "d3fend": "D3-MFA"},
+  "crypto_agility":            {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-326", "d3fend": "D3-CH"},
+  "cdn_edge_audit":            {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-444", "d3fend": "D3-NTA"},
+  "payment_commerce_deep":     {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-311", "d3fend": "D3-CR"},
+  "compliance_frameworks":     {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1499", "attack_label": "Endpoint DoS", "cwe": "CWE-693", "d3fend": "D3-NTA"},
+  "headless_wp_audit":         {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-862", "d3fend": "D3-RAC"}
 }

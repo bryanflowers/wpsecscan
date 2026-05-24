@@ -6,6 +6,76 @@ For install instructions, see [README.md](README.md).
 
 ---
 
+## Round-59 — 111-feature mega-round (the best WordPress scanner)
+
+The biggest single round yet — 111 features across 18 waves (A-R).
+Inventory: **136 → 150 checks**. Tests: **427 → 485 passing**.
+
+Highlights (full list per category below; see CHANGELOG.md for every item):
+
+- **Wave A — WP vertical plugins (#1-15):** block-theme/FSE audit, page-builder
+  CVE pins (Elementor/Divi/Bricks/Oxygen…), form-plugin deep (CF7/WPF/GF/NF),
+  membership + LMS audit (MemberPress/LearnDash…), alt-commerce + booking
+  (EDD/Bookly/Amelia), and an 8-ecosystem plugin sweep (search/SEO/backup/SMTP/
+  cache/CDN-plugin/sec/chat) catching directory-listing leaks of UpdraftPlus,
+  Easy WP SMTP debug logs, W3TC master configs, etc.
+- **Wave B — Privacy/GDPR (#16-23):** PII inventory, cookie-banner detection,
+  third-party JS exfil + DPA helper + jurisdiction guess, Google Fonts CJEU,
+  GA anonymize_ip, RTBE endpoint probe.
+- **Wave C — Email deep (#24-31):** DMARC progression, MTA-STS, BIMI, ARC,
+  DKIM rotation hints, SPF 10-lookup count, SPF macros, open-relay guidance.
+- **Wave D — DNS deep (#32-39):** DNSSEC, CAA, TXT-secret-scan, HTTPS SVCB,
+  resolver fingerprint, glue records, wildcard, PTR.
+- **Wave E — Auth modernisation (#40-46):** passkey/WebAuthn, TOTP plugin
+  sweep, SAML, OAuth2/PKCE, JWT refresh, session-cookie hardening, magic-link.
+- **Wave F — Crypto agility (#47-51):** post-quantum, TLS 1.3, crypto
+  inventory, RSA <2048 bit, curve preference.
+- **Wave G — CDN/edge (#52-57):** Cloudflare Worker route exposure,
+  CloudFront signed-URL bypass, Bunny/KeyCDN origin-shield, edge TTL,
+  origin-pull X-Forwarded-Host injection, CDN purge-API auth.
+- **Wave H — Payment/PCI (#58-62):** Stripe/PayPal/Square detection,
+  test-key leak in production HTML, PCI-DSS 4.0 checklist, PCI evidence
+  JSON pack, 3DS2 hint, WooCommerce order-IDOR.
+- **Wave I — Compliance frameworks (#63-67):** HITRUST CSF v11.4, CMMC 2.0,
+  NIST CSF 2.0, CIS Critical Controls v8, ISO 27001:2022 Annex A — 106-check
+  mapping in `compliance_v2.json`.
+- **Wave J — AI/ML output safety (#68-72):** hallucination-verification re-prompt,
+  per-backend cost tracking, llama.cpp local backend, prompt-injection
+  guard, private-data masking (email/IP/card/SSN/AWS-key/Stripe-key/PAT).
+- **Wave K — UX maturity (#73-82):** built-in locales beyond en/es (FR, DE,
+  PT-BR, JA, ZH-CN), GUI a11y audit, vim keys, power shortcuts, OS dark-mode
+  follow, sound packs, quiet hours, star/favourite, saved searches,
+  Obsidian + Notion export.
+- **Wave L — Plugin-dev outreach (#83-86):** coordinated-disclosure email,
+  wp.org submission, Patchstack vendor, CVE 5.1 record builder.
+- **Wave M — Headless/API-first WP (#87-91):** WPGraphQL introspection +
+  alias-amplification, Next.js/Gatsby decoupled, Bedrock layout,
+  Atlas/WPE purge-token leak, REST permalink rewrite.
+- **Wave N — Reliability (#92-94):** per-check perf regression,
+  per-target scan-time alerts, cache-hit-rate trend (30 days).
+- **Wave O — Browser replay (#95-97):** Playwright attacker-session
+  recorder (trace.zip), visual diff between scans, attacker-view MP4
+  via ffmpeg.
+- **Wave P — Hardware keys (#98-100):** WebAuthn for API server (fido2),
+  Yubikey GPG encryption, TPM-backed secret storage (tpm2-tools / DPAPI).
+- **Wave Q — WAF tuning (#101-104):** scanner allow-list generator,
+  Cloudflare API push, ModSecurity CRS export, log-only mode flip.
+- **Wave R — Genuinely novel (#105-109, 111, 112):** AI false-positive
+  learner (per-finding confidence penalty), honeypot fingerprint detector,
+  mutation testing of WPSecScan's own checks, visual regression of HTML
+  reports, X25519 encrypted scan-result sharing, remediation A/B test
+  store, hash-chained Merkle log.
+
+Skipped from brainstorm: #110 audio briefing TTS (user opt-out).
+
+**Bug fixes during QA:**
+- `wp_membership_lms_audit` dead `_probe()`/`ctx_url()` placeholder removed
+- `hardware_keys` PGP recipient regex tightened (rejects malformed emails)
+- `osint.py` + `upload_path_predictable.py` datetime.utcnow() → tz-aware
+- `plugin_outreach` datetime.utcnow() → tz-aware
+
+---
+
 ## Round-58 — 117-feature mega-round (best WordPress security scanner)
 
 A sweeping round across 14 categories (P-CC). Inventory: **120 → 136 checks**.

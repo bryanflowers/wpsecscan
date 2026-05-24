@@ -51,7 +51,7 @@ cat > "WPSecScan.app/Contents/Info.plist" <<EOF
 <key>CFBundleExecutable</key><string>wpsecscan-gui</string>
 <key>CFBundleIdentifier</key><string>com.bryanflowers.wpsecscan</string>
 <key>CFBundleName</key><string>WPSecScan</string>
-<key>CFBundleVersion</key><string>1.7.0</string>
+<key>CFBundleVersion</key><string>1.8.0</string>
 </dict></plist>
 EOF
 codesign --force --sign - "WPSecScan.app"
@@ -71,17 +71,17 @@ mkdir -p pkg/usr/local/bin pkg/DEBIAN
 cp dist/wpsecscan pkg/usr/local/bin/
 cat > pkg/DEBIAN/control <<EOF
 Package: wpsecscan
-Version: 1.7.0
+Version: 1.8.0
 Section: web
 Priority: optional
 Architecture: amd64
 Maintainer: Bryan <bryaninbangkok@gmail.com>
 Description: Defensive WordPress security scanner.
 EOF
-dpkg-deb --build pkg wpsecscan_1.7.0_amd64.deb
+dpkg-deb --build pkg wpsecscan_1.8.0_amd64.deb
 
 # .rpm (Fedora / RHEL)
-fpm -s dir -t rpm -n wpsecscan -v 1.7.0 dist/wpsecscan=/usr/local/bin/wpsecscan
+fpm -s dir -t rpm -n wpsecscan -v 1.8.0 dist/wpsecscan=/usr/local/bin/wpsecscan
 ```
 
 ## #77 Homebrew / Scoop / winget

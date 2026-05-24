@@ -103,8 +103,8 @@ def recent_cert_issuances(host: str, *, since_days: int = 7) -> list[dict]:
     out = _http_get_json(f"https://crt.sh/?q=%25.{host}&output=json")
     if not out or not isinstance(out, list):
         return []
-    from datetime import datetime, timedelta
-    cutoff = datetime.utcnow() - timedelta(days=since_days)
+    from datetime import datetime, timedelta, timezone
+    cutoff = datetime.now(tz=timezone.utc).replace(tzinfo=None) - timedelta(days=since_days)
     fresh = []
     for entry in out:
         try:

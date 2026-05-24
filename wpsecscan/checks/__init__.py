@@ -124,6 +124,21 @@ from .misc_injection_audit import check as misc_injection_audit
 from .tls_reneg_dos import check as tls_reneg_dos
 from .cache_poisoning_v2 import check as cache_poisoning_v2
 from .osint_enrich import check as osint_enrich
+# Round-59 (111 features): new checks
+from .wp_builder_audit import check as wp_builder_audit
+from .wp_form_audit import check as wp_form_audit
+from .wp_membership_lms_audit import check as wp_membership_lms_audit
+from .wp_commerce_alt_audit import check as wp_commerce_alt_audit
+from .wp_plugin_ecosystem_audit import check as wp_plugin_ecosystem_audit
+from .privacy_inventory import check as privacy_inventory
+from .email_security_deep import check as email_security_deep
+from .dns_deep import check as dns_deep
+from .auth_modernisation import check as auth_modernisation
+from .crypto_agility import check as crypto_agility
+from .cdn_edge_audit import check as cdn_edge_audit
+from .payment_commerce_deep import check as payment_commerce_deep
+from .compliance_frameworks import check as compliance_frameworks
+from .headless_wp_audit import check as headless_wp_audit
 
 # CVE matching (uses the Wordfence DB; runs whenever DB is present)
 from .core_cves import check as core_cves
@@ -289,6 +304,21 @@ ALL_CHECKS = [
     ("origin_ip_discovery",      "Origin-IP discovery via subdomains (#23)", origin_ip_discovery, False),
     ("tls_reneg_dos",            "TLS renegotiation DoS probe (#26)", tls_reneg_dos, False),
     ("osint_enrich",             "OSINT — ASN/geo/bug-bounty/cert TX (#36-43)", osint_enrich, False),
+    # ---- Round-59 passive checks (111 features) ----
+    ("wp_builder_audit",         "Block-theme/FSE + page-builder audit (#1-2)", wp_builder_audit, False),
+    ("wp_form_audit",            "Form-plugin deep audit (CF7/WPF/GF/NF/FF/Formidable) (#3)", wp_form_audit, False),
+    ("wp_membership_lms_audit",  "Membership + LMS plugin audit (#4-5)", wp_membership_lms_audit, False),
+    ("wp_commerce_alt_audit",    "Alt-commerce + booking-plugin audit (#6+8)", wp_commerce_alt_audit, False),
+    ("wp_plugin_ecosystem_audit","Search/SEO/Backup/SMTP/Cache/CDN/Sec/Chat plugin audit (#7,#9-15)", wp_plugin_ecosystem_audit, False),
+    ("privacy_inventory",        "Privacy/GDPR data + tracker inventory (#16-23)", privacy_inventory, False),
+    ("email_security_deep",      "Email deep — DMARC/MTA-STS/BIMI/ARC/DKIM/SPF (#24-31)", email_security_deep, False),
+    ("dns_deep",                 "DNS deep — DNSSEC/CAA/TXT-secret/DoH/PTR/wildcard (#32-39)", dns_deep, False),
+    ("auth_modernisation",       "Auth modernisation — passkey/2FA/SAML/OAuth/JWT/magic-link (#40-46)", auth_modernisation, False),
+    ("crypto_agility",           "Crypto agility — PQ/TLS 1.3 hybrid/cert inventory (#47-51)", crypto_agility, False),
+    ("cdn_edge_audit",           "CDN edge audit — Workers/CF/Fastly/Bunny/KeyCDN (#52-57)", cdn_edge_audit, False),
+    ("payment_commerce_deep",    "Payment/PCI 4.0 deep audit (#58-62)", payment_commerce_deep, False),
+    ("compliance_frameworks",    "Compliance framework mapping — HITRUST/CMMC/NIST CSF/CIS/ISO (#63-67)", compliance_frameworks, False),
+    ("headless_wp_audit",        "Headless/API-first WP audit (#87-91)", headless_wp_audit, False),
     # ---- Round-58 aggressive checks ----
     ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
     ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),

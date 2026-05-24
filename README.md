@@ -5,7 +5,7 @@
 [![release](https://img.shields.io/github/v/release/bryanflowers/wpsecscan)](https://github.com/bryanflowers/wpsecscan/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/bryanflowers/wpsecscan/total)](https://github.com/bryanflowers/wpsecscan/releases)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![checks](https://img.shields.io/badge/checks-136-brightgreen)](FEATURES.md)
+[![checks](https://img.shields.io/badge/checks-150-brightgreen)](FEATURES.md)
 
 > **⚠ AUTHORIZED USE ONLY**
 >
@@ -64,7 +64,7 @@ python -m venv .venv
 pip install -r requirements.txt
 python run.py https://example.com         # CLI
 python run_gui.py                          # GUI
-pytest                                     # 427+ tests
+pytest                                     # 485+ tests
 ```
 
 ---
@@ -109,7 +109,7 @@ wpsecscan.exe https://your-wp-site.com --wpscan-token <KEY>
 
 ---
 
-## What it checks (136 checks)
+## What it checks (150 checks)
 
 Passive checks always run; aggressive checks need `--aggressive`.
 

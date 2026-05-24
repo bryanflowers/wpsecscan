@@ -10,7 +10,7 @@ GET-only, low rate.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..http import Client
 from ..models import Finding
@@ -28,7 +28,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     findings: list[Finding] = []
     step = ctx.get("step") or (lambda _s: None)
 
-    now = datetime.utcnow()
+    now = datetime.now(tz=timezone.utc)
     year, month = now.year, now.month
     # Probe current month and previous month
     months_to_probe = [(year, month)]
