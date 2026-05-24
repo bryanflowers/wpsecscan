@@ -112,7 +112,7 @@ async def run_daemon(config_path: Path) -> None:
 
     from .scanner import scan
     from .reporters import json_out, html as html_reporter
-    from . import notify as _n
+    from wpsecscan import notify as _n
 
     print(f"[daemon] loaded {len(targets)} target(s) from {config_path}")
     print(f"[daemon] output dir: {out_dir.resolve()}")

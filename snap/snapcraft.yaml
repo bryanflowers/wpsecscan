@@ -1,0 +1,26 @@
+# Round-64 #109 — Snap package definition
+name: wpsecscan
+base: core22
+version: '2.2.0'
+summary: Defensive WordPress security scanner
+description: |
+  WPSecScan — 180+ checks, 8-source nightly CVE aggregator, 15 compliance
+  frameworks, AI-assisted remediation (BYO key), 12 report formats.
+  AGPLv3 open source.
+
+grade: stable
+confinement: strict
+license: AGPL-3.0-or-later
+
+apps:
+  wpsecscan:
+    command: bin/wpsecscan
+    plugs: [home, network, network-bind]
+
+parts:
+  wpsecscan:
+    plugin: python
+    source: https://github.com/bryanflowers/wpsecscan.git
+    source-tag: v2.2.0
+    python-requirements: [requirements.txt]
+    stage-packages: [python3]

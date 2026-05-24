@@ -1,0 +1,11 @@
+# Round-64 #38 — RFC 9116 security.txt for wpsecscan.org / GitHub Pages.
+# Drop this file at /.well-known/security.txt on any domain hosting
+# WPSecScan documentation or downloads.
+
+Contact: mailto:bryaninbangkok@gmail.com
+Contact: https://github.com/bryanflowers/wpsecscan/issues
+Expires: 2027-01-01T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://raw.githubusercontent.com/bryanflowers/wpsecscan/main/.well-known/security.txt
+Policy: https://github.com/bryanflowers/wpsecscan/blob/main/SECURITY.md
+Acknowledgments: https://github.com/bryanflowers/wpsecscan/blob/main/SECURITY-ACK.md

@@ -1,0 +1,25 @@
+# Round-64 #112 — Arch User Repository PKGBUILD
+# Maintainer: Bryan <bryaninbangkok@gmail.com>
+pkgname=wpsecscan
+pkgver=2.2.0
+pkgrel=1
+pkgdesc="Defensive WordPress security scanner with 180+ checks + 8-source CVE aggregator"
+arch=('any')
+url="https://github.com/bryanflowers/wpsecscan"
+license=('AGPL3')
+depends=('python>=3.10' 'python-httpx' 'python-jinja' 'python-rich' 'python-openpyxl')
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+source=("https://github.com/bryanflowers/wpsecscan/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('REPLACE_WITH_SHA256_FROM_RELEASE')
+
+build() {
+  cd "${pkgname}-${pkgver}"
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "${pkgname}-${pkgver}"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://grafana.com/api/dashboards/json",
+  "title": "WPSecScan — Round-64 #139",
+  "tags": ["wpsecscan", "security", "wordpress"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Critical findings (latest)",
+      "gridPos": {"h": 5, "w": 4, "x": 0, "y": 0},
+      "targets": [{"expr": "wpsecscan_findings_critical"}],
+      "options": {"colorMode": "background"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "High findings (latest)",
+      "gridPos": {"h": 5, "w": 4, "x": 4, "y": 0},
+      "targets": [{"expr": "wpsecscan_findings_high"}]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Medium findings (latest)",
+      "gridPos": {"h": 5, "w": 4, "x": 8, "y": 0},
+      "targets": [{"expr": "wpsecscan_findings_medium"}]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Risk score",
+      "gridPos": {"h": 5, "w": 4, "x": 12, "y": 0},
+      "targets": [{"expr": "wpsecscan_risk_score"}],
+      "options": {"colorMode": "background"},
+      "fieldConfig": {"defaults": {"max": 100, "min": 0}}
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Findings over time",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 5},
+      "targets": [
+        {"expr": "wpsecscan_findings_critical", "legendFormat": "critical"},
+        {"expr": "wpsecscan_findings_high",     "legendFormat": "high"},
+        {"expr": "wpsecscan_findings_medium",   "legendFormat": "medium"},
+        {"expr": "wpsecscan_findings_low",      "legendFormat": "low"}
+      ]
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Per-site latest scan",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 13},
+      "targets": [{"expr": "wpsecscan_findings_total by (site)"}]
+    }
+  ]
+}

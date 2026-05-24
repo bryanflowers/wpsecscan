@@ -1,0 +1,61 @@
+# Round-64 #134 — Ansible role: install WPSecScan + schedule a daily scan.
+---
+- name: Ensure prerequisites are installed
+  ansible.builtin.package:
+    name:
+      - python3
+      - python3-pip
+    state: present
+  become: true
+
+- name: Install wpsecscan via pip
+  ansible.builtin.pip:
+    name: wpsecscan
+    state: latest
+    extra_args: --upgrade
+  become: true
+
+- name: Create wpsecscan home directory
+  ansible.builtin.file:
+    path: /etc/wpsecscan
+    state: directory
+    mode: '0750'
+    owner: root
+    group: root
+  become: true
+
+- name: Drop sites configuration
+  ansible.builtin.copy:
+    content: "{{ wpsecscan_sites | to_nice_json }}"
+    dest: /etc/wpsecscan/sites.json
+    mode: '0640'
+    owner: root
+    group: root
+  become: true
+  when: wpsecscan_sites is defined
+
+- name: Schedule daily scan via cron
+  ansible.builtin.cron:
+    name: wpsecscan-daily
+    minute: '0'
+    hour: '2'
+    job: "WPSECSCAN_HOME=/etc/wpsecscan /usr/local/bin/wpsecscan sites scan --all --json-out /var/log/wpsecscan/{{ '{{' }}ansible_date_time.date{{ '}}' }}.json"
+    user: root
+    state: present
+  become: true
+
+- name: Update CVE database nightly
+  ansible.builtin.cron:
+    name: wpsecscan-db-update
+    minute: '30'
+    hour: '1'
+    job: "WPSECSCAN_HOME=/etc/wpsecscan /usr/local/bin/wpsecscan db update"
+    user: root
+    state: present
+  become: true
+
+# Default vars (override in playbook):
+# wpsecscan_sites:
+#   - name: example
+#     url: https://example.com
+#     aggressive: false

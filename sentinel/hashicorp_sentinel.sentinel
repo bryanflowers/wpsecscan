@@ -1,0 +1,34 @@
+# Round-64 #136 — HashiCorp Sentinel policy stub.
+# Block Terraform applies that would create a wpsecscan_site resource
+# without a notify_slack_webhook configured.
+
+import "tfplan/v2" as tfplan
+
+# Collect all wpsecscan_site resources in the plan
+wpsecscan_sites = filter tfplan.resource_changes as _, rc {
+    rc.type is "wpsecscan_site" and
+    rc.mode is "managed" and
+    rc.change.actions is not ["delete"]
+}
+
+# Rule: every wpsecscan_site must have a notification target
+mandatory_notify_webhook = rule {
+    all wpsecscan_sites as _, site {
+        site.change.after.notify_slack_webhook is not null and
+        site.change.after.notify_slack_webhook is not ""
+    }
+}
+
+# Rule: aggressive scans require an approval_workflow ID
+mandatory_approval_for_aggressive = rule {
+    all wpsecscan_sites as _, site {
+        site.change.after.aggressive is false or
+        (site.change.after.approval_request_id is not null and
+         site.change.after.approval_request_id is not "")
+    }
+}
+
+main = rule {
+    mandatory_notify_webhook and
+    mandatory_approval_for_aggressive
+}

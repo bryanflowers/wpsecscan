@@ -173,6 +173,42 @@ from .csv_export_csp import check as csv_export_csp
 from .waf_bypass_probe import check as waf_bypass_probe
 from .xxe_upload import check as xxe_upload
 
+# Round-64 Group F — Modern WP attack-surface (#51-70)
+from .ai_prompt_injection_passive import check as ai_prompt_injection_passive
+from .wpconfig_hardening_audit import check as wpconfig_hardening_audit
+from .db_trigger_audit import check as db_trigger_audit
+from .postmeta_stored_xss_scan import check as postmeta_stored_xss_scan
+from .vendor_backdoor_patterns import check as vendor_backdoor_patterns
+from .cryptominer_js_injection import check as cryptominer_js_injection
+from .magecart_skimmer_patterns import check as magecart_skimmer_patterns
+from .plugin_typosquat_detection import check as plugin_typosquat_detection
+from .composer_lock_audit import check as composer_lock_audit
+from .package_lock_audit import check as package_lock_audit
+from .yarn_pnpm_lock_audit import check as yarn_pnpm_lock_audit
+from .rest_app_passwords_enum import check as rest_app_passwords_enum
+from .mfa_priv_account_audit import check as mfa_priv_account_audit
+from .wpcron_suspicious_jobs import check as wpcron_suspicious_jobs
+from .webhook_url_fingerprint import check as webhook_url_fingerprint
+from .git_dir_deep_scan import check as git_dir_deep_scan
+from .env_file_enum import check as env_file_enum
+from .helm_compose_leak import check as helm_compose_leak
+from .tailwind_css_comment_leak import check as tailwind_css_comment_leak
+from .graphql_field_authz_deep import check as graphql_field_authz_deep
+
+# Round-64 Group G — Web3/NFT/payment (#71-76)
+from .web3_wallet_connector_audit import check as web3_wallet_connector_audit
+from .nft_mint_pubapi import check as nft_mint_pubapi
+from .crypto_payment_callback_audit import check as crypto_payment_callback_audit
+from .solidity_abi_leak import check as solidity_abi_leak
+from .wallet_seed_phrase_leak import check as wallet_seed_phrase_leak
+from .payment_gateway_test_keys import check as payment_gateway_test_keys
+
+# Round-64 Group J — Accessibility AAA (#99)
+from .a11y_wcag_aaa import check as a11y_wcag_aaa
+
+# Round-64 Wild card — Brand monitor (#170)
+from .brand_monitor import check as brand_monitor
+
 # Authenticated — only when creds are provided
 from .authenticated import check as authenticated
 
@@ -345,6 +381,37 @@ ALL_CHECKS = [
     ("js_framework_deep",        "JS framework deep-detect + version pin (#B31)", js_framework_deep, False),
     ("sri_pwa_misc",             "SameSite/WebDAV/PWA/HTTP3/contrast (#B25+B30+B32-B34)", sri_pwa_misc, False),
     ("wp_cli_inject",            "WP-CLI command-injection probe (#B28)", wp_cli_inject, True),
+    # ---- Round-64 Group F — Modern WP attack-surface (#51-70) ----
+    ("ai_prompt_injection_passive", "AI/LLM-plugin prompt-injection surface (#51)", ai_prompt_injection_passive, False),
+    ("wpconfig_hardening_audit", "wp-config hardening inferred from remote signals (#52)", wpconfig_hardening_audit, False),
+    ("db_trigger_audit",         "MySQL trigger audit via companion plugin (#53)", db_trigger_audit, False),
+    ("postmeta_stored_xss_scan", "post_meta stored-XSS scan via REST (#54)", postmeta_stored_xss_scan, False),
+    ("vendor_backdoor_patterns", "Known-bad / vendor-backdoor plugin slugs (#55)", vendor_backdoor_patterns, False),
+    ("cryptominer_js_injection", "Cryptominer JS injection (#56)", cryptominer_js_injection, False),
+    ("magecart_skimmer_patterns","Magecart / card-skimmer DOM hooks (#57)", magecart_skimmer_patterns, False),
+    ("plugin_typosquat_detection","Plugin slug typosquat detection (#58)", plugin_typosquat_detection, False),
+    ("composer_lock_audit",      "composer.lock exposure + CVE check (#59)", composer_lock_audit, False),
+    ("package_lock_audit",       "package-lock.json exposure + CVE check (#60)", package_lock_audit, False),
+    ("yarn_pnpm_lock_audit",     "yarn.lock / pnpm-lock.yaml exposure (#61)", yarn_pnpm_lock_audit, False),
+    ("rest_app_passwords_enum",  "REST Application Passwords auth probe (#62)", rest_app_passwords_enum, False),
+    ("mfa_priv_account_audit",   "MFA on privileged accounts (companion) (#63)", mfa_priv_account_audit, False),
+    ("wpcron_suspicious_jobs",   "Suspicious wp-cron callbacks (companion) (#64)", wpcron_suspicious_jobs, False),
+    ("webhook_url_fingerprint",  "Webhook URL fingerprint (Discord/Slack/Telegram) (#65)", webhook_url_fingerprint, False),
+    ("git_dir_deep_scan",        "Deep .git directory enumeration (#66)", git_dir_deep_scan, False),
+    ("env_file_enum",            ".env file exposure + secret sniffing (#67)", env_file_enum, False),
+    ("helm_compose_leak",        "Helm/compose/k8s manifest exposure (#68)", helm_compose_leak, False),
+    ("tailwind_css_comment_leak","Tailwind/CSS filesystem-path leak (#69)", tailwind_css_comment_leak, False),
+    ("graphql_field_authz_deep", "GraphQL field-level authz deep probe (#70)", graphql_field_authz_deep, False),
+    # ---- Round-64 Group G — Web3/NFT/payment (#71-76) ----
+    ("web3_wallet_connector_audit", "Web3 wallet-connector plugin audit (#71)", web3_wallet_connector_audit, False),
+    ("nft_mint_pubapi",          "NFT mint endpoint public-access probe (#72)", nft_mint_pubapi, False),
+    ("crypto_payment_callback_audit","Crypto-payment webhook auth audit (#73)", crypto_payment_callback_audit, False),
+    ("solidity_abi_leak",        "Solidity contract ABI leak (#74)", solidity_abi_leak, False),
+    ("wallet_seed_phrase_leak",  "Wallet seed phrase leak (BIP-39 scan) (#75)", wallet_seed_phrase_leak, False),
+    ("payment_gateway_test_keys","Payment-gateway test/sandbox key leak (#76)", payment_gateway_test_keys, False),
+    # ---- Round-64 Group J — Accessibility (#99) + Wild card (#170) ----
+    ("a11y_wcag_aaa",            "WCAG 2.2 AAA-level accessibility extras (#99)", a11y_wcag_aaa, False),
+    ("brand_monitor",            "Typosquat-of-your-domain brand monitor (#170)", brand_monitor, False),
     # ---- Round-58 aggressive checks ----
     ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
     ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),

@@ -1,0 +1,28 @@
+# Round-64 #111 — Winget manifest scaffold
+# Submit to https://github.com/microsoft/winget-pkgs
+PackageIdentifier: Bryan.WPSecScan
+PackageVersion: 2.2.0
+PackageLocale: en-US
+Publisher: Bryan
+PublisherUrl: https://github.com/bryanflowers
+PackageName: WPSecScan
+PackageUrl: https://github.com/bryanflowers/wpsecscan
+License: AGPL-3.0-or-later
+LicenseUrl: https://github.com/bryanflowers/wpsecscan/blob/main/LICENSE
+ShortDescription: Defensive WordPress security scanner
+Description: |
+  WPSecScan — 180+ checks, 8-source nightly CVE aggregator, 15 compliance
+  frameworks, AI-assisted remediation. AGPLv3 open source.
+Tags:
+  - wordpress
+  - security
+  - scanner
+  - pentest
+  - defensive
+Installers:
+  - Architecture: x64
+    InstallerType: portable
+    InstallerUrl: https://github.com/bryanflowers/wpsecscan/releases/download/v2.2.0/wpsecscan.exe
+    InstallerSha256: REPLACE_WITH_SHA256_FROM_RELEASE
+ManifestType: singleton
+ManifestVersion: 1.6.0

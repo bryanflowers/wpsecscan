@@ -31,12 +31,12 @@ LOW_CHURN_CHECK_IDS = frozenset((
 
 
 def _snapshot_dir() -> Path:
-    from . import history as _h
+    from wpsecscan import history as _h
     return Path(_h._home()) / "reports"
 
 
 def _latest_snapshot_for(url: str) -> Path | None:
-    from . import history as _h
+    from wpsecscan import history as _h
     safe = _h._safe_filename(url)
     snaps = sorted(_snapshot_dir().glob(f"*{safe}*.json"))
     return snaps[-1] if snaps else None
@@ -71,7 +71,7 @@ def should_skip_check(check_id: str, url: str, since: datetime | None) -> bool:
     skip = not has_target_changed(url, since)
     if skip:
         try:
-            from . import activity as _act
+            from wpsecscan import activity as _act
             _act.emit("meta", f"incremental skip: {check_id} (no change since {since.date().isoformat()})")
         except ImportError:
             pass
@@ -81,7 +81,7 @@ def should_skip_check(check_id: str, url: str, since: datetime | None) -> bool:
 # ---------- K27 per-host baseline learner ----------
 
 def _baseline_path(url: str) -> Path:
-    from . import history as _h
+    from wpsecscan import history as _h
     safe = _h._safe_filename(url)
     return Path(_h._home()) / "baselines" / f"{safe}.json"
 
