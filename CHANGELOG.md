@@ -7,6 +7,56 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (Round-62 — 89-feature mega-round → v2.0.0)
+
+Biggest round yet. Inventory: **154 → 161 checks**. Tests: **542 → 585 passing**.
+Version bumped to **v2.0.0** to reflect cumulative scope across rounds 54-62.
+
+#### Scanner checks (B21-B38) — 7 new modules
+- `server_stack_reveal` — banner-header inventory + PHP/nginx/Apache EOL detection
+- `waf_brand_deep` — fingerprints 11 commercial WAFs
+- `sri_audit` — Subresource Integrity check on every cross-origin resource
+- `service_exposure` — TCP probe on 14 well-known DB/cache/admin ports (RFC1918 auto-skipped)
+- `js_framework_deep` — version-pin check for 12 SPA frameworks
+- `sri_pwa_misc` — SameSite=None / WebDAV LOCK / PWA / HTTP/3 / contrast bundle
+- `wp_cli_inject` — wp-cli.phar exposure + shell-exec hunt
+
+#### Reporting (C39-C50) — 12 export formats in `reporters/round62.py`
+PowerPoint .pptx · Word .docx · JIRA bulk-create · Confluence markdown ·
+Streamlit dashboard · Grafana JSON · SIEM NDJSON (Splunk HEC / Elastic / Loki)
+· Datadog JSON · CSV pivot · SBOM diff · SBOM VEX/VDR · Quarterly trend PDF
+
+#### Integrations (D51-D60) — 10 in `integrations/round62.py`
+Burp project XML · ZAP findings import · Nuclei template auto-pull ·
+Wordfence Cloud sync · Sucuri SiteCheck · Patchstack write-back ·
+WPScan write-back · WP Engine / Kinsta / WP.com host APIs · n8n recipes ·
+VS Code scaffold
+
+#### Workflow + Defensive (E61-E70 + G78-G80) — 13 in `round62_workflow.py`
+Daily digest · PR-comment markdown · pre-commit hook · watch mode ·
+companion log tail · Apple Shortcuts · browser bookmarklet · zsh completion ·
+man page · auto-resume marker · SIEM live forwarder · honeypot deploy guide ·
+egress recorder (in `egress_recorder.py`, capped at 50 MB)
+
+#### Distribution manifests (F71-F77)
+Chocolatey · Winget · Homebrew · Snap · Flatpak · AppImage · per-platform docs
+
+#### New tooling modules
+- `wpsecscan/egress_recorder.py` — every outbound IP logged (50 MB cap, rollover)
+- `wpsecscan/network_fingerprint.py` — JA3/JA4-lite TLS fingerprint
+- `wpsecscan/round62_workflow.py` — workflow + defensive bundle
+
+#### GUI integration (D1-D9, A1-A20)
+6 new Tools-menu entries (DB status / Sites dashboard / CVE subscriptions /
+Proxy settings / User mode / Report a bug) with safe handler methods that
+tolerate missing modules. Foundations from round-61 (Sun Valley theme,
+config persistence) still apply.
+
+#### QA fixes (caught before push)
+- `gui.py:_open_db_status` — removed dead `if "os" in dir()` check
+- `checks/service_exposure.py` — added RFC1918 auto-skip (`WPSECSCAN_SCAN_LAN=1` to override)
+- `egress_recorder.py:record()` — 50 MB cap with `.archived` rollover
+
 ### Added (Round-61 — plugin polish, auto-vuln-update, UI overhaul, proxy)
 
 Tests: **513 → 542 passing**. Five focused-improvement areas you asked

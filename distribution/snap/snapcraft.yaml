@@ -1,0 +1,27 @@
+name: wpsecscan
+version: '2.0.0'
+summary: Defensive WordPress security scanner — 150+ checks, runs locally
+description: |
+  WPSecScan is a defensive WordPress security scanner that runs entirely on
+  your local machine. 150+ checks across 18 categories, AI-assisted
+  remediation (BYO key), AGPLv3 open source, and a WordPress companion
+  plugin for richest authenticated data.
+
+  Use only on sites you own or have explicit written permission to test.
+
+grade: stable
+confinement: strict
+base: core22
+license: AGPL-3.0+
+
+apps:
+  wpsecscan:
+    command: bin/wpsecscan
+    plugs: [home, network, network-bind, removable-media]
+
+parts:
+  wpsecscan:
+    plugin: python
+    source: .
+    python-requirements:
+      - requirements.txt

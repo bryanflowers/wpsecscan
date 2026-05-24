@@ -144,6 +144,14 @@ from .wp_multisite_deep import check as wp_multisite_deep
 from .honeypot_admin import check as honeypot_admin
 from .a11y_deep import check as a11y_deep
 from .perf_budget import check as perf_budget
+# Round-62 (B21-B38): new checks
+from .server_stack_reveal import check as server_stack_reveal
+from .waf_brand_deep import check as waf_brand_deep
+from .sri_audit import check as sri_audit
+from .service_exposure import check as service_exposure
+from .js_framework_deep import check as js_framework_deep
+from .sri_pwa_misc import check as sri_pwa_misc
+from .wp_cli_inject import check as wp_cli_inject
 
 # CVE matching (uses the Wordfence DB; runs whenever DB is present)
 from .core_cves import check as core_cves
@@ -329,6 +337,14 @@ ALL_CHECKS = [
     ("honeypot_admin",           "Honeypot / anti-spam detection (#19)", honeypot_admin, False),
     ("a11y_deep",                "WCAG 2.2 accessibility deep audit (#24)", a11y_deep, False),
     ("perf_budget",              "Performance-budget audit (#25)", perf_budget, False),
+    # ---- Round-62 passive checks (B21-B38) ----
+    ("server_stack_reveal",      "Server-stack reveal + PHP EOL detect (#B22+B29)", server_stack_reveal, False),
+    ("waf_brand_deep",           "WAF brand deep-detect — 11 vendors (#B23)", waf_brand_deep, False),
+    ("sri_audit",                "Subresource Integrity (SRI) audit (#B24)", sri_audit, False),
+    ("service_exposure",         "Service-port exposure: Redis/Memcache/DB (#B35-B37)", service_exposure, False),
+    ("js_framework_deep",        "JS framework deep-detect + version pin (#B31)", js_framework_deep, False),
+    ("sri_pwa_misc",             "SameSite/WebDAV/PWA/HTTP3/contrast (#B25+B30+B32-B34)", sri_pwa_misc, False),
+    ("wp_cli_inject",            "WP-CLI command-injection probe (#B28)", wp_cli_inject, True),
     # ---- Round-58 aggressive checks ----
     ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
     ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),

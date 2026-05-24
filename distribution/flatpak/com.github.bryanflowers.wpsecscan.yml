@@ -1,0 +1,22 @@
+id: com.github.bryanflowers.wpsecscan
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+- org.freedesktop.Sdk.Extension.python3.12
+command: wpsecscan
+
+finish-args:
+- --share=network
+- --filesystem=home
+- --talk-name=org.freedesktop.Notifications
+
+modules:
+- name: wpsecscan
+  buildsystem: simple
+  build-commands:
+  - pip3 install --prefix=/app .
+  sources:
+  - type: archive
+    url: https://github.com/bryanflowers/wpsecscan/archive/refs/tags/v2.0.0.tar.gz
+    sha256: REPLACE_WITH_SHA256_AT_RELEASE_TIME

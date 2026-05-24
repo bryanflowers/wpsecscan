@@ -6,6 +6,40 @@ For install instructions, see [README.md](README.md).
 
 ---
 
+## Round-62 — 89-feature mega-round → v2.0.0
+
+Biggest round yet. Inventory **154 → 161 checks**. Tests **542 → 585 passing**.
+Version bumped to v2.0.0 to mark cumulative scope.
+
+- **Scanner depth (B21-B38):** server-stack EOL detect, 11-vendor WAF
+  brand fingerprint, Subresource Integrity (SRI) audit, service-port
+  exposure (Redis/Memcache/Mongo/Elastic + DB ports — RFC1918 auto-skipped),
+  12-framework SPA detect (React/Vue/Angular/Next/Nuxt/Gatsby/Remix/Astro/...),
+  WebDAV LOCK / SameSite-strict / PWA / HTTP/3 / contrast bundle,
+  WP-CLI artefact + shell-exec hunt.
+- **12 report formats (C39-C50):** PowerPoint .pptx, Word .docx,
+  JIRA bulk-create, Confluence markdown, Streamlit dashboard, Grafana
+  JSON, Splunk HEC / Elastic / Loki NDJSON, Datadog JSON, CSV pivot,
+  CycloneDX SBOM diff + VEX annotation, quarterly trend PDF.
+- **10 integrations (D51-D60):** Burp project XML export, ZAP findings
+  import, Nuclei template auto-pull, Wordfence Cloud sync, Sucuri
+  SiteCheck, Patchstack + WPScan write-back, WP Engine / Kinsta / WP.com
+  host APIs, n8n recipe templates.
+- **13 workflow + defensive helpers (E61-E70 + G78-G80):** daily digest,
+  PR-comment markdown, pre-commit hook, watch mode (re-scan on file
+  change), companion log tail, Apple Shortcuts recipe, browser
+  bookmarklet, zsh completion, man page, auto-resume marker, **SIEM live
+  forwarder** (Splunk/Elastic/Loki), honeypot deploy guide, **egress
+  recorder** (every outbound IP logged, 50 MB cap with rollover).
+- **Distribution manifests:** Chocolatey · Winget · Homebrew tap ·
+  Snap · Flatpak · AppImage. Per-platform docs in `distribution/`.
+- **Network fingerprint:** JA3/JA4-lite TLS fingerprint of any HTTPS
+  target (`network_fingerprint.fingerprint_url`).
+- **6 new GUI Tools-menu entries:** DB status, Sites dashboard, CVE
+  subscriptions, Proxy settings, User mode picker, Report a bug.
+
+---
+
 ## Round-61 — plugin polish, auto-vuln-update, UI overhaul, proxy
 
 v1.10.0. Tests: **513 → 542 passing**.

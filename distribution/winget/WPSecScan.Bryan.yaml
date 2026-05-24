@@ -1,0 +1,42 @@
+PackageIdentifier: WPSecScan.Bryan
+PackageVersion: 2.0.0
+PackageLocale: en-US
+Publisher: Bryan
+PublisherUrl: https://github.com/bryanflowers
+PublisherSupportUrl: https://github.com/bryanflowers/wpsecscan/issues
+PackageName: WPSecScan
+PackageUrl: https://github.com/bryanflowers/wpsecscan
+License: AGPL-3.0-or-later
+LicenseUrl: https://www.gnu.org/licenses/agpl-3.0.html
+Copyright: Copyright (C) 2026 Bryan
+ShortDescription: Defensive WordPress security scanner — runs locally, 150+ checks.
+Description: |
+  WPSecScan is a defensive WordPress security scanner that runs entirely on
+  your local machine. 150+ checks across 18 categories, AI-assisted remediation
+  (BYO key), AGPLv3 open source, and a WordPress companion plugin for richest
+  authenticated data.
+Moniker: wpsecscan
+Tags:
+- wordpress
+- security
+- scanner
+- pentest
+- defensive
+- vulnerability
+- cve
+Installers:
+- Architecture: x64
+  InstallerType: portable
+  InstallerUrl: https://github.com/bryanflowers/wpsecscan/releases/download/v2.0.0/wpsecscan.exe
+  InstallerSha256: REPLACE_WITH_SHA256_AT_RELEASE_TIME
+  Commands:
+  - wpsecscan
+- Architecture: x64
+  InstallerType: portable
+  InstallerUrl: https://github.com/bryanflowers/wpsecscan/releases/download/v2.0.0/wpsecscan-gui.exe
+  InstallerSha256: REPLACE_WITH_SHA256_AT_RELEASE_TIME
+  Commands:
+  - wpsecscan-gui
+ReleaseNotesUrl: https://github.com/bryanflowers/wpsecscan/releases/tag/v2.0.0
+ManifestType: singleton
+ManifestVersion: 1.6.0

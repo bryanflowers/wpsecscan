@@ -169,5 +169,13 @@
   "wp_multisite_deep":         {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-639", "d3fend": "D3-RAC"},
   "honeypot_admin":            {"owasp": "A09:2021", "owasp_label": "Security Logging & Monitoring Failures", "attack": "T1078", "attack_label": "Valid Accounts", "cwe": "CWE-778", "d3fend": "D3-DA"},
   "a11y_deep":                 {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-1004", "d3fend": "D3-NTA"},
-  "perf_budget":               {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1499", "attack_label": "Endpoint DoS", "cwe": "CWE-400", "d3fend": "D3-NTA"}
+  "perf_budget":               {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1499", "attack_label": "Endpoint DoS", "cwe": "CWE-400", "d3fend": "D3-NTA"},
+
+  "server_stack_reveal":       {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592.002", "attack_label": "Software", "cwe": "CWE-200", "d3fend": "D3-NTA"},
+  "waf_brand_deep":            {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592.004", "attack_label": "Client Configurations", "cwe": "CWE-200", "d3fend": "D3-NTA"},
+  "sri_audit":                 {"owasp": "A08:2021", "owasp_label": "Software & Data Integrity Failures", "attack": "T1195.002", "attack_label": "Compromise Software Supply Chain", "cwe": "CWE-353", "d3fend": "D3-SCM"},
+  "service_exposure":          {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1046", "attack_label": "Network Service Discovery", "cwe": "CWE-668", "d3fend": "D3-NTA"},
+  "js_framework_deep":         {"owasp": "A06:2021", "owasp_label": "Vulnerable & Outdated Components", "attack": "T1592.002", "attack_label": "Software", "cwe": "CWE-1104", "d3fend": "D3-SU"},
+  "sri_pwa_misc":              {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-693", "d3fend": "D3-NTA"},
+  "wp_cli_inject":             {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1059", "attack_label": "Command and Scripting Interpreter", "cwe": "CWE-78", "d3fend": "D3-IVA"}
 }

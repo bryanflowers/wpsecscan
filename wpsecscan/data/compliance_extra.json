@@ -50,5 +50,13 @@
   "wp_multisite_deep":         {"hipaa": "164.312(a)(1)",  "soc2": "CC6.1", "fedramp": "AC-3", "gdpr": "Article 32"},
   "honeypot_admin":            {"hipaa": "164.312(b)",     "soc2": "CC7.3", "fedramp": "AU-6", "gdpr": "Article 32"},
   "a11y_deep":                 {"hipaa": "164.520",         "soc2": "CC1.4","fedramp": "PL-1", "gdpr": "Article 12"},
-  "perf_budget":               {"hipaa": "164.308(a)(7)",  "soc2": "CC7.1","fedramp": "CP-2", "gdpr": "Article 32"}
+  "perf_budget":               {"hipaa": "164.308(a)(7)",  "soc2": "CC7.1","fedramp": "CP-2", "gdpr": "Article 32"},
+
+  "server_stack_reveal":       {"hipaa": "164.308(a)(1)",  "soc2": "CC7.1","fedramp": "SI-2", "gdpr": "Article 32"},
+  "waf_brand_deep":            {"hipaa": "164.312(e)(1)",  "soc2": "CC6.6","fedramp": "SC-7", "gdpr": "Article 32"},
+  "sri_audit":                 {"hipaa": "164.312(c)(1)",  "soc2": "CC6.7","fedramp": "SI-7", "gdpr": "Article 32"},
+  "service_exposure":          {"hipaa": "164.308(a)(4)",  "soc2": "CC6.1","fedramp": "AC-3", "gdpr": "Article 32"},
+  "js_framework_deep":         {"hipaa": "164.308(a)(1)",  "soc2": "CC7.1","fedramp": "CM-7", "gdpr": "Article 32"},
+  "sri_pwa_misc":              {"hipaa": "164.312(c)(1)",  "soc2": "CC6.1","fedramp": "SI-10","gdpr": "Article 32"},
+  "wp_cli_inject":             {"hipaa": "164.312(c)(1)",  "soc2": "CC6.1","fedramp": "SI-10","gdpr": "Article 32"}
 }

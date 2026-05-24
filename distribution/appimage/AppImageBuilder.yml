@@ -1,0 +1,36 @@
+# AppImage recipe for WPSecScan
+# Build:
+#   pip install --user appimage-builder
+#   appimage-builder --recipe distribution/appimage/AppImageBuilder.yml
+version: 1
+
+AppDir:
+  app_info:
+    id: com.github.bryanflowers.wpsecscan
+    name: WPSecScan
+    version: 2.0.0
+    exec: usr/bin/python3.12
+    exec_args: "-m wpsecscan $@"
+
+  files:
+    include:
+      - usr/bin/python3.12
+    exclude:
+      - usr/share/man
+      - usr/share/doc
+
+  before_runtime:
+  - python3.12 -m pip install --target=AppDir/usr/lib/python3.12 .
+
+  apt:
+    arch: amd64
+    sources:
+    - sourceline: deb http://archive.ubuntu.com/ubuntu/ jammy main universe
+
+  runtime:
+    env:
+      PYTHONPATH: $APPDIR/usr/lib/python3.12
+
+AppImage:
+  arch: x86_64
+  update-information: gh-releases-zsync|bryanflowers|wpsecscan|latest|wpsecscan-*x86_64.AppImage.zsync

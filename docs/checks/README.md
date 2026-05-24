@@ -1,6 +1,6 @@
 # WPSecScan check catalogue
 
-Auto-generated from check docstrings. 154 checks total.
+Auto-generated from check docstrings. 161 checks total.
 
 | Check ID | Display name | Aggressive | OWASP | MITRE |
 |----------|--------------|-----------|-------|-------|
@@ -148,6 +148,13 @@ Auto-generated from check docstrings. 154 checks total.
 | [`honeypot_admin`](honeypot_admin.md) | Honeypot / anti-spam detection (#19) | · | A09:2021 | T1078 |
 | [`a11y_deep`](a11y_deep.md) | WCAG 2.2 accessibility deep audit (#24) | · | A05:2021 | T1592 |
 | [`perf_budget`](perf_budget.md) | Performance-budget audit (#25) | · | A04:2021 | T1499 |
+| [`server_stack_reveal`](server_stack_reveal.md) | Server-stack reveal + PHP EOL detect (#B22+B29) | · | A05:2021 | T1592.002 |
+| [`waf_brand_deep`](waf_brand_deep.md) | WAF brand deep-detect — 11 vendors (#B23) | · | A05:2021 | T1592.004 |
+| [`sri_audit`](sri_audit.md) | Subresource Integrity (SRI) audit (#B24) | · | A08:2021 | T1195.002 |
+| [`service_exposure`](service_exposure.md) | Service-port exposure: Redis/Memcache/DB (#B35-B37) | · | A05:2021 | T1046 |
+| [`js_framework_deep`](js_framework_deep.md) | JS framework deep-detect + version pin (#B31) | · | A06:2021 | T1592.002 |
+| [`sri_pwa_misc`](sri_pwa_misc.md) | SameSite/WebDAV/PWA/HTTP3/contrast (#B25+B30+B32-B34) | · | A05:2021 | T1190 |
+| [`wp_cli_inject`](wp_cli_inject.md) | WP-CLI command-injection probe (#B28) | ⚠ | A03:2021 | T1059 |
 | [`wp_query_sqli`](wp_query_sqli.md) | WP_Query/wpdb-specific SQLi (#4) | ⚠ | A03:2021 | T1190 |
 | [`http2_smuggling`](http2_smuggling.md) | HTTP/2 CRLF smuggling probe (#24) | ⚠ | A05:2021 | T1190 |
 | [`upload_bypass_deep`](upload_bypass_deep.md) | Upload SVG-XXE/polyglot/TOCTOU (#28-30) | ⚠ | A03:2021 | T1190 |

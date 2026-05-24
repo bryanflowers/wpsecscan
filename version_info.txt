@@ -9,8 +9,8 @@
 
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 10, 0, 0),
-    prodvers=(1, 10, 0, 0),
+    filevers=(2, 0, 0, 0),
+    prodvers=(2, 0, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -25,12 +25,12 @@ VSVersionInfo(
         '040904B0',
         [StringStruct('CompanyName', 'WPSecScan defensive security tool'),
         StringStruct('FileDescription', 'WPSecScan — defensive WordPress recon scanner (use on sites you own only)'),
-        StringStruct('FileVersion', '1.10.0'),
+        StringStruct('FileVersion', '2.0.0'),
         StringStruct('InternalName', 'wpsecscan'),
         StringStruct('LegalCopyright', 'Defensive recon tool — read-only HTTP probes, no auto-exploitation, no backdoor functionality.'),
         StringStruct('OriginalFilename', 'wpsecscan.exe'),
         StringStruct('ProductName', 'WPSecScan'),
-        StringStruct('ProductVersion', '1.10.0'),
+        StringStruct('ProductVersion', '2.0.0'),
         StringStruct('Comments', 'NOT MALWARE. Detects webshell + RCE patterns on YOUR OWN sites. Defender may flag pattern strings — this is a known false positive on offensive-security tooling. See README.md.')])
       ]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
