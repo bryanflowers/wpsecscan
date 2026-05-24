@@ -7,6 +7,84 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (Round-61 — plugin polish, auto-vuln-update, UI overhaul, proxy)
+
+Tests: **513 → 542 passing**. Five focused-improvement areas you asked
+about after v1.9.0 shipped.
+
+#### Q1 — WP companion plugin: wp.org-submission-ready
+- `wpsecscan-companion.php`: added `Domain Path: /languages` header
+- `wpsecscan-companion.php`: added `load_plugin_textdomain()` on
+  `plugins_loaded` hook
+- `includes/rest.php`: removed insecure `?token=` query-param fallback
+  (header-only enforcement)
+- `includes/diagnostics.php`: `mysql_get_client_info()` →
+  `mysqli_get_client_info()` (PHP 8+ compat)
+- `readme.txt`: added FAQ (7 questions), Screenshots, Upgrade Notice sections
+- New `wp-plugin/wpsecscan-companion/languages/` directory (i18n compliance)
+- New `wp-plugin/wpsecscan-companion/assets/` with 5 placeholder PNGs
+  (icon-128, icon-256, banner-772, banner-1544, 3 screenshots) via
+  Pillow — see `scripts/gen-wp-plugin-assets.py`
+- New `docs/wp-org-submission.md` — full SVN submission guide for the
+  manual steps (account, slug request, asset upload, SVN dance)
+
+#### Q5 — Private proxy support
+- `wpsecscan/http.py:Client` now accepts `proxy=` + `proxy_auth=`
+  kwargs and passes them to httpx (with httpx <0.26 / >=0.26 compat)
+- New `_merge_proxy_auth()` helper — URL-encodes the password and
+  injects into `scheme://creds@host:port` correctly
+- `wpsecscan/scanner.py`: threads `proxy` / `proxy_auth` from ctx into
+  `Client(...)`; resolves precedence (CLI flag → `WPSECSCAN_PROXY_URL` env)
+- New CLI flags: `--proxy URL` + `--proxy-auth USER:PASS`
+- Per-site proxy: `wpsecscan sites add URL --proxy ... --proxy-auth ...`
+  — sealed at rest via existing `_seal()` (DPAPI/TPM/gpg)
+- `WPSECSCAN_PROXY_AUTH` env var (matches existing `WPSECSCAN_PROXY_URL`)
+- New `docs/proxy.md` — full SOCKS5/HTTP/auth/per-site guide
+
+#### Q2 — Auto-update vulnerabilities
+- New `wpsecscan db {status|update|subscribe|unsubscribe|signatures|alert-check}`
+  CLI subcommand router
+- `db.status()` — source / cache path / entry count / age / staleness
+- `db.subscribe(webhook_url, site_url, label)` — webhook-fired alerts
+  when a new CVE matches an installed plugin
+- `db.unsubscribe()`, `db.subscriptions_load()` — manage subscriptions
+- `db.refresh_exploit_signatures()` — pull exploit-signatures from
+  GitHub raw without reinstalling the binary
+- `db.load_exploit_signatures()` — prefers cached refresh over bundled
+- New `watchers.cve_alert_check()` — runs on the scheduled DB-refresh
+  task; diffs installed plugins per site against latest CVE DB; fires
+  matching subscriptions; throttles repeat alerts via Merkle-style key list
+- `sites.install_schedule()` now also registers a **daily 02:00 DB-refresh
+  task** (alongside the weekly 03:00 scan task) on Windows / macOS / Linux
+- `sites.uninstall_schedule()` removes both tasks
+- New `docs/auto-update.md` — explains the 3 update layers + opt-out
+
+#### Q4 — Advanced settings + Beginner/Standard/Expert mode
+- New `wpsecscan/config.py` — persistent `~/.wpsecscan/config.json`
+  with: theme, follow_os_theme, mode, last_url, show_welcome,
+  proxy_url, proxy_auth, ai_opt_in, compliance_framework
+- Helpers: `config.is_expert()`, `is_beginner()`, `effective_theme()`
+  (auto-detects OS dark mode), `reset()`
+- Foundations laid; GUI integration of mode picker + tabbed Settings
+  deferred to a follow-up Tk-render-tested round to avoid GUI regressions
+
+#### Q3 — UI polish
+- New `gui_polish.apply_sv_ttk_if_available()` — Sun Valley ttk theme
+  (Windows 11 look) when `sv-ttk` is installed; falls back to existing
+  clam theme otherwise
+- New themes: `sv-ttk-dark`, `sv-ttk-light` (auto-applied when
+  `follow_os_theme=True` in config)
+- `pyproject.toml`: added `[ui]` optional extra (`sv-ttk>=2.6`, `Pillow>=10`)
+  + included in `[all]`
+
+#### QA pass fixes (from round-61 audit, before commit)
+- `db.load_exploit_signatures()` — clarified symlink-skip logic
+- `sites._install_macos()` + `_install_linux()` — added symlink guards
+  before writing plist/timer files
+- `sites._install_macos_db()` + `_install_linux_db()` — same symlink guards
+- `config.effective_theme()` — narrowed exception catch from
+  `(ImportError, Exception)` to `(ImportError, AttributeError, OSError)`
+
 ### Added (Round-60 — 28 features + WP companion plugin + AGPLv3 relicense)
 
 Big-impact round. Inventory: **150 → 154 checks**. Tests: **485 → 513 passing**.

@@ -64,7 +64,7 @@ python -m venv .venv
 pip install -r requirements.txt
 python run.py https://example.com         # CLI
 python run_gui.py                          # GUI
-pytest                                     # 513+ tests
+pytest                                     # 542+ tests
 ```
 
 ---

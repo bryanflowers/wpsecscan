@@ -44,19 +44,35 @@ class Client:
         adaptive_throttle: bool = True,
         har: bool = False,
         rotate_ua: bool = False,  # #3 — randomise UA per request from ua_rotation pool
+        proxy: str | None = None,        # round-61 — http://, https://, socks5://
+        proxy_auth: str | None = None,   # round-61 — "user:pass" injected into URL
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self._initial_concurrency = concurrency
         self._current_concurrency = concurrency
         self._sem = asyncio.Semaphore(concurrency)
         self._rotate_ua = rotate_ua
-        self._client = httpx.AsyncClient(
-            timeout=timeout,
-            headers={"User-Agent": user_agent, "Accept": "*/*"},
-            follow_redirects=False,
-            verify=verify,
-            http2=True,
-        )
+        # round-61: honour --proxy + --proxy-auth. Falls back to env-var
+        # behaviour (httpx auto-reads HTTP_PROXY / HTTPS_PROXY / ALL_PROXY)
+        # when both are None.
+        proxy_url = self._merge_proxy_auth(proxy, proxy_auth)
+        httpx_kwargs: dict = {
+            "timeout": timeout,
+            "headers": {"User-Agent": user_agent, "Accept": "*/*"},
+            "follow_redirects": False,
+            "verify": verify,
+            "http2": True,
+        }
+        if proxy_url:
+            # httpx >=0.26 uses singular `proxy=`; older versions used `proxies=`.
+            # Pass `proxy=` and fall back to `proxies=` for compat.
+            try:
+                self._client = httpx.AsyncClient(proxy=proxy_url, **httpx_kwargs)
+            except TypeError:
+                self._client = httpx.AsyncClient(proxies=proxy_url, **httpx_kwargs)
+        else:
+            self._client = httpx.AsyncClient(**httpx_kwargs)
+        self._proxy_url = proxy_url
         self._cache: RequestCache | None = RequestCache() if cache else None
         # B2 adaptive throttle state
         self._adaptive = adaptive_throttle
@@ -67,6 +83,36 @@ class Client:
         # E2 HAR recorder
         self._har_enabled = har
         self._har_entries: list[dict] = []
+
+    @staticmethod
+    def _merge_proxy_auth(proxy: str | None, proxy_auth: str | None) -> str | None:
+        """Combine proxy URL + optional user:pass into one URL.
+
+        Returns None when no proxy is configured (so httpx falls back to
+        env vars: HTTP_PROXY / HTTPS_PROXY / ALL_PROXY).
+        """
+        if not proxy:
+            return None
+        proxy = proxy.strip()
+        if not proxy:
+            return None
+        if not proxy_auth or "@" in proxy:
+            return proxy
+        if "://" not in proxy:
+            return None
+        scheme, rest = proxy.split("://", 1)
+        # Strip a possibly-existing empty userinfo (e.g. socks5://@host)
+        if "@" in rest:
+            return proxy
+        # Best-effort URL-encode user / pass so passwords with `:` or `@`
+        # don't break the URL.
+        from urllib.parse import quote
+        if ":" in proxy_auth:
+            user, pw = proxy_auth.split(":", 1)
+        else:
+            user, pw = proxy_auth, ""
+        creds = quote(user, safe="") + (":" + quote(pw, safe="") if pw else "")
+        return f"{scheme}://{creds}@{rest}"
 
     async def aclose(self) -> None:
         if self._cache:

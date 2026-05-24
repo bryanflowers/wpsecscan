@@ -119,6 +119,8 @@ async def _scan_one(target: str, args, console: Console):
             auth_app_password=args.auth_app_password,
             auth_totp=args.auth_totp,
             companion_token=args.companion_token,
+            proxy=args.proxy,
+            proxy_auth=args.proxy_auth,
             har=bool(args.har),
             har_path=Path(args.har) if args.har else None,
             parallel_groups=args.parallel_groups,
@@ -340,7 +342,7 @@ async def _amain(args) -> int:
 def main() -> None:
     # ---- Subcommand dispatch (round-60): keep before argparse so existing
     # `wpsecscan <url>` invocations stay backward-compatible.
-    if len(sys.argv) >= 2 and sys.argv[1] in ("sites", "schedule", "digest", "ai-cost"):
+    if len(sys.argv) >= 2 and sys.argv[1] in ("sites", "schedule", "digest", "ai-cost", "db"):
         _dispatch_subcommand(sys.argv[1], sys.argv[2:])
         return
 
@@ -374,6 +376,10 @@ def main() -> None:
                     help="6-digit TOTP code if the admin account requires 2FA (Two-Factor / Wordfence / iThemes).")
     p.add_argument("--companion-token", default=None,
                     help="One-time token from the WPSecScan companion plugin (richest data, single round-trip).")
+    p.add_argument("--proxy", default=None,
+                    help="Proxy URL — http://, https://, or socks5:// (also reads WPSECSCAN_PROXY_URL / HTTP_PROXY env vars).")
+    p.add_argument("--proxy-auth", default=None,
+                    help="Optional 'user:pass' for the proxy. Injected into the URL; password is URL-encoded.")
     p.add_argument("--ssh-audit", default=None, metavar="user@host", help="Connect via ssh and run a read-only wp-cli audit (uses system ssh client, BatchMode=yes).")
     p.add_argument("--password-audit", default=None, metavar="WP_USERS.csv", help="Offline: read a CSV or SQL dump of wp_users and emit a hashcat-ready file. NO network calls.")
 
@@ -610,7 +616,7 @@ def main() -> None:
 
 
 def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
-    """Round-60 subcommand router for `sites` / `schedule` / `digest` / `ai-cost`."""
+    """Subcommand router (round-60 + round-61)."""
     if cmd == "sites":
         _cmd_sites(args)
     elif cmd == "schedule":
@@ -619,6 +625,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_digest(args)
     elif cmd == "ai-cost":
         _cmd_ai_cost(args)
+    elif cmd == "db":
+        _cmd_db(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -646,7 +654,8 @@ def _cmd_sites(args: list[str]) -> None:
     if action == "add":
         url = None
         flags = {"weekly": False, "auth_user": None, "auth_app_password": None,
-                  "companion_token": None, "notes": ""}
+                  "companion_token": None, "proxy_url": None, "proxy_auth": None,
+                  "notes": ""}
         i = 0
         while i < len(rest):
             a = rest[i]
@@ -658,6 +667,10 @@ def _cmd_sites(args: list[str]) -> None:
                 flags["auth_app_password"] = rest[i + 1]; i += 2
             elif a == "--companion-token" and i + 1 < len(rest):
                 flags["companion_token"] = rest[i + 1]; i += 2
+            elif a == "--proxy" and i + 1 < len(rest):
+                flags["proxy_url"] = rest[i + 1]; i += 2
+            elif a == "--proxy-auth" and i + 1 < len(rest):
+                flags["proxy_auth"] = rest[i + 1]; i += 2
             elif a == "--notes" and i + 1 < len(rest):
                 flags["notes"] = rest[i + 1]; i += 2
             elif not a.startswith("--") and url is None:
@@ -665,9 +678,9 @@ def _cmd_sites(args: list[str]) -> None:
             else:
                 i += 1
         if not url:
-            print("usage: wpsecscan sites add URL [--weekly] [--auth-user U] [--auth-app-password P]"); sys.exit(2)
+            print("usage: wpsecscan sites add URL [--weekly] [--auth-user U] [--auth-app-password P] [--proxy URL] [--proxy-auth user:pass]"); sys.exit(2)
         entry = sites_mod.add(url, **flags)
-        print(f"added: {entry['url']} (weekly={entry['weekly']})")
+        print(f"added: {entry['url']} (weekly={entry['weekly']}{', proxied' if flags['proxy_url'] else ''})")
         return
     if action == "scan":
         from . import sites as sites_mod
@@ -763,6 +776,94 @@ def _cmd_ai_cost(args: list[str]) -> None:
               f"out={entry.get('out_tokens', 0):>10d}  "
               f"${usd:.4f}")
     print(f"  {'TOTAL':12s} ${total:.4f}")
+
+
+def _cmd_db(args: list[str]) -> None:
+    """Round-61: `wpsecscan db {status|update|subscribe|unsubscribe|signatures|alert-check}`."""
+    if not args or args[0] in ("-h", "--help", "help"):
+        print("usage: wpsecscan db {status|update|subscribe|unsubscribe|signatures|alert-check}")
+        return
+    from . import db as _db
+
+    action = args[0]
+    rest = args[1:]
+
+    if action == "status":
+        s = _db.status()
+        age_days = (s["age_seconds"] // 86400) if s["age_seconds"] >= 0 else -1
+        print(f"  source:        {s['source']}")
+        print(f"  cache path:    {s['cache_path']}")
+        print(f"  cache exists:  {s['cache_exists']}")
+        print(f"  entries:       {s['entry_count']:,}")
+        print(f"  age:           {age_days} days" if age_days >= 0 else "  age:           n/a (embedded only)")
+        print(f"  stale:         {s['stale']}  (threshold {s['stale_after_seconds'] // 86400} days)")
+        return
+
+    if action == "update":
+        try:
+            n, p = _db.update_db(verbose=True,
+                                   patchstack_token=os.environ.get("WPSECSCAN_PATCHSTACK_TOKEN", ""))
+            print(f"OK — {n:,} entries cached at {p}")
+        except Exception as e:  # noqa: BLE001
+            print(f"FAIL: {e}", file=sys.stderr); sys.exit(1)
+        return
+
+    if action == "signatures":
+        out = _db.refresh_exploit_signatures()
+        if out.get("ok"):
+            print(f"OK — {out.get('bytes', 0)} bytes cached at {out.get('path')}")
+        else:
+            print(f"FAIL: {out.get('error')}", file=sys.stderr); sys.exit(1)
+        return
+
+    if action == "subscribe":
+        # usage: wpsecscan db subscribe WEBHOOK_URL [--site URL] [--label NAME]
+        if not rest:
+            print("usage: wpsecscan db subscribe WEBHOOK_URL [--site URL] [--label NAME]"); sys.exit(2)
+        webhook = rest[0]
+        site = ""
+        label = "default"
+        i = 1
+        while i < len(rest):
+            a = rest[i]
+            if a == "--site" and i + 1 < len(rest):
+                site = rest[i + 1]; i += 2
+            elif a == "--label" and i + 1 < len(rest):
+                label = rest[i + 1]; i += 2
+            else:
+                i += 1
+        try:
+            entry = _db.subscribe(webhook, site_url=site, label=label)
+            print(f"subscribed: {entry['webhook_url']} for site={entry['site_url']} (label={entry['label']})")
+        except ValueError as e:
+            print(f"FAIL: {e}", file=sys.stderr); sys.exit(2)
+        return
+
+    if action == "unsubscribe":
+        if not rest:
+            print("usage: wpsecscan db unsubscribe WEBHOOK_URL [--site URL]"); sys.exit(2)
+        webhook = rest[0]
+        site = ""
+        i = 1
+        while i < len(rest):
+            if rest[i] == "--site" and i + 1 < len(rest):
+                site = rest[i + 1]; i += 2
+            else:
+                i += 1
+        ok = _db.unsubscribe(webhook, site_url=site)
+        print("removed" if ok else "not found")
+        return
+
+    if action == "alert-check":
+        from . import watchers
+        out = watchers.cve_alert_check()
+        print(f"checked {out['checked_sites']} site(s), {len(out['new_alerts'])} new alert(s)")
+        for a in out["new_alerts"][:20]:
+            print(f"  - {a['site_url']}: {a['plugin_slug']} {a['installed_version'] or '?'} "
+                  f"[{a['severity']}] {a['cve']} {a['title']}")
+        return
+
+    print(f"unknown db action: {action}", file=sys.stderr); sys.exit(2)
 
 
 if __name__ == "__main__":

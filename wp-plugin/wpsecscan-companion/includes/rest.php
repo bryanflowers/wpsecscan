@@ -32,11 +32,8 @@ function wpsecscan_companion_check_token( $request ) {
         return new WP_Error( 'wpsecscan_no_tls', 'TLS required', [ 'status' => 403 ] );
     }
 
+    // Header-only — query params can leak into server logs / proxy logs.
     $token = $request->get_header( 'x_wpsecscan_token' );
-    if ( ! $token ) {
-        // Fallback to query param for one-time testing — not recommended for prod
-        $token = $request->get_param( 'token' );
-    }
     $token = is_string( $token ) ? trim( $token ) : '';
     if ( ! $token || strlen( $token ) < 16 || strlen( $token ) > 96 ) {
         return new WP_Error( 'wpsecscan_bad_token', 'Bad token', [ 'status' => 401 ] );
