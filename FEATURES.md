@@ -6,6 +6,48 @@ For install instructions, see [README.md](README.md).
 
 ---
 
+## Round-64 — 165 features across 18 groups → v2.2.0
+
+Tests: **607 → 646 passing**. Checks: **161 → 189**.
+
+**What it does:** Round-64 broadens WPSecScan from a passive
+WordPress scanner into a full defensive-security platform with
+active exploit verification (consent-gated), continuous monitoring,
+threat-intel federation to 10 upstream providers, SLSA Level 3
+signed releases, enterprise SSO + RBAC + audit-log + multi-tenant,
+26 new attack-surface checks, and distribution across 9 channels.
+
+**Group summary:**
+
+| Group | Items | What it adds |
+|-------|------:|-------------|
+| A — Active exploit verification | 10 | Strict consent-gated PoC verifiers (`exploit_verify.py`) |
+| B — Continuous monitoring | 10 | Always-on watchers (`monitors.py`) |
+| D — Trust signals | 10 | SLSA L3 + Sigstore + Scorecard + security.txt + bounty |
+| E — Threat intel | 10 | CISA KEV / EPSS / Exploit-DB / Metasploit / MITRE ATT&CK / STIX / MISP / OpenCTI / OTX / GreyNoise |
+| F — Modern WP attack surface | 20 | AI/LLM, cryptominer, Magecart, lockfile, typosquat |
+| G — Web3/NFT/payment | 6 | Wallet, NFT, crypto callback, BIP-39 seed, test keys |
+| H — UX dashboard polish | 14 | Progress bar, snooze, themes, tray |
+| I — Reports & sharing | 7 | SVG badge, public scorecard, ELI5, trends |
+| J — Mobile + accessibility | 6 | RN/Capacitor + WCAG AAA + screen-reader CLI |
+| K — Distribution | 10 | Docker + 8 package managers + install matrix |
+| L — Enterprise | 9 | OIDC/SAML/RBAC/audit/approval/multi-tenant/quota/billing |
+| M — Community | 10 | Public DB, marketplace, bot, leaderboard, CTF |
+| N — IaC | 8 | Terraform/Ansible/Pulumi/Sentinel/ServiceNow/Datadog/Grafana/Prom |
+| O — SDKs + API | 7 | Python/JS/Go SDKs + OpenAPI + Postman + webhook v2 |
+| P — Check authoring | 5 | Scaffolder + linter + framework + tutorial |
+| Q — Education | 7 | CTF, MOOC, cert program, webinar, runbook |
+| R — Performance | 6 | Distributed coord, ARM64, diff/smart-skip, conn pool |
+| Wild cards | 10 | Browser ext, Slack/Teams bots, bingo, brand monitor |
+| **Total** | **165** | |
+
+Group C (10 AI-triage features) intentionally deferred — to be
+presented separately for review before building.
+
+For per-feature detail see [CHANGELOG.md](CHANGELOG.md#added-round-64).
+
+---
+
 ## Round-63 — Multi-source CVE aggregator → v2.1.0
 
 Tests: **590 → 607 passing**.

@@ -1,0 +1,174 @@
+# Round-64 #144 — OpenAPI 3.1 spec for the WPSecScan daemon REST API.
+openapi: 3.1.0
+info:
+  title: WPSecScan Daemon API
+  version: "2.2.0"
+  description: |
+    REST API for the WPSecScan daemon. Used by the GUI, mobile clients,
+    SDKs (Python/JS/Go), and webhook integrations.
+  license:
+    name: AGPL-3.0-or-later
+    url: https://github.com/bryanflowers/wpsecscan/blob/main/LICENSE
+servers:
+  - url: http://localhost:8080
+    description: Local daemon (default)
+security:
+  - bearerAuth: []
+paths:
+  /scans:
+    post:
+      summary: Start a scan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target]
+              properties:
+                target: { type: string, format: uri }
+                aggressive: { type: boolean, default: false }
+                authenticated: { type: boolean, default: false }
+      responses:
+        '202':
+          description: Scan started
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScanStarted' }
+    get:
+      summary: List recent scans
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, maximum: 500 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scans:
+                    type: array
+                    items: { $ref: '#/components/schemas/ScanReport' }
+  /scans/{scan_id}:
+    get:
+      summary: Get a scan's status / report
+      parameters:
+        - name: scan_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScanReport' }
+    delete:
+      summary: Delete a scan record
+      parameters:
+        - name: scan_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Deleted }
+  /scans/{scan_id}/findings:
+    get:
+      summary: List findings for a scan
+      parameters:
+        - name: scan_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [critical, high, medium, low, info]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  findings:
+                    type: array
+                    items: { $ref: '#/components/schemas/Finding' }
+  /sites:
+    get:
+      summary: List configured sites
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sites:
+                    type: array
+                    items: { $ref: '#/components/schemas/Site' }
+    post:
+      summary: Add a site
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Site' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Site' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ScanStarted:
+      type: object
+      properties:
+        scan_id: { type: string }
+    ScanReport:
+      type: object
+      properties:
+        scan_id:    { type: string }
+        target:     { type: string }
+        status:     { type: string, enum: [running, complete, failed] }
+        summary:    { $ref: '#/components/schemas/Summary' }
+        risk_score: { type: number }
+        scanned_at: { type: string, format: date-time }
+    Summary:
+      type: object
+      properties:
+        critical: { type: integer }
+        high:     { type: integer }
+        medium:   { type: integer }
+        low:      { type: integer }
+        info:     { type: integer }
+    Finding:
+      type: object
+      properties:
+        severity:    { type: string }
+        title:       { type: string }
+        evidence:    { type: string }
+        remediation: { type: string }
+        url:         { type: string }
+    Site:
+      type: object
+      required: [name, url]
+      properties:
+        id:                  { type: string, readOnly: true }
+        name:                { type: string }
+        url:                 { type: string, format: uri }
+        aggressive:          { type: boolean }
+        scan_interval_hours: { type: integer }
+        notify_slack_webhook: { type: string }

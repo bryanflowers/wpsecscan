@@ -1,0 +1,28 @@
+{
+  "//": "Round-64 #110 — Flatpak manifest scaffold",
+  "app-id": "com.wpsecscan.Scanner",
+  "runtime": "org.freedesktop.Platform",
+  "runtime-version": "23.08",
+  "sdk": "org.freedesktop.Sdk",
+  "command": "wpsecscan",
+  "finish-args": [
+    "--share=network",
+    "--filesystem=home"
+  ],
+  "modules": [
+    {
+      "name": "wpsecscan",
+      "buildsystem": "simple",
+      "build-commands": [
+        "pip3 install --prefix=/app ."
+      ],
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://github.com/bryanflowers/wpsecscan/archive/refs/tags/v2.2.0.tar.gz",
+          "sha256": "REPLACE_WITH_SHA256_FROM_RELEASE"
+        }
+      ]
+    }
+  ]
+}

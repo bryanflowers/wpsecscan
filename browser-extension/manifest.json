@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "WPSecScan — quick scan",
+  "version": "2.2.0",
+  "description": "One-click scan of the current WordPress site via WPSecScan CLI (requires local daemon).",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": ["http://localhost:8080/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon-16.png",
+      "48": "icon-48.png",
+      "128": "icon-128.png"
+    }
+  },
+  "_comment": "Round-64 #166 — WebExtension MV3 manifest. Pairs with popup.js + popup.html in the same directory."
+}

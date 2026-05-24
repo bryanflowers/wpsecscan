@@ -7,6 +7,148 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (Round-64 — 165 features across 18 groups → v2.2.0)
+
+Tests: **607 → 646 passing**. Checks: **161 → 189**.
+
+**Headline:** WPSecScan now ships **active exploit verification** (with
+strict consent gating), **continuous monitors** (CT / DNS / WHOIS /
+RBL / honeypot / auto-rollback), **threat-intel federation** to 10
+upstream providers (CISA KEV / EPSS / Exploit-DB / Metasploit / MITRE
+ATT&CK Navigator / STIX / MISP / OpenCTI / OTX / GreyNoise), every
+release is **SLSA L3 signed** with cosign + CycloneDX SBOM, plus 26
+new attack-surface checks (modern WP / Web3 / NFT / payment), 14 GUI
+polish features, 7 new reporters, enterprise scaffolds (OIDC + SAML +
+RBAC + audit-log + approval-workflow + multi-tenant + quota + billing),
+and a full distribution-channel matrix (Docker, K8s, Homebrew, Snap,
+Flatpak, winget, AUR, Chocolatey).
+
+#### Group A — Active exploit verification (#1-10)
+- `wpsecscan/exploit_verify.py` with strict consent gate
+  (`WPSECSCAN_OWNED_TARGETS=1` AND target in sites list)
+- 10 verifiers: poc-for-cve, exploit-chain, race/TOCTOU upload,
+  stored-then-replay, SSRF OOB, JWT alg=none, CSRF token reuse,
+  smuggling chain, pre-auth RCE, wpcron inject
+
+#### Group B — Continuous monitoring (#11-20)
+- `wpsecscan/monitors.py` — 10 monitors with persistent state at
+  `~/.wpsecscan/monitors/<name>.json`
+- Live attack feed, Certificate Transparency watch, DNS/WHOIS-change,
+  dark-web mention, RBL reputation, CISA KEV match, GeoIP anomaly,
+  honeypot hits, auto-rollback
+
+#### Group D — Trust signals (#31-40)
+- `.github/workflows/release-attestation.yml` — SLSA L3 + cosign
+  keyless + CycloneDX SBOM
+- `.github/workflows/ossf-scorecard.yml` — weekly OpenSSF Scorecard
+- `.well-known/security.txt` (RFC 9116)
+- `SECURITY-ACK.md` — researcher hall of fame
+- `BUG-BOUNTY.md` — self-funded bounty
+- `docs/verify-release.md` — full verification guide
+
+#### Group E — Threat-intel integrations (#41-50)
+- `wpsecscan/threat_intel_v2.py` — 10 TI providers with TTL cache
+- CISA KEV / EPSS / Exploit-DB / Metasploit / MITRE ATT&CK Navigator
+  layer / STIX 2.1 bundle / MISP / OpenCTI / AlienVault OTX /
+  GreyNoise + unified `enrich_finding()`
+
+#### Group F — Modern WP attack surface (#51-70) — 20 new checks
+1. `ai_prompt_injection_passive` 2. `wpconfig_hardening_audit`
+3. `db_trigger_audit` 4. `postmeta_stored_xss_scan`
+5. `vendor_backdoor_patterns` 6. `cryptominer_js_injection`
+7. `magecart_skimmer_patterns` 8. `plugin_typosquat_detection`
+9. `composer_lock_audit` 10. `package_lock_audit`
+11. `yarn_pnpm_lock_audit` 12. `rest_app_passwords_enum`
+13. `mfa_priv_account_audit` 14. `wpcron_suspicious_jobs`
+15. `webhook_url_fingerprint` 16. `git_dir_deep_scan`
+17. `env_file_enum` 18. `helm_compose_leak`
+19. `tailwind_css_comment_leak` 20. `graphql_field_authz_deep`
+
+#### Group G — Web3/NFT/payment (#71-76) — 6 new checks
+- `web3_wallet_connector_audit`, `nft_mint_pubapi`,
+  `crypto_payment_callback_audit`, `solidity_abi_leak`,
+  `wallet_seed_phrase_leak` (BIP-39 dictionary scan),
+  `payment_gateway_test_keys` (test-key-on-prod detection)
+
+#### Group H — UX dashboard polish (#77-90)
+- `wpsecscan/gui_round64.py` — 14 helpers: real-time progress,
+  click-through fix panel, diff vs last scan, severity pie, saved
+  filter views, dark/light theme, shortcuts panel, 7-day snooze,
+  bulk export, in-app changelog, drag-drop import, scan-all button,
+  pystray tray notifications
+
+#### Group I — Reports & sharing (#91-97) — 7 new reporters
+- `badge_svg`, `public_page` (opt-in), `pdf_custom_branding`,
+  `eli5_toggle`, `comparison_two_sites`, `trend_over_time` (SVG
+  sparkline), `translated_summary` (en/es/de/fr/ja/zh)
+
+#### Group J — Mobile + accessibility (#98-103)
+- React Native + Capacitor mobile scaffolds (docs)
+- `a11y_wcag_aaa` check (WCAG 2.2 AAA extras)
+- CLI `--screen-reader`, `--high-contrast`, `--voice-summary` flags
+- `docs/keyboard-only-walkthrough.md`
+
+#### Group K — Distribution (#104-113)
+- Dockerfile refreshed for AGPLv3 + v2.2.0
+- k8s operator scaffold + Homebrew/Chocolatey/Snap/Flatpak/winget/AUR
+  + `docs/install-matrix.md`
+
+#### Group L — Enterprise (#114-122)
+- OIDC + SAML SSO scaffolds
+- Reader/Operator/Admin RBAC
+- HMAC-chained audit log + chain verifier
+- Two-person approval workflow
+- White-label branding
+- Multi-tenant namespacing + per-tenant quotas + Stripe metered
+  billing stub
+
+#### Group M — Community (#123-132)
+- Opt-in public scan DB schema (PII-free)
+- Check marketplace design, Discord bot stub, ROADMAP.md,
+  newsletter template, contributor leaderboard + script, check
+  voting schema, scan-buddy pairing program, GH Discussions setup
+
+#### Group N — IaC (#133-140)
+- Terraform provider stub, Ansible role, Pulumi component,
+  HashiCorp Sentinel policy, ServiceNow import set, Datadog Agent
+  check, Grafana dashboard, Prometheus exporter
+
+#### Group O — SDKs + API (#141-147)
+- Python / TypeScript / Go SDKs
+- OpenAPI 3.1 spec + Postman collection
+- `webhook_v2` (HMAC + nonce + replay window)
+- `docs/api-reference.md` full reference
+
+#### Group P — Check authoring (#148-152)
+- `scripts/new-check.py` interactive scaffolder
+- `scripts/lint-checks.py` AST-based hygiene linter
+- `tests/check_framework.py` shared fixtures
+- `docs/writing-a-check.md` tutorial
+- `wpsecscan/checks/_template.py` skeleton
+
+#### Group Q — Education (#153-159)
+- CTF round 1, MOOC outline, cert program design, webinar template,
+  State of WP Security 2026 outline, WP-security-101, IR runbook
+
+#### Group R — Performance (#160-165)
+- Redis-queue distributed coordinator
+- ARM64 build instructions
+- ETag-based incremental diff scan
+- Precondition-based smart-skip
+- Parallel-sites fan-out
+- Shared httpx.AsyncClient pool
+
+#### Wild cards (#166-175)
+- Chrome/Firefox WebExtension, Slack + Teams bots, WP Security Bingo,
+  brand-monitor check, Wayback historical scanning, global
+  leaderboard opt-in, wp-cli bridge, auto-isolation, forensics
+  timeline builder
+
+#### Compatibility note
+- Original `wpsecscan/{incremental,perf,daemon}.py` modules moved
+  into matching package dirs as `_legacy.py` and re-exported from
+  each `__init__.py`. All prior import paths continue to work.
+
 ### Added (Round-63 — multi-source CVE aggregator → v2.1.0)
 
 Tests: **590 → 607 passing**.

@@ -6,9 +6,12 @@
 [![release](https://img.shields.io/github/v/release/bryanflowers/wpsecscan)](https://github.com/bryanflowers/wpsecscan/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/bryanflowers/wpsecscan/total)](https://github.com/bryanflowers/wpsecscan/releases)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![checks](https://img.shields.io/badge/checks-161-brightgreen)](FEATURES.md)
+[![checks](https://img.shields.io/badge/checks-189-brightgreen)](FEATURES.md)
 [![CVE sources](https://img.shields.io/badge/CVE%20sources-8-blue)](docs/data-sources.md)
-[![tests passing](https://img.shields.io/badge/tests-607%20passing-brightgreen)](tests/)
+[![tests passing](https://img.shields.io/badge/tests-646%20passing-brightgreen)](tests/)
+[![SLSA Level 3](https://img.shields.io/badge/SLSA-Level%203-success)](docs/verify-release.md)
+[![Sigstore signed](https://img.shields.io/badge/Sigstore-signed-blueviolet)](docs/verify-release.md)
+[![threat-intel](https://img.shields.io/badge/threat--intel-10%20providers-orange)](FEATURES.md)
 
 > **⚠ AUTHORIZED USE ONLY**
 >
@@ -22,7 +25,18 @@
 
 **The most thoroughly-sourced WordPress vulnerability scanner — open source, AGPLv3, runs locally.**
 
-161 checks across 18 categories. **8-source nightly CVE aggregator**
+189 checks across 18 categories. **8-source nightly CVE aggregator**
+(NVD + GHSA + Mitre + OSV + Wordfence + WPVulnerability + CIRCL +
+Patchstack). **SLSA L3 + Sigstore-signed releases**. **10-provider
+threat-intel federation** (CISA KEV, EPSS, Exploit-DB, Metasploit,
+ATT&CK Navigator, STIX, MISP, OpenCTI, OTX, GreyNoise). **Continuous
+monitoring** (CT/DNS/WHOIS/RBL/honeypot/auto-rollback). **Active
+exploit verification** with strict consent gating. **Enterprise
+mode**: OIDC + SAML + RBAC + audit-log + approval workflow +
+multi-tenant + quotas. **Distribution**: Docker, K8s, Homebrew, Snap,
+Flatpak, winget, AUR, Chocolatey.
+
+Original headline:
 gives you a fresher and more complete vulnerability database than
 any single paid or free service. Runs entirely on your machine — no
 telemetry, no per-site licensing, no data leaves your box.
@@ -150,7 +164,7 @@ wpsecscan.exe https://your-wp-site.com --wpscan-token <KEY>
 
 ---
 
-## What it checks (161 checks)
+## What it checks (189 checks)
 
 Passive checks always run; aggressive checks need `--aggressive`.
 

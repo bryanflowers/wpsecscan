@@ -177,5 +177,36 @@
   "service_exposure":          {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1046", "attack_label": "Network Service Discovery", "cwe": "CWE-668", "d3fend": "D3-NTA"},
   "js_framework_deep":         {"owasp": "A06:2021", "owasp_label": "Vulnerable & Outdated Components", "attack": "T1592.002", "attack_label": "Software", "cwe": "CWE-1104", "d3fend": "D3-SU"},
   "sri_pwa_misc":              {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-693", "d3fend": "D3-NTA"},
-  "wp_cli_inject":             {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1059", "attack_label": "Command and Scripting Interpreter", "cwe": "CWE-78", "d3fend": "D3-IVA"}
+  "wp_cli_inject":             {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1059", "attack_label": "Command and Scripting Interpreter", "cwe": "CWE-78", "d3fend": "D3-IVA"},
+
+  "ai_prompt_injection_passive":  {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1059", "attack_label": "Command and Scripting Interpreter", "cwe": "CWE-94", "d3fend": "D3-IVA"},
+  "wpconfig_hardening_audit":     {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-16", "d3fend": "D3-NTA"},
+  "db_trigger_audit":             {"owasp": "A09:2021", "owasp_label": "Security Logging & Monitoring Failures", "attack": "T1546", "attack_label": "Event Triggered Execution", "cwe": "CWE-89", "d3fend": "D3-FCR"},
+  "postmeta_stored_xss_scan":     {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1059.007", "attack_label": "JavaScript", "cwe": "CWE-79", "d3fend": "D3-OE"},
+  "vendor_backdoor_patterns":     {"owasp": "A06:2021", "owasp_label": "Vulnerable & Outdated Components", "attack": "T1195.002", "attack_label": "Compromise Software Supply Chain", "cwe": "CWE-506", "d3fend": "D3-SCM"},
+  "cryptominer_js_injection":     {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1496", "attack_label": "Resource Hijacking", "cwe": "CWE-94", "d3fend": "D3-OE"},
+  "magecart_skimmer_patterns":    {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1056.003", "attack_label": "Web Portal Capture", "cwe": "CWE-79", "d3fend": "D3-OE"},
+  "plugin_typosquat_detection":   {"owasp": "A08:2021", "owasp_label": "Software & Data Integrity Failures", "attack": "T1195.001", "attack_label": "Compromise Software Dependencies and Development Tools", "cwe": "CWE-1357", "d3fend": "D3-SCM"},
+  "composer_lock_audit":          {"owasp": "A06:2021", "owasp_label": "Vulnerable & Outdated Components", "attack": "T1592.002", "attack_label": "Software", "cwe": "CWE-1104", "d3fend": "D3-SU"},
+  "package_lock_audit":           {"owasp": "A06:2021", "owasp_label": "Vulnerable & Outdated Components", "attack": "T1592.002", "attack_label": "Software", "cwe": "CWE-1104", "d3fend": "D3-SU"},
+  "yarn_pnpm_lock_audit":         {"owasp": "A06:2021", "owasp_label": "Vulnerable & Outdated Components", "attack": "T1592.002", "attack_label": "Software", "cwe": "CWE-1104", "d3fend": "D3-SU"},
+  "rest_app_passwords_enum":      {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1078", "attack_label": "Valid Accounts", "cwe": "CWE-287", "d3fend": "D3-MFA"},
+  "mfa_priv_account_audit":       {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1078.001", "attack_label": "Default Accounts", "cwe": "CWE-308", "d3fend": "D3-MFA"},
+  "wpcron_suspicious_jobs":       {"owasp": "A09:2021", "owasp_label": "Security Logging & Monitoring Failures", "attack": "T1053.003", "attack_label": "Cron", "cwe": "CWE-506", "d3fend": "D3-FCR"},
+  "webhook_url_fingerprint":      {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1567.002", "attack_label": "Exfiltration to Cloud Storage", "cwe": "CWE-798", "d3fend": "D3-SCM"},
+  "git_dir_deep_scan":            {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1083", "attack_label": "File and Directory Discovery", "cwe": "CWE-538", "d3fend": "D3-FCR"},
+  "env_file_enum":                {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1552.001", "attack_label": "Credentials In Files", "cwe": "CWE-538", "d3fend": "D3-FCR"},
+  "helm_compose_leak":            {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1552.001", "attack_label": "Credentials In Files", "cwe": "CWE-538", "d3fend": "D3-FCR"},
+  "tailwind_css_comment_leak":    {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-NTA"},
+  "graphql_field_authz_deep":     {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-285", "d3fend": "D3-MFA"},
+
+  "web3_wallet_connector_audit":  {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-345", "d3fend": "D3-MFA"},
+  "nft_mint_pubapi":              {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-285", "d3fend": "D3-MFA"},
+  "crypto_payment_callback_audit":{"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1565.003", "attack_label": "Runtime Data Manipulation", "cwe": "CWE-345", "d3fend": "D3-MFA"},
+  "solidity_abi_leak":            {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-538", "d3fend": "D3-NTA"},
+  "wallet_seed_phrase_leak":      {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552.001", "attack_label": "Credentials In Files", "cwe": "CWE-798", "d3fend": "D3-FCR"},
+  "payment_gateway_test_keys":    {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1552.001", "attack_label": "Credentials In Files", "cwe": "CWE-798", "d3fend": "D3-FCR"},
+
+  "a11y_wcag_aaa":                {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-1004", "d3fend": "D3-NTA"},
+  "brand_monitor":                {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1583.001", "attack_label": "Domains", "cwe": "CWE-441", "d3fend": "D3-DNS"}
 }

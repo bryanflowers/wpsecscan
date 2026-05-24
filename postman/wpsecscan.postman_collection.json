@@ -1,0 +1,73 @@
+{
+  "info": {
+    "name": "WPSecScan Daemon API",
+    "_comment": "Round-64 #145 — Postman collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "2.2.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]
+  },
+  "variable": [
+    {"key": "base_url", "value": "http://localhost:8080"},
+    {"key": "token",    "value": ""},
+    {"key": "scan_id",  "value": ""}
+  ],
+  "item": [
+    {
+      "name": "Start scan",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/scans",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"target\": \"https://example.com\",\n  \"aggressive\": false\n}",
+          "options": {"raw": {"language": "json"}}
+        },
+        "header": [{"key": "Content-Type", "value": "application/json"}]
+      }
+    },
+    {
+      "name": "Get scan",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/scans/{{scan_id}}"
+      }
+    },
+    {
+      "name": "List scans",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/scans?limit=50"
+      }
+    },
+    {
+      "name": "Get findings (critical only)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/scans/{{scan_id}}/findings?severity=critical"
+      }
+    },
+    {
+      "name": "List sites",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/sites"
+      }
+    },
+    {
+      "name": "Add site",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/sites",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"example\",\n  \"url\": \"https://example.com\",\n  \"scan_interval_hours\": 24\n}",
+          "options": {"raw": {"language": "json"}}
+        },
+        "header": [{"key": "Content-Type", "value": "application/json"}]
+      }
+    }
+  ]
+}

@@ -27,5 +27,6 @@ CMD ["--help"]
 
 LABEL org.opencontainers.image.title="WPSecScan"
 LABEL org.opencontainers.image.description="Defensive WordPress security scanner (use on sites you own)"
-LABEL org.opencontainers.image.licenses="MIT"
-LABEL org.opencontainers.image.source="https://github.com/bryan/wpsecscan"
+LABEL org.opencontainers.image.licenses="AGPL-3.0-or-later"
+LABEL org.opencontainers.image.source="https://github.com/bryanflowers/wpsecscan"
+LABEL org.opencontainers.image.version="2.2.0"

@@ -5,174 +5,949 @@
     "nist_800_53": "NIST 800-53 Rev. 5 control family (e.g. 'SI-2', 'AC-3')",
     "iso_27001": "ISO/IEC 27001:2022 Annex A control (e.g. 'A.5.10', 'A.8.8')"
   },
-
-  "core_version":          {"pci_dss": "6.3.3", "nist_800_53": "SI-2", "iso_27001": "A.8.8"},
-  "plugins":               {"pci_dss": "6.3.3", "nist_800_53": "SI-2", "iso_27001": "A.8.8"},
-  "themes":                {"pci_dss": "6.3.3", "nist_800_53": "SI-2", "iso_27001": "A.8.8"},
-  "users":                 {"pci_dss": "8.2.1", "nist_800_53": "AC-3", "iso_27001": "A.5.18"},
-  "exposed_files":         {"pci_dss": "6.4.1", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
-  "login":                 {"pci_dss": "8.3.1", "nist_800_53": "IA-2", "iso_27001": "A.5.15"},
-  "login_throttle":        {"pci_dss": "8.3.4", "nist_800_53": "AC-7", "iso_27001": "A.5.17"},
-  "login_throttle_deep":   {"pci_dss": "8.3.4", "nist_800_53": "AC-7", "iso_27001": "A.5.17"},
-  "tls_headers":           {"pci_dss": "4.2.1", "nist_800_53": "SC-8", "iso_27001": "A.8.20"},
-  "csp":                   {"pci_dss": "6.4.1", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "directory_listing":     {"pci_dss": "6.4.1", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
-  "debug_leaks":           {"pci_dss": "10.2.1", "nist_800_53": "AU-3", "iso_27001": "A.8.15"},
-  "robots_sitemap":        {"pci_dss": "12.5", "nist_800_53": "CM-8", "iso_27001": "A.8.1"},
-  "cookies":               {"pci_dss": "4.2.1", "nist_800_53": "SC-23", "iso_27001": "A.8.20"},
-  "http_methods":          {"pci_dss": "6.4.1", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
-  "subdomains":            {"pci_dss": "11.3.1", "nist_800_53": "CA-8", "iso_27001": "A.8.8"},
-  "hibp":                  {"pci_dss": "8.3.5", "nist_800_53": "IA-5", "iso_27001": "A.5.17"},
-  "rest_api":              {"pci_dss": "6.4.1", "nist_800_53": "AC-3", "iso_27001": "A.5.15"},
-  "cors":                  {"pci_dss": "6.4.1", "nist_800_53": "AC-4", "iso_27001": "A.8.21"},
-  "js_libraries":          {"pci_dss": "6.3.3", "nist_800_53": "SI-2", "iso_27001": "A.8.8"},
-  "secret_leak":           {"pci_dss": "3.5.1", "nist_800_53": "SC-28", "iso_27001": "A.8.24"},
-  "wpgraphql":             {"pci_dss": "6.4.1", "nist_800_53": "AC-3", "iso_27001": "A.5.15"},
-  "ajax_surface":          {"pci_dss": "6.4.1", "nist_800_53": "AC-3", "iso_27001": "A.5.15"},
-  "backup_exposure":       {"pci_dss": "9.4.1", "nist_800_53": "CP-9",  "iso_27001": "A.5.33"},
-  "core_tampering":        {"pci_dss": "11.5.2", "nist_800_53": "SI-7", "iso_27001": "A.8.12"},
-  "csrf_nonce":            {"pci_dss": "6.4.1", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "app_passwords":         {"pci_dss": "8.3.6", "nist_800_53": "IA-5", "iso_27001": "A.5.17"},
-  "mixed_content":         {"pci_dss": "4.2.1", "nist_800_53": "SC-8", "iso_27001": "A.8.20"},
-  "tls_deep":              {"pci_dss": "4.2.1", "nist_800_53": "SC-8", "iso_27001": "A.8.20"},
-  "multisite":             {"pci_dss": "8.2.1", "nist_800_53": "AC-3", "iso_27001": "A.5.18"},
-  "webhooks":              {"pci_dss": "6.4.1", "nist_800_53": "AC-4", "iso_27001": "A.5.15"},
-  "sendmail_injection":    {"pci_dss": "6.4.1", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "cache_headers":         {"pci_dss": "8.2.7", "nist_800_53": "AC-12", "iso_27001": "A.8.21"},
-  "xmlrpc_deep":           {"pci_dss": "8.3.4", "nist_800_53": "AC-7", "iso_27001": "A.5.17"},
-  "redirect_chain":        {"pci_dss": "4.2.1", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-  "error_pages":           {"pci_dss": "6.4.1", "nist_800_53": "SI-11", "iso_27001": "A.8.28"},
-  "xss_dom_sinks":         {"pci_dss": "6.4.1", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "nonce_freshness":       {"pci_dss": "8.2.7", "nist_800_53": "AC-12", "iso_27001": "A.5.15"},
-  "security_txt":          {"pci_dss": "12.10.1", "nist_800_53": "IR-7", "iso_27001": "A.5.24"},
-  "favicon_fingerprint":   {"pci_dss": "12.5", "nist_800_53": "CM-8", "iso_27001": "A.8.1"},
-  "admin_ajax_brute_surface": {"pci_dss": "8.3.4", "nist_800_53": "AC-7", "iso_27001": "A.5.17"},
-  "dns_security":          {"pci_dss": "12.3", "nist_800_53": "SC-20", "iso_27001": "A.5.7"},
-  "source_maps":           {"pci_dss": "3.5.1", "nist_800_53": "SC-28", "iso_27001": "A.8.24"},
-  "js_supply_chain":       {"pci_dss": "6.4.3", "nist_800_53": "SA-9", "iso_27001": "A.5.19"},
-  "server_timing":         {"pci_dss": "6.4.1", "nist_800_53": "SI-11", "iso_27001": "A.8.28"},
-  "wp_rest_methods":       {"pci_dss": "6.4.1", "nist_800_53": "AC-3", "iso_27001": "A.5.15"},
-  "core_cves":             {"pci_dss": "6.3.3", "nist_800_53": "SI-2", "iso_27001": "A.8.8"},
-  "plugin_cves":           {"pci_dss": "6.3.3", "nist_800_53": "SI-2", "iso_27001": "A.8.8"},
-  "theme_cves":            {"pci_dss": "6.3.3", "nist_800_53": "SI-2", "iso_27001": "A.8.8"},
-  "sqli":                  {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "xss_reflected":         {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "open_redirect":         {"pci_dss": "6.4.1", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-  "ssrf":                  {"pci_dss": "6.4.1", "nist_800_53": "SC-7", "iso_27001": "A.8.21"},
-  "path_traversal":        {"pci_dss": "6.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.9"},
-  "file_upload":           {"pci_dss": "6.4.1", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "default_creds":         {"pci_dss": "2.2.2", "nist_800_53": "IA-5", "iso_27001": "A.5.17"},
-  "authenticated":         {"pci_dss": "8.2.1", "nist_800_53": "AC-3", "iso_27001": "A.5.18"},
-  "waf":                   {"pci_dss": "6.4.2", "nist_800_53": "SC-7", "iso_27001": "A.8.16"},
-
-  "gdpr_dsr":              {"pci_dss": "n/a", "nist_800_53": "PT-2", "iso_27001": "A.5.34"},
-  "wp_engine_misconfig":   {"pci_dss": "6.4.1", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
-  "graphql_dos":           {"pci_dss": "6.4.1", "nist_800_53": "SC-5", "iso_27001": "A.8.6"},
-  "oauth_redirect":        {"pci_dss": "6.4.1", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-  "cache_poisoning":       {"pci_dss": "6.4.1", "nist_800_53": "SC-7", "iso_27001": "A.8.16"},
-  "upload_path_predictable": {"pci_dss": "9.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.9"},
-  "http2_settings":        {"pci_dss": "6.3.3", "nist_800_53": "SI-2", "iso_27001": "A.8.8"},
-  "favicon_hash":          {"pci_dss": "12.5",  "nist_800_53": "CM-8", "iso_27001": "A.8.1"},
-  "a11y_lite":             {"pci_dss": "n/a",   "nist_800_53": "n/a",  "iso_27001": "n/a"},
-  "prototype_pollution":   {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "graphql_field_dos":     {"pci_dss": "6.4.1", "nist_800_53": "SC-5", "iso_27001": "A.8.6"},
-  "csv_export_csp":        {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "woocommerce_audit":     {"pci_dss": "3.5.1", "nist_800_53": "AC-3", "iso_27001": "A.5.15"},
-  "smuggling_probe":       {"pci_dss": "6.4.1", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "waf_bypass_probe":      {"pci_dss": "6.4.2", "nist_800_53": "SC-7", "iso_27001": "A.8.16"},
-  "tls_protocol_audit":    {"pci_dss": "4.2.1", "nist_800_53": "SC-8", "iso_27001": "A.8.20"},
-  "cookie_consent":        {"pci_dss": "n/a",   "nist_800_53": "PT-3", "iso_27001": "A.5.34"},
-  "websocket_audit":       {"pci_dss": "6.4.1", "nist_800_53": "SC-7", "iso_27001": "A.8.21"},
-  "well_known":            {"pci_dss": "12.5",  "nist_800_53": "CM-8", "iso_27001": "A.8.1"},
-  "login_timing":          {"pci_dss": "8.2.1", "nist_800_53": "IA-2", "iso_27001": "A.5.15"},
-  "sitemap_cve_probe":     {"pci_dss": "6.3.3", "nist_800_53": "SI-2", "iso_27001": "A.8.8"},
-  "xxe_upload":            {"pci_dss": "6.4.1", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-
-  "webdav":                {"pci_dss": "2.2", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
-  "dev_params":            {"pci_dss": "2.2.4", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
-  "abuseipdb_lookup":      {"pci_dss": "1.4", "nist_800_53": "SI-4", "iso_27001": "A.8.7"},
-  "waf_ruleset":           {"pci_dss": "6.4.2", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-  "oauth_oidc":            {"pci_dss": "8.3", "nist_800_53": "IA-2", "iso_27001": "A.8.5"},
-  "saml_xsw":              {"pci_dss": "8.3", "nist_800_53": "IA-2", "iso_27001": "A.8.5"},
-  "s3_bucket_discovery":   {"pci_dss": "3.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
-  "github_leak_search":    {"pci_dss": "8.2.1", "nist_800_53": "IA-5", "iso_27001": "A.8.24"},
-  "jwt_audit":             {"pci_dss": "8.3", "nist_800_53": "IA-5(7)", "iso_27001": "A.8.24"},
-  "ssti":                  {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "nosql_injection":       {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "path_bypass":           {"pci_dss": "6.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
-  "race_condition":        {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "dom_xss_headless":      {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-
-  "cloud_metadata_ssrf":   {"pci_dss": "1.4", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-  "dns_rebinding":         {"pci_dss": "1.4", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-  "http3_fingerprint":     {"pci_dss": "2.2", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
-  "session_fixation":      {"pci_dss": "8.3", "nist_800_53": "IA-2", "iso_27001": "A.8.5"},
-  "csrf_entropy":          {"pci_dss": "6.2.4", "nist_800_53": "SC-13", "iso_27001": "A.8.24"},
-  "hpp":                   {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "backup_file_fuzz":      {"pci_dss": "2.2", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
-  "hostname_collision":    {"pci_dss": "1.4", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-  "plugin_route_fuzz":     {"pci_dss": "6.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
-  "header_smuggling_case": {"pci_dss": "6.4.2", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-
-  "timthumb":                {"pci_dss": "6.3.3", "nist_800_53": "SI-2", "iso_27001": "A.8.8"},
-  "plugin_hash_fingerprint": {"pci_dss": "2.2", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
-  "users_deep":              {"pci_dss": "8.2.1", "nist_800_53": "AC-2", "iso_27001": "A.8.5"},
-  "plugin_archive_fuzz":     {"pci_dss": "3.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
-  "premium_license_leak":    {"pci_dss": "3.4.1", "nist_800_53": "IA-5", "iso_27001": "A.8.24"},
-  "xmlrpc_method_brute":     {"pci_dss": "2.2", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
-  "yaml_templates":          {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "yaml_workflows":          {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "dns_templates":           {"pci_dss": "1.4", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-  "headless_templates":      {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "spider_crawl":            {"pci_dss": "2.2", "nist_800_53": "CM-8", "iso_27001": "A.8.9"},
-  "forced_browse":           {"pci_dss": "6.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
-  "websocket_fuzz":          {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "openapi_scanner":         {"pci_dss": "6.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
-  "mobile_app_endpoints":    {"pci_dss": "2.2", "nist_800_53": "CM-8", "iso_27001": "A.8.9"},
-  "host_recon":              {"pci_dss": "1.4", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-
-  "gutenberg_blocks":        {"pci_dss": "6.3.3", "nist_800_53": "SI-2", "iso_27001": "A.8.8"},
-  "wp_cron_dos":             {"pci_dss": "6.2.4", "nist_800_53": "SC-5", "iso_27001": "A.8.16"},
-  "rest_permission_audit":   {"pci_dss": "6.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
-  "wp_query_sqli":           {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "wp_salts_age":            {"pci_dss": "3.5.1", "nist_800_53": "SC-12", "iso_27001": "A.8.24"},
-  "heartbeat_abuse":         {"pci_dss": "6.2.4", "nist_800_53": "SC-5", "iso_27001": "A.8.16"},
-  "woocommerce_deep":        {"pci_dss": "3.4.1", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
-  "plugin_specific_audit":   {"pci_dss": "2.2", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
-  "hosting_platform_audit":  {"pci_dss": "2.2", "nist_800_53": "CM-7", "iso_27001": "A.8.9"},
-  "origin_ip_discovery":     {"pci_dss": "1.4", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-  "http2_smuggling":         {"pci_dss": "6.4.2", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-  "upload_bypass_deep":      {"pci_dss": "6.4.1", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "misc_injection_audit":    {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "tls_reneg_dos":           {"pci_dss": "6.2.4", "nist_800_53": "SC-13", "iso_27001": "A.8.24"},
-  "cache_poisoning_v2":      {"pci_dss": "6.4.2", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-  "osint_enrich":            {"pci_dss": "1.4", "nist_800_53": "SI-4", "iso_27001": "A.8.7"},
-
-  "wp_builder_audit":          {"pci_dss": "6.3.3", "nist_800_53": "SI-2", "iso_27001": "A.8.8"},
-  "wp_form_audit":             {"pci_dss": "6.4.1", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "wp_membership_lms_audit":   {"pci_dss": "7.2.1", "nist_800_53": "AC-3", "iso_27001": "A.5.15"},
-  "wp_commerce_alt_audit":     {"pci_dss": "7.2.1", "nist_800_53": "AC-3", "iso_27001": "A.5.15"},
-  "wp_plugin_ecosystem_audit": {"pci_dss": "6.3.3", "nist_800_53": "CM-7", "iso_27001": "A.8.8"},
-  "privacy_inventory":         {"pci_dss": "3.4.1", "nist_800_53": "PT-3", "iso_27001": "A.5.34"},
-  "email_security_deep":       {"pci_dss": "1.4",   "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-  "dns_deep":                  {"pci_dss": "1.4",   "nist_800_53": "SC-20","iso_27001": "A.8.20"},
-  "auth_modernisation":        {"pci_dss": "8.4.2", "nist_800_53": "IA-2", "iso_27001": "A.5.17"},
-  "crypto_agility":            {"pci_dss": "4.2.1", "nist_800_53": "SC-13","iso_27001": "A.8.24"},
-  "cdn_edge_audit":            {"pci_dss": "1.4",   "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-  "payment_commerce_deep":     {"pci_dss": "6.4.3", "nist_800_53": "SC-8", "iso_27001": "A.5.34"},
-  "compliance_frameworks":     {"pci_dss": "12.1",  "nist_800_53": "PM-9", "iso_27001": "A.5.31"},
-  "headless_wp_audit":         {"pci_dss": "6.3.3", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
-
-  "wp_multisite_deep":         {"pci_dss": "7.2.1", "nist_800_53": "AC-3", "iso_27001": "A.5.15"},
-  "honeypot_admin":            {"pci_dss": "10.1",  "nist_800_53": "AU-2", "iso_27001": "A.5.7"},
-  "a11y_deep":                 {"pci_dss": "12.1",  "nist_800_53": "PL-1", "iso_27001": "A.5.31"},
-  "perf_budget":               {"pci_dss": "12.1",  "nist_800_53": "CP-2", "iso_27001": "A.5.30"},
-
-  "server_stack_reveal":       {"pci_dss": "6.3.3", "nist_800_53": "SI-2",  "iso_27001": "A.8.8"},
-  "waf_brand_deep":            {"pci_dss": "1.4",   "nist_800_53": "SC-7",  "iso_27001": "A.8.20"},
-  "sri_audit":                 {"pci_dss": "6.4.3", "nist_800_53": "SI-7",  "iso_27001": "A.8.24"},
-  "service_exposure":          {"pci_dss": "1.2.1", "nist_800_53": "SC-7",  "iso_27001": "A.8.21"},
-  "js_framework_deep":         {"pci_dss": "6.3.3", "nist_800_53": "SI-2",  "iso_27001": "A.8.8"},
-  "sri_pwa_misc":              {"pci_dss": "6.4.1", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
-  "wp_cli_inject":             {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"}
+  "core_version": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "plugins": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "themes": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "users": {
+    "pci_dss": "8.2.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.5.18"
+  },
+  "exposed_files": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "login": {
+    "pci_dss": "8.3.1",
+    "nist_800_53": "IA-2",
+    "iso_27001": "A.5.15"
+  },
+  "login_throttle": {
+    "pci_dss": "8.3.4",
+    "nist_800_53": "AC-7",
+    "iso_27001": "A.5.17"
+  },
+  "login_throttle_deep": {
+    "pci_dss": "8.3.4",
+    "nist_800_53": "AC-7",
+    "iso_27001": "A.5.17"
+  },
+  "tls_headers": {
+    "pci_dss": "4.2.1",
+    "nist_800_53": "SC-8",
+    "iso_27001": "A.8.20"
+  },
+  "csp": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "directory_listing": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "debug_leaks": {
+    "pci_dss": "10.2.1",
+    "nist_800_53": "AU-3",
+    "iso_27001": "A.8.15"
+  },
+  "robots_sitemap": {
+    "pci_dss": "12.5",
+    "nist_800_53": "CM-8",
+    "iso_27001": "A.8.1"
+  },
+  "cookies": {
+    "pci_dss": "4.2.1",
+    "nist_800_53": "SC-23",
+    "iso_27001": "A.8.20"
+  },
+  "http_methods": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "subdomains": {
+    "pci_dss": "11.3.1",
+    "nist_800_53": "CA-8",
+    "iso_27001": "A.8.8"
+  },
+  "hibp": {
+    "pci_dss": "8.3.5",
+    "nist_800_53": "IA-5",
+    "iso_27001": "A.5.17"
+  },
+  "rest_api": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.5.15"
+  },
+  "cors": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "AC-4",
+    "iso_27001": "A.8.21"
+  },
+  "js_libraries": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "secret_leak": {
+    "pci_dss": "3.5.1",
+    "nist_800_53": "SC-28",
+    "iso_27001": "A.8.24"
+  },
+  "wpgraphql": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.5.15"
+  },
+  "ajax_surface": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.5.15"
+  },
+  "backup_exposure": {
+    "pci_dss": "9.4.1",
+    "nist_800_53": "CP-9",
+    "iso_27001": "A.5.33"
+  },
+  "core_tampering": {
+    "pci_dss": "11.5.2",
+    "nist_800_53": "SI-7",
+    "iso_27001": "A.8.12"
+  },
+  "csrf_nonce": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "app_passwords": {
+    "pci_dss": "8.3.6",
+    "nist_800_53": "IA-5",
+    "iso_27001": "A.5.17"
+  },
+  "mixed_content": {
+    "pci_dss": "4.2.1",
+    "nist_800_53": "SC-8",
+    "iso_27001": "A.8.20"
+  },
+  "tls_deep": {
+    "pci_dss": "4.2.1",
+    "nist_800_53": "SC-8",
+    "iso_27001": "A.8.20"
+  },
+  "multisite": {
+    "pci_dss": "8.2.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.5.18"
+  },
+  "webhooks": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "AC-4",
+    "iso_27001": "A.5.15"
+  },
+  "sendmail_injection": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "cache_headers": {
+    "pci_dss": "8.2.7",
+    "nist_800_53": "AC-12",
+    "iso_27001": "A.8.21"
+  },
+  "xmlrpc_deep": {
+    "pci_dss": "8.3.4",
+    "nist_800_53": "AC-7",
+    "iso_27001": "A.5.17"
+  },
+  "redirect_chain": {
+    "pci_dss": "4.2.1",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "error_pages": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SI-11",
+    "iso_27001": "A.8.28"
+  },
+  "xss_dom_sinks": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "nonce_freshness": {
+    "pci_dss": "8.2.7",
+    "nist_800_53": "AC-12",
+    "iso_27001": "A.5.15"
+  },
+  "security_txt": {
+    "pci_dss": "12.10.1",
+    "nist_800_53": "IR-7",
+    "iso_27001": "A.5.24"
+  },
+  "favicon_fingerprint": {
+    "pci_dss": "12.5",
+    "nist_800_53": "CM-8",
+    "iso_27001": "A.8.1"
+  },
+  "admin_ajax_brute_surface": {
+    "pci_dss": "8.3.4",
+    "nist_800_53": "AC-7",
+    "iso_27001": "A.5.17"
+  },
+  "dns_security": {
+    "pci_dss": "12.3",
+    "nist_800_53": "SC-20",
+    "iso_27001": "A.5.7"
+  },
+  "source_maps": {
+    "pci_dss": "3.5.1",
+    "nist_800_53": "SC-28",
+    "iso_27001": "A.8.24"
+  },
+  "js_supply_chain": {
+    "pci_dss": "6.4.3",
+    "nist_800_53": "SA-9",
+    "iso_27001": "A.5.19"
+  },
+  "server_timing": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SI-11",
+    "iso_27001": "A.8.28"
+  },
+  "wp_rest_methods": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.5.15"
+  },
+  "core_cves": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "plugin_cves": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "theme_cves": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "sqli": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "xss_reflected": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "open_redirect": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "ssrf": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.21"
+  },
+  "path_traversal": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.9"
+  },
+  "file_upload": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "default_creds": {
+    "pci_dss": "2.2.2",
+    "nist_800_53": "IA-5",
+    "iso_27001": "A.5.17"
+  },
+  "authenticated": {
+    "pci_dss": "8.2.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.5.18"
+  },
+  "waf": {
+    "pci_dss": "6.4.2",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.16"
+  },
+  "gdpr_dsr": {
+    "pci_dss": "n/a",
+    "nist_800_53": "PT-2",
+    "iso_27001": "A.5.34"
+  },
+  "wp_engine_misconfig": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "graphql_dos": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SC-5",
+    "iso_27001": "A.8.6"
+  },
+  "oauth_redirect": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "cache_poisoning": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.16"
+  },
+  "upload_path_predictable": {
+    "pci_dss": "9.4.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.9"
+  },
+  "http2_settings": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "favicon_hash": {
+    "pci_dss": "12.5",
+    "nist_800_53": "CM-8",
+    "iso_27001": "A.8.1"
+  },
+  "a11y_lite": {
+    "pci_dss": "n/a",
+    "nist_800_53": "n/a",
+    "iso_27001": "n/a"
+  },
+  "prototype_pollution": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "graphql_field_dos": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SC-5",
+    "iso_27001": "A.8.6"
+  },
+  "csv_export_csp": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "woocommerce_audit": {
+    "pci_dss": "3.5.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.5.15"
+  },
+  "smuggling_probe": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "waf_bypass_probe": {
+    "pci_dss": "6.4.2",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.16"
+  },
+  "tls_protocol_audit": {
+    "pci_dss": "4.2.1",
+    "nist_800_53": "SC-8",
+    "iso_27001": "A.8.20"
+  },
+  "cookie_consent": {
+    "pci_dss": "n/a",
+    "nist_800_53": "PT-3",
+    "iso_27001": "A.5.34"
+  },
+  "websocket_audit": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.21"
+  },
+  "well_known": {
+    "pci_dss": "12.5",
+    "nist_800_53": "CM-8",
+    "iso_27001": "A.8.1"
+  },
+  "login_timing": {
+    "pci_dss": "8.2.1",
+    "nist_800_53": "IA-2",
+    "iso_27001": "A.5.15"
+  },
+  "sitemap_cve_probe": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "xxe_upload": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "webdav": {
+    "pci_dss": "2.2",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "dev_params": {
+    "pci_dss": "2.2.4",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "abuseipdb_lookup": {
+    "pci_dss": "1.4",
+    "nist_800_53": "SI-4",
+    "iso_27001": "A.8.7"
+  },
+  "waf_ruleset": {
+    "pci_dss": "6.4.2",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "oauth_oidc": {
+    "pci_dss": "8.3",
+    "nist_800_53": "IA-2",
+    "iso_27001": "A.8.5"
+  },
+  "saml_xsw": {
+    "pci_dss": "8.3",
+    "nist_800_53": "IA-2",
+    "iso_27001": "A.8.5"
+  },
+  "s3_bucket_discovery": {
+    "pci_dss": "3.4.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.3"
+  },
+  "github_leak_search": {
+    "pci_dss": "8.2.1",
+    "nist_800_53": "IA-5",
+    "iso_27001": "A.8.24"
+  },
+  "jwt_audit": {
+    "pci_dss": "8.3",
+    "nist_800_53": "IA-5(7)",
+    "iso_27001": "A.8.24"
+  },
+  "ssti": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "nosql_injection": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "path_bypass": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.3"
+  },
+  "race_condition": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "dom_xss_headless": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "cloud_metadata_ssrf": {
+    "pci_dss": "1.4",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "dns_rebinding": {
+    "pci_dss": "1.4",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "http3_fingerprint": {
+    "pci_dss": "2.2",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "session_fixation": {
+    "pci_dss": "8.3",
+    "nist_800_53": "IA-2",
+    "iso_27001": "A.8.5"
+  },
+  "csrf_entropy": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SC-13",
+    "iso_27001": "A.8.24"
+  },
+  "hpp": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "backup_file_fuzz": {
+    "pci_dss": "2.2",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "hostname_collision": {
+    "pci_dss": "1.4",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "plugin_route_fuzz": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.3"
+  },
+  "header_smuggling_case": {
+    "pci_dss": "6.4.2",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "timthumb": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "plugin_hash_fingerprint": {
+    "pci_dss": "2.2",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "users_deep": {
+    "pci_dss": "8.2.1",
+    "nist_800_53": "AC-2",
+    "iso_27001": "A.8.5"
+  },
+  "plugin_archive_fuzz": {
+    "pci_dss": "3.4.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.3"
+  },
+  "premium_license_leak": {
+    "pci_dss": "3.4.1",
+    "nist_800_53": "IA-5",
+    "iso_27001": "A.8.24"
+  },
+  "xmlrpc_method_brute": {
+    "pci_dss": "2.2",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "yaml_templates": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "yaml_workflows": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "dns_templates": {
+    "pci_dss": "1.4",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "headless_templates": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "spider_crawl": {
+    "pci_dss": "2.2",
+    "nist_800_53": "CM-8",
+    "iso_27001": "A.8.9"
+  },
+  "forced_browse": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.3"
+  },
+  "websocket_fuzz": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "openapi_scanner": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.3"
+  },
+  "mobile_app_endpoints": {
+    "pci_dss": "2.2",
+    "nist_800_53": "CM-8",
+    "iso_27001": "A.8.9"
+  },
+  "host_recon": {
+    "pci_dss": "1.4",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "gutenberg_blocks": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "wp_cron_dos": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SC-5",
+    "iso_27001": "A.8.16"
+  },
+  "rest_permission_audit": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.3"
+  },
+  "wp_query_sqli": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "wp_salts_age": {
+    "pci_dss": "3.5.1",
+    "nist_800_53": "SC-12",
+    "iso_27001": "A.8.24"
+  },
+  "heartbeat_abuse": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SC-5",
+    "iso_27001": "A.8.16"
+  },
+  "woocommerce_deep": {
+    "pci_dss": "3.4.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.3"
+  },
+  "plugin_specific_audit": {
+    "pci_dss": "2.2",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "hosting_platform_audit": {
+    "pci_dss": "2.2",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "origin_ip_discovery": {
+    "pci_dss": "1.4",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "http2_smuggling": {
+    "pci_dss": "6.4.2",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "upload_bypass_deep": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "misc_injection_audit": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "tls_reneg_dos": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SC-13",
+    "iso_27001": "A.8.24"
+  },
+  "cache_poisoning_v2": {
+    "pci_dss": "6.4.2",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "osint_enrich": {
+    "pci_dss": "1.4",
+    "nist_800_53": "SI-4",
+    "iso_27001": "A.8.7"
+  },
+  "wp_builder_audit": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "wp_form_audit": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "wp_membership_lms_audit": {
+    "pci_dss": "7.2.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.5.15"
+  },
+  "wp_commerce_alt_audit": {
+    "pci_dss": "7.2.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.5.15"
+  },
+  "wp_plugin_ecosystem_audit": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.8"
+  },
+  "privacy_inventory": {
+    "pci_dss": "3.4.1",
+    "nist_800_53": "PT-3",
+    "iso_27001": "A.5.34"
+  },
+  "email_security_deep": {
+    "pci_dss": "1.4",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "dns_deep": {
+    "pci_dss": "1.4",
+    "nist_800_53": "SC-20",
+    "iso_27001": "A.8.20"
+  },
+  "auth_modernisation": {
+    "pci_dss": "8.4.2",
+    "nist_800_53": "IA-2",
+    "iso_27001": "A.5.17"
+  },
+  "crypto_agility": {
+    "pci_dss": "4.2.1",
+    "nist_800_53": "SC-13",
+    "iso_27001": "A.8.24"
+  },
+  "cdn_edge_audit": {
+    "pci_dss": "1.4",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "payment_commerce_deep": {
+    "pci_dss": "6.4.3",
+    "nist_800_53": "SC-8",
+    "iso_27001": "A.5.34"
+  },
+  "compliance_frameworks": {
+    "pci_dss": "12.1",
+    "nist_800_53": "PM-9",
+    "iso_27001": "A.5.31"
+  },
+  "headless_wp_audit": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.3"
+  },
+  "wp_multisite_deep": {
+    "pci_dss": "7.2.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.5.15"
+  },
+  "honeypot_admin": {
+    "pci_dss": "10.1",
+    "nist_800_53": "AU-2",
+    "iso_27001": "A.5.7"
+  },
+  "a11y_deep": {
+    "pci_dss": "12.1",
+    "nist_800_53": "PL-1",
+    "iso_27001": "A.5.31"
+  },
+  "perf_budget": {
+    "pci_dss": "12.1",
+    "nist_800_53": "CP-2",
+    "iso_27001": "A.5.30"
+  },
+  "server_stack_reveal": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "waf_brand_deep": {
+    "pci_dss": "1.4",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
+  "sri_audit": {
+    "pci_dss": "6.4.3",
+    "nist_800_53": "SI-7",
+    "iso_27001": "A.8.24"
+  },
+  "service_exposure": {
+    "pci_dss": "1.2.1",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.21"
+  },
+  "js_framework_deep": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "sri_pwa_misc": {
+    "pci_dss": "6.4.1",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "wp_cli_inject": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "ai_prompt_injection_passive": {
+    "pci_dss": "6.2.3",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "wpconfig_hardening_audit": {
+    "pci_dss": "2.2",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "db_trigger_audit": {
+    "pci_dss": "10.2",
+    "nist_800_53": "AU-2",
+    "iso_27001": "A.8.16"
+  },
+  "postmeta_stored_xss_scan": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "vendor_backdoor_patterns": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SA-12",
+    "iso_27001": "A.8.30"
+  },
+  "cryptominer_js_injection": {
+    "pci_dss": "11.5.1",
+    "nist_800_53": "SI-3",
+    "iso_27001": "A.8.7"
+  },
+  "magecart_skimmer_patterns": {
+    "pci_dss": "11.6.1",
+    "nist_800_53": "SI-7",
+    "iso_27001": "A.8.7"
+  },
+  "plugin_typosquat_detection": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SA-12",
+    "iso_27001": "A.8.30"
+  },
+  "composer_lock_audit": {
+    "pci_dss": "6.3.2",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "package_lock_audit": {
+    "pci_dss": "6.3.2",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "yarn_pnpm_lock_audit": {
+    "pci_dss": "6.3.2",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
+  "rest_app_passwords_enum": {
+    "pci_dss": "8.2.1",
+    "nist_800_53": "IA-5",
+    "iso_27001": "A.5.17"
+  },
+  "mfa_priv_account_audit": {
+    "pci_dss": "8.4.2",
+    "nist_800_53": "IA-2(1)",
+    "iso_27001": "A.8.5"
+  },
+  "wpcron_suspicious_jobs": {
+    "pci_dss": "10.2.1",
+    "nist_800_53": "AU-2",
+    "iso_27001": "A.8.16"
+  },
+  "webhook_url_fingerprint": {
+    "pci_dss": "3.5.1",
+    "nist_800_53": "SC-12",
+    "iso_27001": "A.8.24"
+  },
+  "git_dir_deep_scan": {
+    "pci_dss": "2.2",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "env_file_enum": {
+    "pci_dss": "3.5.1",
+    "nist_800_53": "SC-12",
+    "iso_27001": "A.8.24"
+  },
+  "helm_compose_leak": {
+    "pci_dss": "2.2",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "tailwind_css_comment_leak": {
+    "pci_dss": "6.3.2",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "graphql_field_authz_deep": {
+    "pci_dss": "7.2.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.5.15"
+  },
+  "web3_wallet_connector_audit": {
+    "pci_dss": "n/a",
+    "nist_800_53": "IA-3",
+    "iso_27001": "A.5.17"
+  },
+  "nft_mint_pubapi": {
+    "pci_dss": "n/a",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.5.15"
+  },
+  "crypto_payment_callback_audit": {
+    "pci_dss": "n/a",
+    "nist_800_53": "SC-13",
+    "iso_27001": "A.8.24"
+  },
+  "solidity_abi_leak": {
+    "pci_dss": "n/a",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "wallet_seed_phrase_leak": {
+    "pci_dss": "n/a",
+    "nist_800_53": "SC-12",
+    "iso_27001": "A.8.24"
+  },
+  "payment_gateway_test_keys": {
+    "pci_dss": "3.5.1",
+    "nist_800_53": "SC-12",
+    "iso_27001": "A.8.24"
+  },
+  "a11y_wcag_aaa": {
+    "pci_dss": "n/a",
+    "nist_800_53": "n/a",
+    "iso_27001": "n/a"
+  },
+  "brand_monitor": {
+    "pci_dss": "n/a",
+    "nist_800_53": "SC-20",
+    "iso_27001": "A.5.31"
+  }
 }

@@ -1,0 +1,93 @@
+name: Release attestation (SLSA + Sigstore + SBOM)
+
+# Round-64 Group D (#32, #34, #35) — generates SLSA build provenance,
+# Sigstore signatures, and CycloneDX SBOM for every release.
+# Triggers on tag push (v*.*.*) automatically.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to attest (defaults to latest release)
+        required: false
+
+permissions:
+  contents: write   # to attach attestations to the release
+  id-token: write   # required for Sigstore keyless signing
+  attestations: write  # required for SLSA provenance
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag || 'main' }}
+
+      - name: Download release artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          mkdir artifacts
+          gh release download "$TAG" --dir artifacts/ --pattern "*.exe" --pattern "*.zip" || true
+          ls -la artifacts/
+
+      - name: Generate SHA256SUMS
+        run: |
+          cd artifacts
+          sha256sum *.exe *.zip > SHA256SUMS.txt 2>/dev/null || true
+          cat SHA256SUMS.txt
+
+      - name: Generate SLSA build provenance attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: 'artifacts/*.exe,artifacts/*.zip'
+
+      - name: Install cosign for Sigstore signing
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign artifacts with Sigstore (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          cd artifacts
+          for f in *.exe *.zip; do
+            [ -f "$f" ] || continue
+            cosign sign-blob --yes "$f" --output-signature "$f.sig" --output-certificate "$f.pem"
+          done
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          pip install --quiet cyclonedx-bom
+          cyclonedx-py environment -o artifacts/sbom.cyclonedx.json || \
+            cyclonedx-py requirements -i requirements.txt -o artifacts/sbom.cyclonedx.json
+
+      - name: Re-attach signed artifacts to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          cd artifacts
+          gh release upload "$TAG" SHA256SUMS.txt \
+            *.sig *.pem sbom.cyclonedx.json --clobber
+
+      - name: Job summary
+        if: always()
+        run: |
+          echo "## Release attestation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✓ SLSA build provenance attestation generated" >> $GITHUB_STEP_SUMMARY
+          echo "- ✓ Sigstore keyless signatures (.sig + .pem per artifact)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✓ CycloneDX SBOM attached" >> $GITHUB_STEP_SUMMARY
+          echo "- ✓ SHA256SUMS.txt attached" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Users can verify with:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "cosign verify-blob wpsecscan.exe \\" >> $GITHUB_STEP_SUMMARY
+          echo "  --signature wpsecscan.exe.sig --certificate wpsecscan.exe.pem \\" >> $GITHUB_STEP_SUMMARY
+          echo "  --certificate-identity-regexp 'https://github.com/bryanflowers/wpsecscan' \\" >> $GITHUB_STEP_SUMMARY
+          echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

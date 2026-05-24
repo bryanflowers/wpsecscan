@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Round-64 #108 — Chocolatey package metadata -->
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>wpsecscan</id>
+    <version>2.2.0</version>
+    <packageSourceUrl>https://github.com/bryanflowers/wpsecscan</packageSourceUrl>
+    <owners>bryan</owners>
+    <title>WPSecScan</title>
+    <authors>Bryan</authors>
+    <projectUrl>https://github.com/bryanflowers/wpsecscan</projectUrl>
+    <licenseUrl>https://github.com/bryanflowers/wpsecscan/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/bryanflowers/wpsecscan</projectSourceUrl>
+    <bugTrackerUrl>https://github.com/bryanflowers/wpsecscan/issues</bugTrackerUrl>
+    <tags>wordpress security scanner pentest defensive cve</tags>
+    <summary>Defensive WordPress security scanner</summary>
+    <description>
+      WPSecScan is a defensive WordPress security scanner with 180+ checks,
+      8-source nightly CVE aggregator, 15 compliance frameworks, AI-assisted
+      remediation (BYO key with PII masking), 12 report formats, and 10
+      integrations. AGPLv3 + open source.
+    </description>
+    <releaseNotes>https://github.com/bryanflowers/wpsecscan/releases/tag/v2.2.0</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>
