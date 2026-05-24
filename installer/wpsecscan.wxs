@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+WPSecScan MSI manifest (WiX 4+).
+Build:
+  wix build installer/wpsecscan.wxs -arch x64 -o dist/wpsecscan-1.9.0.msi
+The MSI is meant for enterprise group-policy deployment; end users typically
+prefer the NSIS .exe wizard.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="WPSecScan"
+           Manufacturer="Bryan"
+           Version="1.9.0"
+           UpgradeCode="2c5d4b1f-9a7e-4b1f-8b0a-5e3d2c1a9f00"
+           Scope="perMachine">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="Main" Title="WPSecScan" Level="1">
+      <ComponentGroupRef Id="MainFiles" />
+      <ComponentRef Id="StartMenu" />
+    </Feature>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="WPSecScan">
+        <Component Id="StartMenu" Guid="*">
+          <File Id="ReadmeFile" Source="..\README.md" />
+          <File Id="LicenseFile" Source="..\LICENSE" />
+          <File Id="NoticeFile" Source="..\NOTICE" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="MainFiles" Directory="INSTALLFOLDER">
+      <Component Id="CliExe" Guid="*">
+        <File Id="WPSecScanExe" Source="..\dist\wpsecscan.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="GuiExe" Guid="*">
+        <File Id="WPSecScanGuiExe" Source="..\dist\wpsecscan-gui.exe" KeyPath="yes" />
+        <Shortcut Id="GuiStartMenu" Directory="ProgramMenuFolder" Name="WPSecScan"
+                   WorkingDirectory="INSTALLFOLDER" />
+      </Component>
+      <Component Id="WpPlugin" Guid="*">
+        <File Id="WpsecscanCompanionZip" Source="..\dist\wpsecscan-companion.zip" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Package>
+</Wix>

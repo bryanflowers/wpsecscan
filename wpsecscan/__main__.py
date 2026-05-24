@@ -90,7 +90,9 @@ async def _scan_one(target: str, args, console: Console):
             from .console_live import LiveDashboard
             from .checks import select_checks
             total = len(select_checks(args.aggressive,
-                                       authenticated_enabled=bool(args.auth_user and args.auth_pass)))
+                                       authenticated_enabled=bool(
+                                           (args.auth_user and (args.auth_pass or args.auth_app_password))
+                                           or args.companion_token)))
             dash = LiveDashboard(console, target, total)
             dash.__enter__()
             on_progress = dash.on_progress_callback()
@@ -114,6 +116,9 @@ async def _scan_one(target: str, args, console: Console):
             deep_throttle_pacing_s=args.deep_throttle_pacing,
             auth_user=args.auth_user,
             auth_pass=args.auth_pass,
+            auth_app_password=args.auth_app_password,
+            auth_totp=args.auth_totp,
+            companion_token=args.companion_token,
             har=bool(args.har),
             har_path=Path(args.har) if args.har else None,
             parallel_groups=args.parallel_groups,
@@ -333,6 +338,12 @@ async def _amain(args) -> int:
 
 
 def main() -> None:
+    # ---- Subcommand dispatch (round-60): keep before argparse so existing
+    # `wpsecscan <url>` invocations stay backward-compatible.
+    if len(sys.argv) >= 2 and sys.argv[1] in ("sites", "schedule", "digest", "ai-cost"):
+        _dispatch_subcommand(sys.argv[1], sys.argv[2:])
+        return
+
     p = argparse.ArgumentParser(
         prog="wpsecscan",
         description=(
@@ -356,7 +367,13 @@ def main() -> None:
     p.add_argument("--aggressive", action="store_true", help="Enable active checks: SQLi, XSS, SSRF, path traversal, open redirect, upload probes, default-credentials probe (≤10 attempts).")
     p.add_argument("--prove", action="store_true", help="For each confirmed aggressive finding, run a read-only proof helper (single-target only; requires --aggressive). Never writes to the target.")
     p.add_argument("--auth-user", default=None, help="Admin username for authenticated scanning")
-    p.add_argument("--auth-pass", default=None, help="Admin password for authenticated scanning")
+    p.add_argument("--auth-pass", default=None, help="Admin password for authenticated scanning (cookie/wp-login.php flow)")
+    p.add_argument("--auth-app-password", default=None,
+                    help="WP Application Password (WP 5.6+, preferred over --auth-pass). Spaces are stripped.")
+    p.add_argument("--auth-totp", default=None,
+                    help="6-digit TOTP code if the admin account requires 2FA (Two-Factor / Wordfence / iThemes).")
+    p.add_argument("--companion-token", default=None,
+                    help="One-time token from the WPSecScan companion plugin (richest data, single round-trip).")
     p.add_argument("--ssh-audit", default=None, metavar="user@host", help="Connect via ssh and run a read-only wp-cli audit (uses system ssh client, BatchMode=yes).")
     p.add_argument("--password-audit", default=None, metavar="WP_USERS.csv", help="Offline: read a CSV or SQL dump of wp_users and emit a hashcat-ready file. NO network calls.")
 
@@ -590,6 +607,162 @@ def main() -> None:
         print(f"FATAL: {e}\nCrash report: {cp}", file=sys.stderr)
         code = 1
     sys.exit(code)
+
+
+def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
+    """Round-60 subcommand router for `sites` / `schedule` / `digest` / `ai-cost`."""
+    if cmd == "sites":
+        _cmd_sites(args)
+    elif cmd == "schedule":
+        _cmd_schedule(args)
+    elif cmd == "digest":
+        _cmd_digest(args)
+    elif cmd == "ai-cost":
+        _cmd_ai_cost(args)
+    else:
+        print(f"unknown subcommand: {cmd}", file=sys.stderr)
+        sys.exit(2)
+
+
+def _cmd_sites(args: list[str]) -> None:
+    from . import sites as sites_mod
+    if not args or args[0] in ("-h", "--help", "help"):
+        print("usage: wpsecscan sites {add|list|remove|scan} ...")
+        return
+    action = args[0]
+    rest = args[1:]
+    if action == "list":
+        for s in sites_mod.list_sites():
+            ts = s.get("last_scan_ts") or 0
+            when = "never" if not ts else __import__("time").strftime("%Y-%m-%d", __import__("time").localtime(ts))
+            print(f"  {s['url']:60s} weekly={s.get('weekly', False)}  last={when}  risk={s.get('last_risk_score', '?')}")
+        return
+    if action == "remove":
+        if not rest:
+            print("usage: wpsecscan sites remove URL"); sys.exit(2)
+        ok = sites_mod.remove(rest[0])
+        print("removed" if ok else "not found")
+        return
+    if action == "add":
+        url = None
+        flags = {"weekly": False, "auth_user": None, "auth_app_password": None,
+                  "companion_token": None, "notes": ""}
+        i = 0
+        while i < len(rest):
+            a = rest[i]
+            if a == "--weekly":
+                flags["weekly"] = True; i += 1
+            elif a == "--auth-user" and i + 1 < len(rest):
+                flags["auth_user"] = rest[i + 1]; i += 2
+            elif a == "--auth-app-password" and i + 1 < len(rest):
+                flags["auth_app_password"] = rest[i + 1]; i += 2
+            elif a == "--companion-token" and i + 1 < len(rest):
+                flags["companion_token"] = rest[i + 1]; i += 2
+            elif a == "--notes" and i + 1 < len(rest):
+                flags["notes"] = rest[i + 1]; i += 2
+            elif not a.startswith("--") and url is None:
+                url = a; i += 1
+            else:
+                i += 1
+        if not url:
+            print("usage: wpsecscan sites add URL [--weekly] [--auth-user U] [--auth-app-password P]"); sys.exit(2)
+        entry = sites_mod.add(url, **flags)
+        print(f"added: {entry['url']} (weekly={entry['weekly']})")
+        return
+    if action == "scan":
+        from . import sites as sites_mod
+        targets = [rest[0]] if rest else None
+        sites_to_scan = [sites_mod.get(targets[0])] if targets else sites_mod.due_now()
+        sites_to_scan = [s for s in sites_to_scan if s]
+        if not sites_to_scan:
+            print("nothing due. use `wpsecscan sites scan URL` to force one.")
+            return
+        print(f"scanning {len(sites_to_scan)} site(s)...")
+        for s in sites_to_scan:
+            url = s["url"]
+            print(f"  -> {url}")
+            # Minimal: shell out to a fresh wpsecscan invocation per site so
+            # crashes in one don't kill the batch. Use the same Python entry.
+            cmd = [sys.executable, "-m", "wpsecscan", url, "--out", "wpsecscan-reports"]
+            __import__("subprocess").run(cmd, check=False)
+        return
+    print(f"unknown sites action: {action}", file=sys.stderr); sys.exit(2)
+
+
+def _cmd_schedule(args: list[str]) -> None:
+    from . import sites as sites_mod
+    if not args:
+        print("usage: wpsecscan schedule {install|uninstall|pause|resume|status}"); return
+    action = args[0]
+    if action == "install":
+        time_hhmm = "03:00"
+        for i, a in enumerate(args[1:]):
+            if a == "--time" and i + 2 <= len(args[1:]):
+                time_hhmm = args[i + 2]
+        res = sites_mod.install_schedule(time_hhmm=time_hhmm)
+        print(("OK: " if res["ok"] else "FAIL: ") + f"{res['method']} — {res['detail']}")
+    elif action == "uninstall":
+        res = sites_mod.uninstall_schedule()
+        print(("OK: " if res["ok"] else "FAIL: ") + f"{res['method']} — {res['detail']}")
+    elif action == "pause":
+        sites_mod.pause(); print("scheduler paused")
+    elif action == "resume":
+        sites_mod.resume(); print("scheduler resumed")
+    elif action == "status":
+        print("paused" if sites_mod.is_paused() else "active")
+    else:
+        print(f"unknown schedule action: {action}", file=sys.stderr); sys.exit(2)
+
+
+def _cmd_digest(args: list[str]) -> None:
+    from . import sites as sites_mod
+    if not args:
+        print("usage: wpsecscan digest {configure|test|send}"); return
+    if args[0] == "configure":
+        kv: dict[str, str] = {"to": "", "smtp": "", "smtp_user": "", "smtp_pass": "",
+                                 "from_addr": "", "slack_webhook": ""}
+        i = 1
+        while i < len(args):
+            a = args[i].lstrip("-").replace("-", "_")
+            if a in kv and i + 1 < len(args):
+                kv[a] = args[i + 1]; i += 2
+            else:
+                i += 1
+        if not kv["to"]:
+            print("usage: wpsecscan digest configure --to ops@example.com [--smtp host:port --smtp-user U --smtp-pass P --from-addr F]"); sys.exit(2)
+        sites_mod.configure_digest(**kv)
+        print("digest configured")
+    elif args[0] in ("send", "test"):
+        cfg = sites_mod.load_digest()
+        if not cfg:
+            print("no digest configured. run `wpsecscan digest configure --to ...` first."); sys.exit(2)
+        body = sites_mod.render_digest(sites_mod.list_sites())
+        # Use the existing notify module for actual delivery.
+        from . import notify
+        try:
+            notify.notify("WPSecScan weekly digest", body)
+            print("digest sent")
+        except Exception as e:  # noqa: BLE001
+            print(f"send failed: {e}", file=sys.stderr); sys.exit(1)
+    else:
+        print(f"unknown digest action: {args[0]}", file=sys.stderr); sys.exit(2)
+
+
+def _cmd_ai_cost(args: list[str]) -> None:
+    from . import ai_safety
+    summary = ai_safety.cost_summary()
+    if not summary:
+        print("no AI cost recorded (or WPSECSCAN_NO_AI=1).")
+        return
+    total = 0.0
+    for backend, entry in summary.items():
+        usd = float(entry.get("usd", 0))
+        total += usd
+        print(f"  {backend:12s} {entry.get('calls', 0):5d} calls  "
+              f"in={entry.get('in_tokens', 0):>10d}  "
+              f"out={entry.get('out_tokens', 0):>10d}  "
+              f"${usd:.4f}")
+    print(f"  {'TOTAL':12s} ${total:.4f}")
 
 
 if __name__ == "__main__":

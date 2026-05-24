@@ -1,0 +1,54 @@
+<?php
+/**
+ * Plugin Name: WPSecScan companion
+ * Plugin URI:  https://github.com/bryanflowers/wpsecscan
+ * Description: Exposes a read-only, token-gated REST endpoint so the WPSecScan defensive scanner can pull authoritative diagnostics in one round-trip. No write actions.
+ * Version:     1.0.0
+ * Requires at least: 5.6
+ * Requires PHP: 7.4
+ * Author:      Bryan
+ * Author URI:  https://github.com/bryanflowers
+ * License:     GPL-2.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: wpsecscan-companion
+ *
+ * @package WPSecScan_Companion
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+define( 'WPSECSCAN_COMPANION_VERSION',     '1.0.0' );
+define( 'WPSECSCAN_COMPANION_TOKEN_OPTION', 'wpsecscan_companion_token' );
+define( 'WPSECSCAN_COMPANION_TOKEN_TTL',    60 * 60 );    // 60 minutes
+define( 'WPSECSCAN_COMPANION_LOG_OPTION',   'wpsecscan_companion_log' );
+
+require_once __DIR__ . '/includes/admin.php';
+require_once __DIR__ . '/includes/rest.php';
+require_once __DIR__ . '/includes/diagnostics.php';
+
+/**
+ * Bootstrap.
+ */
+add_action( 'admin_menu',     'wpsecscan_companion_admin_menu' );
+add_action( 'admin_init',     'wpsecscan_companion_admin_init' );
+add_action( 'rest_api_init',  'wpsecscan_companion_register_routes' );
+
+/**
+ * Activation: nothing to do — token is generated on demand from the admin page.
+ */
+register_activation_hook(   __FILE__, function () {
+    add_option( WPSECSCAN_COMPANION_LOG_OPTION, [] );
+} );
+
+/**
+ * Deactivation: revoke any active token so dormant installs don't have a live token.
+ */
+register_deactivation_hook( __FILE__, function () {
+    delete_option( WPSECSCAN_COMPANION_TOKEN_OPTION );
+} );
+
+/**
+ * Uninstall: see uninstall.php — wipes options.
+ */

@@ -161,5 +161,10 @@
   "cdn_edge_audit":            {"pci_dss": "1.4",   "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
   "payment_commerce_deep":     {"pci_dss": "6.4.3", "nist_800_53": "SC-8", "iso_27001": "A.5.34"},
   "compliance_frameworks":     {"pci_dss": "12.1",  "nist_800_53": "PM-9", "iso_27001": "A.5.31"},
-  "headless_wp_audit":         {"pci_dss": "6.3.3", "nist_800_53": "AC-3", "iso_27001": "A.8.3"}
+  "headless_wp_audit":         {"pci_dss": "6.3.3", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
+
+  "wp_multisite_deep":         {"pci_dss": "7.2.1", "nist_800_53": "AC-3", "iso_27001": "A.5.15"},
+  "honeypot_admin":            {"pci_dss": "10.1",  "nist_800_53": "AU-2", "iso_27001": "A.5.7"},
+  "a11y_deep":                 {"pci_dss": "12.1",  "nist_800_53": "PL-1", "iso_27001": "A.5.31"},
+  "perf_budget":               {"pci_dss": "12.1",  "nist_800_53": "CP-2", "iso_27001": "A.5.30"}
 }

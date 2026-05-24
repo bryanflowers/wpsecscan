@@ -45,5 +45,10 @@
   "cdn_edge_audit":            {"hipaa": "164.312(e)(1)",  "soc2": "CC6.7", "fedramp": "SC-7", "gdpr": "Article 32"},
   "payment_commerce_deep":     {"hipaa": "164.308(a)(8)",  "soc2": "CC8.1", "fedramp": "SI-2", "gdpr": "Article 32"},
   "compliance_frameworks":     {"hipaa": "164.308(a)(1)",  "soc2": "CC3.1", "fedramp": "PM-9", "gdpr": "Article 30"},
-  "headless_wp_audit":         {"hipaa": "164.312(a)(1)",  "soc2": "CC6.1", "fedramp": "AC-3", "gdpr": "Article 32"}
+  "headless_wp_audit":         {"hipaa": "164.312(a)(1)",  "soc2": "CC6.1", "fedramp": "AC-3", "gdpr": "Article 32"},
+
+  "wp_multisite_deep":         {"hipaa": "164.312(a)(1)",  "soc2": "CC6.1", "fedramp": "AC-3", "gdpr": "Article 32"},
+  "honeypot_admin":            {"hipaa": "164.312(b)",     "soc2": "CC7.3", "fedramp": "AU-6", "gdpr": "Article 32"},
+  "a11y_deep":                 {"hipaa": "164.520",         "soc2": "CC1.4","fedramp": "PL-1", "gdpr": "Article 12"},
+  "perf_budget":               {"hipaa": "164.308(a)(7)",  "soc2": "CC7.1","fedramp": "CP-2", "gdpr": "Article 32"}
 }

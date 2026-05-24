@@ -1,0 +1,67 @@
+name: WPSecScan
+description: Run WPSecScan against a WordPress URL and fail the build on findings over a threshold.
+author: bryanflowers
+
+inputs:
+  target:
+    description: WordPress URL to scan
+    required: true
+  aggressive:
+    description: Enable aggressive (active payload) checks
+    required: false
+    default: "false"
+  max-critical:
+    description: Fail if any finding above this critical count
+    required: false
+    default: "0"
+  max-high:
+    description: Fail if any finding above this high count
+    required: false
+    default: "5"
+  auth-user:
+    description: WP admin username (optional)
+    required: false
+  auth-app-password:
+    description: WP Application Password (optional)
+    required: false
+  companion-token:
+    description: One-time token from the WPSecScan companion plugin (optional)
+    required: false
+
+outputs:
+  report-path:
+    description: Path to the JSON report
+    value: ${{ steps.scan.outputs.report-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install WPSecScan
+      shell: bash
+      run: python -m pip install --quiet wpsecscan
+
+    - id: scan
+      shell: bash
+      env:
+        WPSECSCAN_NO_AI: "1"          # CI safety: never call cloud LLMs
+      run: |
+        set -e
+        FLAGS="--target ${{ inputs.target }} --json report.json"
+        [ "${{ inputs.aggressive }}" = "true" ] && FLAGS="$FLAGS --aggressive"
+        [ -n "${{ inputs.auth-user }}" ] && FLAGS="$FLAGS --auth-user ${{ inputs.auth-user }}"
+        [ -n "${{ inputs.auth-app-password }}" ] && FLAGS="$FLAGS --auth-app-password '${{ inputs.auth-app-password }}'"
+        [ -n "${{ inputs.companion-token }}" ] && FLAGS="$FLAGS --companion-token ${{ inputs.companion-token }}"
+        wpsecscan $FLAGS
+        echo "report-path=report.json" >> "$GITHUB_OUTPUT"
+
+    - name: Apply CI gate
+      shell: bash
+      run: |
+        wpsecscan ci-gate report.json --max-critical ${{ inputs.max-critical }} --max-high ${{ inputs.max-high }}
+
+    - name: Upload report
+      uses: actions/upload-artifact@v5
+      if: always()
+      with:
+        name: wpsecscan-report
+        path: report.json

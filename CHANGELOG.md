@@ -7,6 +7,94 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (Round-60 — 28 features + WP companion plugin + AGPLv3 relicense)
+
+Big-impact round. Inventory: **150 → 154 checks**. Tests: **485 → 513 passing**.
+
+#### License switch (Q2)
+- **LICENSE switched from MIT → AGPLv3+** (v1.9.0 onward; older releases stay MIT)
+- New `NOTICE` file with the AGPL network clause + commercial licensing note
+- Optional PyArmor obfuscation wrapper (`scripts/build-obfuscated.py`)
+- Offline-friendly license-key system (`wpsecscan/licensing.py` + Ed25519 keypair generator)
+
+#### New checks (Q4 — 4 new + 24 tooling features)
+- `wp_multisite_deep` (#17) — per-blog deep audit + cross-tenant leak probe
+- `honeypot_admin` (#19) — honeypot / anti-spam plugin detection
+- `a11y_deep` (#24) — full WCAG 2.2 audit (8 criteria)
+- `perf_budget` (#25) — TTFB / HTML weight / render-blocking CSS / 3p-script count
+
+#### New tooling modules (Q4 — features that aren't "checks")
+- `editor/browser-extension/` (#2) — Chrome/Firefox right-click launcher
+- `integrations/webhooks_chat.py` (#3) — Slack / Discord / Teams alerters
+- `editor/mobile-app/` (#4) — read-only mobile companion blueprint
+- `.github/actions/wpsecscan/action.yml` (#5) — composite GitHub Action
+- `round60.py` (#6-8, #10-13, #16, #21, #27) — public history page, diff_reports, PDF-with-logo, marketplace patch lookup, time-machine replay, side-by-side compare, RateLimit context-mgr, HackerOne/Bugcrowd autofill, Terraform/Ansible emit, lockout-recovery via ssh
+- `auto_remediation.py` (#9, #18) — companion-plugin-driven safe auto-fixes
+- `integrations/marketplace.py` (#10) — patched-in-vX.Y.Z lookup
+- `integrations/tor_proxy.py` (#14) — SOCKS5 proxy + Tor exit check
+- `screenshot.py` (#15) — already existed, kept
+- `integrations/ticketing.py` (#20) — Jira / Linear / GitHub Issues filing
+- `integrations/threat_intel.py` (#22) — VirusTotal + GreyNoise enrichment
+- `watchers.py` (#26-30) — wp_version_drift_alert, malware_scan_diff,
+  dns_change_watcher, subdomain_takeover_scan, daemon-friendly
+
+#### Bug-report system (Q4 user-asked)
+- New `bug_report.py` — GUI "Report Bug" with system-info, redacted log,
+  optional report attach, GH-Issues URL builder, opt-in GlitchTip POST,
+  prior-crashes list with status tracking, send-feedback non-crash channel
+
+#### WP companion plugin (Q8)
+- New `wp-plugin/wpsecscan-companion/` PHP plugin
+- Read-only REST endpoint `/wp-json/wpsecscan/v1/diagnostics`
+- One-time token (hashed at rest, 60-minute expiry, single-use)
+- HTTPS-only, no write actions, sanitised payload
+- Returns: core, plugins[], themes[], users[], cron[], auth_filters,
+  site_health, config_constants
+- New `--companion-token` scanner flag — single-round-trip diagnostics
+- `scripts/build-wp-plugin.py` produces wp.org-ready `dist/wpsecscan-companion.zip`
+
+#### Weekly auto-scan + multi-site dashboard (Q6)
+- New `sites.py` — persistent site list at `~/.wpsecscan/sites.json`
+  (creds DPAPI/TPM-sealed where available)
+- `wpsecscan sites add/list/remove/scan` subcommands
+- `wpsecscan schedule install/uninstall/pause/resume` — Windows
+  schtasks / macOS launchd / Linux systemd
+- `wpsecscan digest configure/test` — weekly digest via SMTP / Slack
+
+#### Improved WP admin login (Q7)
+- `authenticated.py` rewritten — three flows:
+  - WP Application Password (preferred, WP 5.6+)
+  - Companion-plugin token (richest data)
+  - Cookie + wp-login.php (fallback) — now with 2FA prompt handling
+- New `--auth-app-password`, `--auth-totp`, `--companion-token` flags
+- Authenticated checks expanded: REST users (emails + roles), HTML user
+  HTML page, definitive plugin list, inactive themes (attack surface),
+  Site Health critical issues, pending core/plugin/theme updates,
+  dangerous options (default_role, users_can_register)
+
+#### Windows installer (Q5)
+- `installer/wpsecscan-setup.nsi` — NSIS wizard with:
+  - Optional "Add to PATH"
+  - Optional "Run GUI at Windows startup" (HKCU Run reg value, `--minimized`)
+  - Optional "Register weekly auto-scan" (wraps `schedule install`)
+  - Optional "Add Defender exclusion"
+  - Uninstaller prompts before wiping `~/.wpsecscan/`
+- `installer/wpsecscan.wxs` — MSI alternative for enterprise group policy
+
+#### Docs (Q10)
+- `docs/` directory — GitHub Pages-ready (Jekyll `_config.yml`)
+- 11 hand-written guides: install, first-scan, auth, wp-plugin,
+  weekly-scans, compliance, ai, ci, bounty, gui, plugin-authoring
+- `scripts/generate-docs.py` — auto-generates `docs/checks/*.md` from
+  every check's docstring (150+ pages produced)
+- `docs/vs-wpsec.md` — competitor comparison
+
+#### Cleanup (Q1)
+- Stale `test-*` directories removed from repo root (20 dirs)
+- `.editorconfig` added
+- `py.typed` marker for downstream type inference
+- `wpsecscan/__init__.py` version bumped 1.8.0 → 1.9.0
+
 ### Added (Round-59 — 111-feature mega-round, the best WordPress scanner)
 
 The biggest single round yet — 111 features across 18 waves (A-R).

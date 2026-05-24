@@ -85,6 +85,9 @@ async def scan(
     sequential: bool = True,
     auth_user: str | None = None,
     auth_pass: str | None = None,
+    auth_app_password: str | None = None,
+    auth_totp: str | None = None,
+    companion_token: str | None = None,
     hibp_token: str | None = None,
     deep_throttle: bool = False,
     deep_throttle_attempts: int | None = None,
@@ -152,12 +155,19 @@ async def scan(
         "deep_throttle_pacing_s": deep_throttle_pacing_s,
         "auth_user": auth_user,
         "auth_pass": auth_pass,
+        "auth_app_password": auth_app_password,
+        "auth_totp": auth_totp,
+        "companion_token": companion_token,
         "shared": {},  # checks can stash data here (e.g. discovered plugins)
         "step": _emit_step,
         # #14: long-running checks (deep throttle, etc.) can poll this to bail cleanly.
         "is_cancelled": is_cancelled or (lambda: False),
     }
-    checks = select_checks(aggressive, authenticated_enabled=bool(auth_user and auth_pass))
+    auth_enabled = bool(
+        companion_token or
+        (auth_user and (auth_pass or auth_app_password))
+    )
+    checks = select_checks(aggressive, authenticated_enabled=auth_enabled)
     # Proof extraction needs sequential ordering — silently force it on.
     if prove:
         sequential = True

@@ -1,0 +1,16 @@
+theme: jekyll-theme-minimal
+title: WPSecScan
+description: Defensive WordPress security scanner — 150+ checks, runs locally
+show_downloads: true
+github:
+  repository_url: https://github.com/bryanflowers/wpsecscan
+markdown: kramdown
+plugins:
+  - jekyll-relative-links
+relative_links:
+  enabled: true
+  collections: true
+include:
+  - README.md
+exclude:
+  - "*.py"

@@ -6,6 +6,48 @@ For install instructions, see [README.md](README.md).
 
 ---
 
+## Round-60 — 28 features + WP companion plugin + AGPLv3 relicense
+
+v1.9.0. Inventory: **150 → 154 checks**. Tests: **485 → 513 passing**.
+
+- **License switch**: MIT → AGPLv3+ (v1.9.0 onward). v1.0–v1.8 stay MIT.
+  Adds network clause — SaaS deployments must publish their source.
+- **WP companion plugin** (`wp-plugin/wpsecscan-companion`): token-gated
+  read-only REST endpoint at `/wp-json/wpsecscan/v1/diagnostics` returning
+  authoritative plugin/theme/user/cron/Site-Health data in one round-trip.
+  No more HTTP-probe guessing.
+- **Auth flow upgrade**: WP Application Password (preferred) + 2FA TOTP
+  handling + companion-plugin token + cookie fallback. 7 authenticated
+  checks: REST users, plugin list, theme list, Site Health critical,
+  pending updates, dangerous options.
+- **Weekly auto-scan + dashboard**: `wpsecscan sites/schedule/digest`
+  subcommands. Windows Task Scheduler / launchd / systemd integration.
+  Email + Slack/Discord/Teams digest.
+- **Windows installers**: NSIS wizard (with autostart + scheduler +
+  Defender-exclusion options) + WiX MSI for enterprise group policy.
+- **Bug-report system**: GUI "Report Bug" → pre-filled GH issue with
+  redacted log + system info. Opt-in GlitchTip/Sentry POST. Prior-crash
+  list with status.
+- **28 new features** (Q4):
+  - **Checks**: wp_multisite_deep, honeypot_admin, a11y_deep (WCAG 2.2),
+    perf_budget
+  - **Tooling**: browser extension, mobile app blueprint, GitHub Action,
+    Slack/Discord/Teams webhooks, public-history page, PDF with company
+    logo, marketplace patched-in lookup, time-machine replay, side-by-side
+    compare, RPS limiter, Tor/SOCKS proxy, screenshot per finding,
+    HackerOne/Bugcrowd autofill, ticketing integrations (Jira/Linear/GitHub),
+    threat-intel (VirusTotal/GreyNoise), Terraform/Ansible emit, lockout
+    recovery via wp-cli, WP version drift watcher, malware-scan diff,
+    DNS change watcher, subdomain takeover monitor, auto-remediation
+- **Docs site**: `docs/` is GitHub-Pages ready. Auto-generated per-check
+  pages (150+). Hand-written guides for install, auth, weekly scans,
+  AI, CI, bounty, GUI, plugin authoring.
+- **Repo cleanup**: 20 stale `test-*` directories removed; `.editorconfig`,
+  `py.typed` added.
+- **License-key system + optional PyArmor obfuscation** (operator-only).
+
+---
+
 ## Round-59 — 111-feature mega-round (the best WordPress scanner)
 
 The biggest single round yet — 111 features across 18 waves (A-R).

@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "WPSecScan launcher",
+  "version": "1.9.0",
+  "description": "Right-click any page to scan it with your local WPSecScan install.",
+  "permissions": ["contextMenus", "activeTab", "storage"],
+  "host_permissions": ["http://localhost:*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "icons": {
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}

@@ -164,5 +164,10 @@
   "cdn_edge_audit":            {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-444", "d3fend": "D3-NTA"},
   "payment_commerce_deep":     {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-311", "d3fend": "D3-CR"},
   "compliance_frameworks":     {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1499", "attack_label": "Endpoint DoS", "cwe": "CWE-693", "d3fend": "D3-NTA"},
-  "headless_wp_audit":         {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-862", "d3fend": "D3-RAC"}
+  "headless_wp_audit":         {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-862", "d3fend": "D3-RAC"},
+
+  "wp_multisite_deep":         {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-639", "d3fend": "D3-RAC"},
+  "honeypot_admin":            {"owasp": "A09:2021", "owasp_label": "Security Logging & Monitoring Failures", "attack": "T1078", "attack_label": "Valid Accounts", "cwe": "CWE-778", "d3fend": "D3-DA"},
+  "a11y_deep":                 {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-1004", "d3fend": "D3-NTA"},
+  "perf_budget":               {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1499", "attack_label": "Endpoint DoS", "cwe": "CWE-400", "d3fend": "D3-NTA"}
 }
