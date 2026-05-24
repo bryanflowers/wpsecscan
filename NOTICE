@@ -1,0 +1,37 @@
+WPSecScan — defensive WordPress security scanner
+Copyright (C) 2026 Bryan (bryaninbangkok@gmail.com)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
+License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+
+AGPLv3 NETWORK CLAUSE
+=====================
+If you run a modified version of WPSecScan on a server and let users
+interact with it remotely (web UI, API, hosted scanning service), you
+MUST make the modified source code available to those users under the
+same AGPLv3 terms. This requirement does not apply to private internal
+use of unmodified or modified versions.
+
+Commercial / SaaS distribution requires either:
+  (a) Compliance with AGPLv3 (publish your source), OR
+  (b) A separate commercial license — contact bryaninbangkok@gmail.com.
+
+
+PRIOR LICENSING
+===============
+WPSecScan v1.0.0 through v1.8.0 were released under the MIT License.
+Starting with v1.9.0, the project is licensed under AGPLv3+. Code
+contributed before v1.9.0 remains available under its original MIT
+terms; you may still fork those releases. New contributions and the
+v1.9.0+ codebase are AGPLv3.

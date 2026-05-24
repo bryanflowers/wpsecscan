@@ -111,5 +111,10 @@
   "headless_audit":  {"hitrust": "06.h", "cmmc": "CM.L2-3.4.1", "nist_csf": "ID.AM-02", "cis_v8": "2.1", "iso_27001_2022": "A.8.8"},
   "ai_safety":       {"hitrust": "10.b", "cmmc": "SI.L2-3.14.3","nist_csf": "GV.OC-05", "cis_v8": "3.13","iso_27001_2022": "A.8.34"},
   "headless_wp_audit":{"hitrust": "06.h","cmmc": "CM.L2-3.4.1","nist_csf": "ID.AM-02","cis_v8": "2.1","iso_27001_2022": "A.8.8"},
-  "novel_research":  {"hitrust": "06.f", "cmmc": "CA.L2-3.12.2","nist_csf": "ID.RA-01", "cis_v8": "7.5", "iso_27001_2022": "A.5.36"}
+  "novel_research":  {"hitrust": "06.f", "cmmc": "CA.L2-3.12.2","nist_csf": "ID.RA-01", "cis_v8": "7.5", "iso_27001_2022": "A.5.36"},
+
+  "wp_multisite_deep":{"hitrust": "01.v","cmmc": "AC.L1-3.1.1","nist_csf": "PR.AA-01","cis_v8": "5.1","iso_27001_2022": "A.5.15"},
+  "honeypot_admin":  {"hitrust": "09.aa","cmmc": "AU.L2-3.3.1","nist_csf": "DE.CM-01","cis_v8": "8.1","iso_27001_2022": "A.8.15"},
+  "a11y_deep":       {"hitrust": "11.a","cmmc": "PL.L2-3.15.2","nist_csf": "GV.PO-01","cis_v8": "14.1","iso_27001_2022": "A.5.10"},
+  "perf_budget":     {"hitrust": "09.k","cmmc": "CP.L2-3.7.6","nist_csf": "PR.IR-04","cis_v8": "11.3","iso_27001_2022": "A.5.30"}
 }

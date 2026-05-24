@@ -79,8 +79,21 @@ crash-*.txt
 
 # --- Build / release scratch ---
 build.log
+build-*.log
 release-*.zip
 release-notes-*.md
+
+# --- Scratch dirs from manual scan runs ---
+test-aggr/
+test-audit*/
+test-audit*.html
+test-audit*.json
+test-bundle*/
+test-final*/
+test-out/
+test-prove/
+test-v[0-9]*/
+test-wporg/
 
 # --- Local target lists (often contain customer URLs) ---
 targets.txt

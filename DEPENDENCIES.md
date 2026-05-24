@@ -56,11 +56,11 @@ running Python environment, including pinned versions + purl identifiers
 
 ## Licence compatibility
 
-All required deps are permissive (BSD-3 or MIT) — compatible with MIT
-(WPSecScan's licence). Optional deps:
+All required deps are permissive (BSD-3 or MIT) — compatible with
+WPSecScan's AGPLv3+ licence (from v1.9.0 onward). Optional deps:
 
-| Package | Licence | Compatible with MIT? |
-|---------|---------|----------------------|
+| Package | Licence | Compatible with AGPLv3? |
+|---------|---------|-------------------------|
 | reportlab    | BSD-3 | yes |
 | playwright   | Apache-2.0 | yes |
 | pyyaml       | MIT | yes |

@@ -139,6 +139,11 @@ from .cdn_edge_audit import check as cdn_edge_audit
 from .payment_commerce_deep import check as payment_commerce_deep
 from .compliance_frameworks import check as compliance_frameworks
 from .headless_wp_audit import check as headless_wp_audit
+# Round-60 (28 features): new checks
+from .wp_multisite_deep import check as wp_multisite_deep
+from .honeypot_admin import check as honeypot_admin
+from .a11y_deep import check as a11y_deep
+from .perf_budget import check as perf_budget
 
 # CVE matching (uses the Wordfence DB; runs whenever DB is present)
 from .core_cves import check as core_cves
@@ -319,6 +324,11 @@ ALL_CHECKS = [
     ("payment_commerce_deep",    "Payment/PCI 4.0 deep audit (#58-62)", payment_commerce_deep, False),
     ("compliance_frameworks",    "Compliance framework mapping — HITRUST/CMMC/NIST CSF/CIS/ISO (#63-67)", compliance_frameworks, False),
     ("headless_wp_audit",        "Headless/API-first WP audit (#87-91)", headless_wp_audit, False),
+    # ---- Round-60 passive checks ----
+    ("wp_multisite_deep",        "WP-Multisite per-blog deep audit (#17)", wp_multisite_deep, False),
+    ("honeypot_admin",           "Honeypot / anti-spam detection (#19)", honeypot_admin, False),
+    ("a11y_deep",                "WCAG 2.2 accessibility deep audit (#24)", a11y_deep, False),
+    ("perf_budget",              "Performance-budget audit (#25)", perf_budget, False),
     # ---- Round-58 aggressive checks ----
     ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
     ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),

@@ -1,11 +1,20 @@
 """Authenticated scan — logs in as an admin and inspects internal state.
 
-Only runs when ctx['auth_user'] and ctx['auth_pass'] are set. Performs:
-  1. Login via /wp-login.php form POST (uses real wp-test_cookie flow)
-  2. Fetches /wp-admin/users.php → user role audit
-  3. Fetches /wp-admin/site-health.php → Health & Status critical issues
-  4. Probes /wp-admin/options.php and parses non-default flags
-  5. Detects plugins/themes definitively from /wp-admin/plugins.php
+Three login flows supported (preference order):
+  1. WP Application Password (ctx['auth_app_password'] — WP 5.6+, recommended)
+  2. Companion-plugin one-time token (ctx['companion_token'] — see wp-plugin/)
+  3. Cookie-based wp-login.php form POST (ctx['auth_user']/['auth_pass'])
+     - 2FA: if site requires TOTP, ctx['auth_totp'] is consumed automatically
+
+Performs the following inspections once logged in:
+  - /wp-admin/users.php → admin-role roster + 2FA-status fingerprint
+  - /wp-admin/plugins.php → definitive plugin enumeration (active/inactive)
+  - /wp-admin/themes.php → installed-but-inactive themes (attack surface)
+  - /wp-admin/site-health.php → Site Health critical issues
+  - /wp-admin/options.php → dangerous flags (default_role, registration)
+  - /wp-admin/update-core.php → pending core/plugin/theme updates
+  - /wp-json/wp/v2/users?context=edit → full user data (emails)
+  - WP REST diagnostics via companion plugin if token is set
 """
 from __future__ import annotations
 
@@ -18,15 +27,18 @@ from ..http import Client
 from ..models import Finding
 
 LOGIN_FORM_RE  = re.compile(r'name=["\']log["\']', re.IGNORECASE)
-NONCE_RE       = re.compile(r'name=["\']_wpnonce["\'][^>]+value=["\']([a-f0-9]+)', re.IGNORECASE)
 ADMIN_BAR_RE   = re.compile(r'<div\s+id=["\']wpadminbar["\']', re.IGNORECASE)
 PLUGIN_ROW_RE  = re.compile(r'<tr[^>]+id=["\']([a-z0-9_\-]+)["\']\s+class=["\'](active|inactive)', re.IGNORECASE)
+THEME_NAME_RE  = re.compile(r'<h2[^>]+class=["\']theme-name["\'][^>]*>(.*?)</h2>', re.IGNORECASE | re.DOTALL)
 USER_ROW_RE    = re.compile(r'<td[^>]+data-colname=["\']Username["\'][^>]*>(.*?)</td>', re.IGNORECASE | re.DOTALL)
 USER_ROLE_RE   = re.compile(r'<td[^>]+data-colname=["\']Role["\'][^>]*>(.*?)</td>',     re.IGNORECASE | re.DOTALL)
+TOTP_PROMPT_RE = re.compile(r'(name=["\']wfls_two_factor_code["\']|two-factor|totp|authenticator code|verification code)', re.IGNORECASE)
 
 
-async def _login(target: str, user: str, password: str) -> httpx.AsyncClient | None:
-    """Log into WP via the wp-login.php form. Returns an authenticated client or None."""
+async def _login_cookie(target: str, user: str, password: str, totp: str | None = None) -> httpx.AsyncClient | None:
+    """Log into WP via the wp-login.php form. Supports the common Wordfence/
+    Two-Factor 2FA prompts when `totp` is supplied. Returns an authenticated
+    httpx client or None on failure."""
     parsed = urlparse(target)
     base = f"{parsed.scheme}://{parsed.netloc}"
     jar = httpx.Cookies()
@@ -36,7 +48,6 @@ async def _login(target: str, user: str, password: str) -> httpx.AsyncClient | N
         cookies=jar,
         headers={"User-Agent": "WPSecScan/1.0 (authenticated-scan)"},
     )
-    # 1. GET wp-login.php to seed test_cookie
     try:
         r = await c.get(base + "/wp-login.php")
     except httpx.HTTPError:
@@ -45,7 +56,6 @@ async def _login(target: str, user: str, password: str) -> httpx.AsyncClient | N
     if r.status_code != 200 or not LOGIN_FORM_RE.search(r.text or ""):
         await c.aclose()
         return None
-    # 2. POST credentials
     try:
         r = await c.post(
             base + "/wp-login.php",
@@ -61,11 +71,28 @@ async def _login(target: str, user: str, password: str) -> httpx.AsyncClient | N
     except httpx.HTTPError:
         await c.aclose()
         return None
-    # Success signals: admin bar HTML, or our follow-redirect landed on /wp-admin/,
-    # or the jar received a wordpress_logged_in_ cookie.
-    if ADMIN_BAR_RE.search(r.text or ""):
-        return c
-    if "/wp-admin" in str(r.url):
+
+    # Handle 2FA prompt (Two-Factor / Wordfence / iThemes)
+    if TOTP_PROMPT_RE.search(r.text or ""):
+        if not totp:
+            await c.aclose()
+            return None
+        # Best-effort: post the TOTP back to the same URL. Different plugins
+        # use different field names — try the 3 most common.
+        for field in ("authcode", "wfls_two_factor_code", "two-factor-code"):
+            try:
+                r2 = await c.post(
+                    base + "/wp-login.php",
+                    data={field: totp, "wp-submit": "Authenticate", "redirect_to": base + "/wp-admin/"},
+                )
+                if ADMIN_BAR_RE.search(r2.text or "") or "/wp-admin" in str(r2.url):
+                    return c
+            except httpx.HTTPError:
+                continue
+        await c.aclose()
+        return None
+
+    if ADMIN_BAR_RE.search(r.text or "") or "/wp-admin" in str(r.url):
         return c
     if any(c_name.startswith("wordpress_logged_in_") for c_name in jar.keys()):
         return c
@@ -73,156 +100,360 @@ async def _login(target: str, user: str, password: str) -> httpx.AsyncClient | N
     return None
 
 
+async def _login_app_password(target: str, user: str, app_password: str) -> httpx.AsyncClient | None:
+    """Use a WP Application Password (WP 5.6+) via HTTP Basic auth.
+    Verifies by hitting /wp-json/wp/v2/users/me with ?context=edit."""
+    parsed = urlparse(target)
+    base = f"{parsed.scheme}://{parsed.netloc}"
+    # WP accepts the password with or without spaces; strip for safety
+    clean_pw = app_password.replace(" ", "")
+    c = httpx.AsyncClient(
+        timeout=20.0,
+        follow_redirects=True,
+        auth=(user, clean_pw),
+        headers={"User-Agent": "WPSecScan/1.0 (app-password-auth)"},
+    )
+    try:
+        r = await c.get(base + "/wp-json/wp/v2/users/me?context=edit")
+    except httpx.HTTPError:
+        await c.aclose()
+        return None
+    if r.status_code == 200 and r.headers.get("Content-Type", "").startswith("application/json"):
+        try:
+            payload = r.json()
+            if isinstance(payload, dict) and payload.get("id"):
+                return c
+        except ValueError:
+            pass
+    await c.aclose()
+    return None
+
+
+async def _fetch_users_rest(auth: httpx.AsyncClient, base: str) -> list[dict]:
+    """Pull /wp-json/wp/v2/users?context=edit — gives emails + roles."""
+    try:
+        r = await auth.get(base + "/wp-json/wp/v2/users?context=edit&per_page=100")
+    except httpx.HTTPError:
+        return []
+    if r.status_code != 200:
+        return []
+    try:
+        d = r.json()
+        return d if isinstance(d, list) else []
+    except ValueError:
+        return []
+
+
 async def check(client: Client, ctx: dict) -> list[Finding]:
     findings: list[Finding] = []
     step = ctx.get("step") or (lambda _s: None)
     user = ctx.get("auth_user")
     pwd = ctx.get("auth_pass")
-    if not user or not pwd:
-        findings.append(
-            Finding(
-                severity="info",
-                title="Authenticated scan skipped (no credentials)",
-                evidence="Pass --auth-user and --auth-pass on the CLI, or fill the auth fields in the GUI, to enable.",
-                remediation="No action needed.",
-                url=ctx["target"],
-            )
-        )
-        return findings
+    app_pw = ctx.get("auth_app_password")
+    totp = ctx.get("auth_totp")
+    companion_token = ctx.get("companion_token")
 
-    # Intentionally do NOT include the username in the step message — it would
-    # be broadcast to any progress listener and could end up in a debug log or
-    # GUI screenshot shared in a bug report.
-    step("logging in with provided admin credentials...")
-    auth = await _login(ctx["target"], user, pwd)
-    if auth is None:
-        findings.append(
-            Finding(
-                severity="medium",
-                title="Authentication failed — credentials rejected or login form not recognized",
-                evidence="POST /wp-login.php did not return the wp-admin bar.",
-                remediation="Verify credentials. If the site uses a custom login URL (e.g. WPS Hide Login), the authenticated scan can't reach it.",
-                url=ctx["target"],
-            )
-        )
-        return findings
+    if not any((pwd, app_pw, companion_token)):
+        return [Finding(
+            severity="info",
+            title="Authenticated scan skipped (no credentials)",
+            evidence=("Pass --auth-user + (--auth-pass OR --auth-app-password), "
+                       "OR --companion-token (with the companion plugin installed)."),
+            remediation="No action needed.",
+            url=ctx["target"],
+        )]
 
     parsed = urlparse(ctx["target"])
     base = f"{parsed.scheme}://{parsed.netloc}"
 
+    # ---- Companion-token flow (richest data, single round-trip) ----
+    if companion_token:
+        step("companion plugin handshake...")
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as c:
+                r = await c.get(
+                    base + "/wp-json/wpsecscan/v1/diagnostics",
+                    headers={"X-WPSecScan-Token": companion_token,
+                             "User-Agent": "WPSecScan/1.0 (companion)"},
+                )
+            if r.status_code == 200:
+                try:
+                    diag = r.json()
+                except ValueError:
+                    diag = {}
+                if isinstance(diag, dict):
+                    findings.extend(_companion_findings(diag, base))
+                    return findings
+            findings.append(Finding(
+                severity="medium",
+                title=f"WPSecScan companion plugin returned {r.status_code}",
+                evidence=f"GET /wp-json/wpsecscan/v1/diagnostics -> {r.status_code}. Token may be invalid, expired, or already used.",
+                remediation="Generate a fresh token in WP admin → Settings → WPSecScan companion.",
+                url=base + "/wp-json/wpsecscan/v1/diagnostics",
+            ))
+        except httpx.HTTPError as e:
+            findings.append(Finding(
+                severity="info",
+                title="Companion plugin not reachable",
+                evidence=f"HTTPError: {type(e).__name__}",
+                remediation="Install + activate the WPSecScan companion plugin, or fall through to cookie auth.",
+                url=ctx["target"],
+            ))
+        # Fall through to cookie/app-password if companion fails
+
+    # ---- App-password flow (preferred for WP 5.6+) ----
+    auth: httpx.AsyncClient | None = None
+    auth_method = ""
+    if app_pw and user:
+        step("trying WP Application Password...")
+        auth = await _login_app_password(ctx["target"], user, app_pw)
+        if auth:
+            auth_method = "Application Password"
+
+    # ---- Cookie flow (fallback) ----
+    if auth is None and pwd and user:
+        step("logging in with admin credentials...")
+        auth = await _login_cookie(ctx["target"], user, pwd, totp=totp)
+        if auth:
+            auth_method = "cookie (wp-login.php)"
+
+    if auth is None:
+        findings.append(Finding(
+            severity="medium",
+            title="Authentication failed — credentials rejected or 2FA prompt unhandled",
+            evidence=("Neither App Password nor cookie login succeeded. "
+                       "If the site uses 2FA, supply --auth-totp <code>. If it uses "
+                       "a custom login URL (WPS Hide Login), the cookie flow can't find it."),
+            remediation="Verify credentials. For 2FA, generate an Application Password instead.",
+            url=ctx["target"],
+        ))
+        return findings
+
+    findings.append(Finding(
+        severity="info",
+        title=f"Authenticated as {user} via {auth_method}",
+        evidence="Authenticated checks will now run.",
+        remediation="No action.",
+        url=ctx["target"],
+    ))
+
     try:
-        # 1. Users / roles
-        step("inspecting /wp-admin/users.php for admin accounts...")
+        # ---- 1. REST users (emails + roles) ----
+        step("REST: pulling /wp-json/wp/v2/users?context=edit...")
+        users = await _fetch_users_rest(auth, base)
+        admins = [u for u in users if "administrator" in [r.lower() for r in (u.get("roles") or [])]]
+        if len(admins) > 1:
+            findings.append(Finding(
+                severity="medium",
+                title=f"{len(admins)} administrator account(s) (REST)",
+                evidence="\n".join(f"  - {a.get('username') or a.get('slug', '?')} "
+                                     f"<{a.get('email', 'no-email')}>"
+                                     for a in admins[:10]),
+                remediation="Audit each admin. Demote anyone who doesn't need admin. Force 2FA on all admin accounts.",
+                url=base + "/wp-admin/users.php?role=administrator",
+            ))
+        if users:
+            never_login = [u for u in users
+                            if not u.get("meta", {}).get("last_login")]
+            if never_login:
+                findings.append(Finding(
+                    severity="low",
+                    title=f"{len(never_login)} user(s) with no last_login meta",
+                    evidence="May indicate stale accounts that could be deleted.",
+                    remediation="Audit for inactive accounts and delete or downgrade them.",
+                    url=base + "/wp-admin/users.php",
+                ))
+
+        # ---- 2. HTML admin pages (fall-back / cross-reference) ----
+        step("admin: /wp-admin/users.php?role=administrator...")
         try:
             r = await auth.get(base + "/wp-admin/users.php?role=administrator")
             usernames = USER_ROW_RE.findall(r.text or "")
             roles = USER_ROLE_RE.findall(r.text or "")
-            admins = []
+            admins_html = []
             for u_html, role_html in zip(usernames, roles):
                 u = re.sub(r"<[^>]+>", "", u_html).strip()
                 role = re.sub(r"<[^>]+>", "", role_html).strip()
                 if "administrator" in role.lower():
-                    admins.append(u)
-            if len(admins) > 1:
-                findings.append(
-                    Finding(
-                        severity="medium",
-                        title=f"{len(admins)} administrator account(s) — review for unauthorized users",
-                        evidence="Administrator-role users found:\n" + "\n".join(f"  - {a}" for a in admins),
-                        remediation="Audit each admin account. Demote anyone who doesn't need admin (Editor is often sufficient). Force 2FA on all admins.",
-                        url=base + "/wp-admin/users.php?role=administrator",
-                    )
-                )
+                    admins_html.append(u)
+            if len(admins_html) > 1 and not admins:  # only if REST didn't already cover
+                findings.append(Finding(
+                    severity="medium",
+                    title=f"{len(admins_html)} administrator account(s) (HTML)",
+                    evidence="Administrator-role users:\n" + "\n".join(f"  - {a}" for a in admins_html),
+                    remediation="Audit + reduce admin count. Force 2FA.",
+                    url=base + "/wp-admin/users.php?role=administrator",
+                ))
         except httpx.HTTPError:
             pass
 
-        # 2. Plugins page — definitive plugin enumeration with active/inactive status
-        step("enumerating plugins from /wp-admin/plugins.php...")
+        # ---- 3. Plugin enumeration ----
+        step("admin: /wp-admin/plugins.php for definitive plugin list...")
         try:
             r = await auth.get(base + "/wp-admin/plugins.php")
             plugins_seen = PLUGIN_ROW_RE.findall(r.text or "")
             if plugins_seen:
                 active = [p for p, s in plugins_seen if s.lower() == "active"]
                 inactive = [p for p, s in plugins_seen if s.lower() == "inactive"]
-                findings.append(
-                    Finding(
-                        severity="info",
-                        title=f"Definitive plugin list: {len(active)} active, {len(inactive)} inactive",
-                        evidence=(
-                            ("Active:\n" + "\n".join(f"  - {p}" for p in active[:25]) + "\n" if active else "")
-                            + ("Inactive:\n" + "\n".join(f"  - {p}" for p in inactive[:25]) if inactive else "")
-                        ),
-                        remediation="Delete inactive plugins — they still receive PHP execution if a CVE drops while installed.",
-                        url=base + "/wp-admin/plugins.php",
-                    )
-                )
-                # Stash for plugin_cves to also cross-reference
+                findings.append(Finding(
+                    severity="info",
+                    title=f"Definitive plugin list: {len(active)} active, {len(inactive)} inactive",
+                    evidence=(("Active:\n" + "\n".join(f"  - {p}" for p in active[:25]) + "\n" if active else "")
+                              + ("Inactive:\n" + "\n".join(f"  - {p}" for p in inactive[:25]) if inactive else "")),
+                    remediation="Delete inactive plugins — they still receive PHP execution if a CVE drops while installed.",
+                    url=base + "/wp-admin/plugins.php",
+                ))
                 ctx.setdefault("shared", {}).setdefault("plugins", {})
-                for slug, state in plugins_seen:
-                    if slug not in ctx["shared"]["plugins"]:
-                        ctx["shared"]["plugins"][slug] = None
+                for slug, _state in plugins_seen:
+                    ctx["shared"]["plugins"].setdefault(slug, None)
         except httpx.HTTPError:
             pass
 
-        # 3. Site Health — pull critical issues
-        step("fetching /wp-admin/site-health.php critical issues...")
+        # ---- 4. Themes ----
+        step("admin: /wp-admin/themes.php...")
+        try:
+            r = await auth.get(base + "/wp-admin/themes.php")
+            themes = [re.sub(r"<[^>]+>", "", m).strip()
+                       for m in THEME_NAME_RE.findall(r.text or "")]
+            inactive_themes = themes[1:]  # first one shown is usually active
+            if len(inactive_themes) > 1:
+                findings.append(Finding(
+                    severity="low",
+                    title=f"{len(inactive_themes)} inactive theme(s) installed",
+                    evidence="Inactive themes still ship PHP that PHP-FPM will execute if requested.",
+                    remediation="Delete every theme you're not using. Keep at most one fallback (e.g. twentytwentyfive).",
+                    url=base + "/wp-admin/themes.php",
+                ))
+        except httpx.HTTPError:
+            pass
+
+        # ---- 5. Site Health ----
+        step("admin: /wp-admin/site-health.php critical issues...")
         try:
             r = await auth.get(base + "/wp-admin/site-health.php")
-            text = (r.text or "")
+            text = r.text or ""
             if "site-health-issues-section-critical" in text:
-                # Count critical issues by counting list items
                 crit_count = text.count('class="site-health-issue-critical"') or text.count("site-health-critical")
                 if crit_count:
-                    findings.append(
-                        Finding(
-                            severity="high",
-                            title=f"WordPress Site Health flags {crit_count} critical issue(s)",
-                            evidence="See Tools → Site Health in wp-admin for full detail (cannot inline cleanly here).",
-                            remediation="Resolve every Site Health critical issue. They typically cover PHP version, autoupdate, REST availability, scheduled events.",
-                            url=base + "/wp-admin/site-health.php",
-                        )
-                    )
+                    findings.append(Finding(
+                        severity="high",
+                        title=f"WordPress Site Health flags {crit_count} critical issue(s)",
+                        evidence="See Tools → Site Health in wp-admin.",
+                        remediation="Resolve every Site Health critical issue. They cover PHP version, autoupdate, REST availability, scheduled events.",
+                        url=base + "/wp-admin/site-health.php",
+                    ))
         except httpx.HTTPError:
             pass
 
-        # 4. wp-config-y options via options.php (specific keys)
-        step("checking options for unsafe configuration...")
+        # ---- 6. Pending updates ----
+        step("admin: /wp-admin/update-core.php pending updates...")
+        try:
+            r = await auth.get(base + "/wp-admin/update-core.php")
+            text = r.text or ""
+            plugin_updates = len(re.findall(r'plugin-update-tr', text))
+            theme_updates = len(re.findall(r'theme-update-tr', text))
+            core_pending = ("update-core" in text and "wp_update_core" in text)
+            problems = []
+            if core_pending:
+                problems.append("WordPress core update available")
+            if plugin_updates:
+                problems.append(f"{plugin_updates} plugin update(s) available")
+            if theme_updates:
+                problems.append(f"{theme_updates} theme update(s) available")
+            if problems:
+                findings.append(Finding(
+                    severity="high" if core_pending else "medium",
+                    title="Pending updates in wp-admin",
+                    evidence="\n".join(f"  - {p}" for p in problems),
+                    remediation="Apply pending updates. Old core/plugin/theme = #1 cause of WordPress compromise.",
+                    url=base + "/wp-admin/update-core.php",
+                ))
+        except httpx.HTTPError:
+            pass
+
+        # ---- 7. Dangerous options ----
+        step("admin: /wp-admin/options.php for dangerous flags...")
         try:
             r = await auth.get(base + "/wp-admin/options.php")
-            txt = (r.text or "")
+            txt = r.text or ""
             problems: list[str] = []
-            # Look for default_role = administrator (catastrophic if registration is open)
             m = re.search(r'name=["\']default_role["\'][^>]+value=["\']([^"\']+)', txt)
-            if m and m.group(1).lower() == "administrator":
-                problems.append("default_role = administrator (new registrations become admins!)")
-            # users_can_register
-            if 'name="users_can_register" value="1" checked' in txt or 'name="users_can_register" checked' in txt:
-                if m and m.group(1).lower() in ("administrator", "editor"):
-                    problems.append(f"users_can_register=ON + default_role={m.group(1)} (high-priv self-registration enabled)")
+            default_role = m.group(1).lower() if m else ""
+            if default_role == "administrator":
+                problems.append("default_role = administrator (catastrophic with open registration)")
+            users_can_reg = ('name="users_can_register" value="1"' in txt or
+                              'name=\'users_can_register\' value=\'1\'' in txt)
+            if users_can_reg and default_role in ("administrator", "editor", "author"):
+                problems.append(f"users_can_register=ON + default_role={default_role} (high-priv self-registration)")
+            blog_public = re.search(r'name=["\']blog_public["\'][^>]+value=["\']0["\']\s+checked', txt)
+            if blog_public:
+                problems.append("blog_public = 0 (search engines blocked — informational, may be intentional)")
             if problems:
-                findings.append(
-                    Finding(
-                        severity="high",
-                        title="Dangerous WordPress option(s) detected",
-                        evidence="\n".join(f"  - {p}" for p in problems),
-                        remediation="Set default_role to 'subscriber' or 'contributor' and disable user registration unless you actually need it.",
-                        url=base + "/wp-admin/options-general.php",
-                    )
-                )
+                findings.append(Finding(
+                    severity="high",
+                    title="Dangerous WordPress option(s)",
+                    evidence="\n".join(f"  - {p}" for p in problems),
+                    remediation=("Set default_role to 'subscriber'. Disable user registration unless you "
+                                  "actually need it. Audit every Settings page after install."),
+                    url=base + "/wp-admin/options-general.php",
+                ))
         except httpx.HTTPError:
             pass
 
     finally:
         await auth.aclose()
 
-    if not findings:
-        findings.append(
-            Finding(
-                severity="info",
-                title="Authenticated scan completed with no critical issues",
-                evidence="Logged in with the provided admin credentials and inspected users, plugins, options, and Site Health.",
-                remediation="No action needed.",
-                url=ctx["target"],
-            )
-        )
+    if not findings or all(f.severity == "info" for f in findings):
+        findings.append(Finding(
+            severity="info",
+            title="Authenticated scan completed with no critical issues",
+            evidence=f"Logged in via {auth_method} and inspected users, plugins, themes, options, Site Health, updates.",
+            remediation="No action needed.",
+            url=ctx["target"],
+        ))
     return findings
+
+
+def _companion_findings(diag: dict, base: str) -> list[Finding]:
+    """Convert the companion-plugin diagnostics payload into findings."""
+    out: list[Finding] = []
+    core = diag.get("core") or {}
+    if core.get("version"):
+        out.append(Finding(
+            severity="info",
+            title=f"Companion: WordPress core v{core['version']}",
+            evidence=f"multisite={core.get('multisite')}, language={core.get('language', '?')}",
+            remediation="Keep core current.", url=base,
+        ))
+
+    plugins = diag.get("plugins") or []
+    if plugins:
+        active = [p for p in plugins if p.get("active")]
+        with_update = [p for p in plugins if p.get("update_available")]
+        out.append(Finding(
+            severity="info",
+            title=f"Companion: {len(plugins)} plugins ({len(active)} active, {len(with_update)} need update)",
+            evidence="\n".join(f"  - {p.get('slug')} v{p.get('version')} {'(active)' if p.get('active') else '(inactive)'} {'[UPDATE]' if p.get('update_available') else ''}" for p in plugins[:30]),
+            remediation="Apply updates; delete inactive plugins.",
+            url=base + "/wp-admin/plugins.php",
+        ))
+    users = diag.get("users") or []
+    no_2fa = [u for u in users if u.get("roles") and "administrator" in u.get("roles", []) and not u.get("2fa_enabled")]
+    if no_2fa:
+        out.append(Finding(
+            severity="high",
+            title=f"{len(no_2fa)} administrator(s) without 2FA",
+            evidence="\n".join(f"  - {u.get('login', '?')}" for u in no_2fa[:10]),
+            remediation="Enable 2FA on every administrator account. The Two-Factor core-team plugin is the canonical choice.",
+            url=base + "/wp-admin/users.php?role=administrator",
+        ))
+    sh_critical = (diag.get("site_health") or {}).get("critical") or []
+    if sh_critical:
+        out.append(Finding(
+            severity="high",
+            title=f"Companion: Site Health critical issues ({len(sh_critical)})",
+            evidence="\n".join(f"  - {c.get('label')}: {c.get('description', '')[:200]}" for c in sh_critical[:5]),
+            remediation="Resolve every Site Health critical issue.",
+            url=base + "/wp-admin/site-health.php",
+        ))
+    return out

@@ -5,7 +5,7 @@
 [![release](https://img.shields.io/github/v/release/bryanflowers/wpsecscan)](https://github.com/bryanflowers/wpsecscan/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/bryanflowers/wpsecscan/total)](https://github.com/bryanflowers/wpsecscan/releases)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![checks](https://img.shields.io/badge/checks-150-brightgreen)](FEATURES.md)
+[![checks](https://img.shields.io/badge/checks-154-brightgreen)](FEATURES.md)
 
 > **⚠ AUTHORIZED USE ONLY**
 >
@@ -64,7 +64,7 @@ python -m venv .venv
 pip install -r requirements.txt
 python run.py https://example.com         # CLI
 python run_gui.py                          # GUI
-pytest                                     # 485+ tests
+pytest                                     # 513+ tests
 ```
 
 ---
@@ -109,7 +109,7 @@ wpsecscan.exe https://your-wp-site.com --wpscan-token <KEY>
 
 ---
 
-## What it checks (150 checks)
+## What it checks (154 checks)
 
 Passive checks always run; aggressive checks need `--aggressive`.
 
@@ -349,6 +349,15 @@ to see errors).
 ---
 
 ## License & disclaimer
+
+Licensed under **AGPLv3+** (from v1.9.0 onward — v1.0.0..v1.8.0 were MIT).
+See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+**AGPL network clause**: if you run a modified WPSecScan as a hosted service
+(SaaS, web UI, paid scanning tier), you must publish your modified source
+under the same AGPLv3+ terms. Private internal use and modifications stay
+private. For commercial-distribution licensing terms outside AGPLv3,
+contact bryaninbangkok@gmail.com.
 
 This tool is for **defensive use** on sites you own. Use against third-party
 sites without explicit written permission is illegal in most jurisdictions
