@@ -627,9 +627,74 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_ai_cost(args)
     elif cmd == "db":
         _cmd_db(args)
+    elif cmd == "ai-options":
+        _cmd_ai_options(args)
+    elif cmd == "analytics":
+        _cmd_analytics(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
+
+
+def _cmd_ai_options(args: list[str]) -> None:
+    """Round-65 Group C — manage Advanced AI triage settings.
+
+    Usage:
+        wpsecscan ai-options list
+        wpsecscan ai-options get <field>
+        wpsecscan ai-options set <field> <value>
+    """
+    from . import ai_triage_ui
+    if not args or args[0] == "list":
+        print(ai_triage_ui.cli_list())
+        return
+    if args[0] == "get" and len(args) >= 2:
+        print(ai_triage_ui.cli_get(args[1]))
+        return
+    if args[0] == "set" and len(args) >= 3:
+        print(ai_triage_ui.cli_set(args[1], args[2]))
+        return
+    print(_cmd_ai_options.__doc__)
+    sys.exit(2)
+
+
+def _cmd_analytics(args: list[str]) -> None:
+    """Round-65 — manage opt-in local usage analytics.
+
+    Usage:
+        wpsecscan analytics status
+        wpsecscan analytics enable
+        wpsecscan analytics disable
+        wpsecscan analytics show
+        wpsecscan analytics export <path>
+        wpsecscan analytics forget
+    """
+    from . import analytics
+    if not args or args[0] == "status":
+        st = analytics.status()
+        print(f"Enabled: {st['enabled']}")
+        print(f"Anonymous ID: {st['anonymous_id']}")
+        print(f"Events recorded: {st['event_count']}")
+        print(f"Storage: {st['storage_path']}")
+        print(f"Upload destination: {st['upload_destination'] or '(local only)'}")
+        return
+    if args[0] == "enable":
+        print(analytics.enable())
+        return
+    if args[0] == "disable":
+        print(analytics.disable())
+        return
+    if args[0] == "show":
+        print(analytics.show_recent(limit=int(args[1]) if len(args) > 1 else 50))
+        return
+    if args[0] == "export" and len(args) >= 2:
+        print(analytics.export(args[1]))
+        return
+    if args[0] == "forget":
+        print(analytics.forget())
+        return
+    print(_cmd_analytics.__doc__)
+    sys.exit(2)
 
 
 def _cmd_sites(args: list[str]) -> None:

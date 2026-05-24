@@ -7,6 +7,62 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (Round-65 — Group C (AI triage) + opt-in analytics → v2.3.0)
+
+Tests: **646 → 665 passing**.
+
+**Headline:** Round-65 ships the previously-deferred Group C (10
+AI-triage features) behind an explicit opt-in panel — every feature
+defaults to OFF and only becomes available when the user (a) has an
+LLM backend configured (OpenAI / Anthropic / Ollama) AND (b) ticks
+the feature in `Tools → Advanced AI options...`. Round-65 ALSO adds
+the user-requested **opt-in, transparent, local-first usage
+analytics** — also default OFF, also fully inspectable.
+
+#### Group C — Advanced AI triage features (off by default)
+- `wpsecscan/ai_triage.py` — 10 features + per-feature toggles
+  persisted at `~/.wpsecscan/ai_settings.json`:
+  - **C1** Severity auto-tuner — re-rank findings by site-specific real-world risk
+  - **C2** Duplicate / sibling collapser — group N findings into K root causes
+  - **C3** False-positive predictor — auto-hide above configurable threshold
+  - **C4** Plain-English exec brief generator (audience: CEO/CTO/auditor/dev)
+  - **C5** Remediation step-generator tailored to the user's stack
+  - **C6** Forensics timeline narrator
+  - **C7** Business-impact estimator (BYO revenue + tx context)
+  - **C8** Ticket auto-gen (Jira / Linear / GitHub Issue shape)
+  - **C9** Real-time CISA-KEV correlation per CVE
+  - **C10** Conversational scan-result Q&A
+- `wpsecscan/ai_triage_ui.py` — settings panel (GUI Toplevel) +
+  `wpsecscan ai-options [list|get|set]` CLI subcommand
+- GUI: new menu entry `Tools → Advanced AI options...`
+- PII masking via existing `ai_safety.safe_for_llm()` is always-on
+  for every AI-triage call
+
+#### Opt-in usage analytics (off by default)
+- `wpsecscan/analytics.py` — record `cli_command`, `check_ran`,
+  `gui_action`, `feature_used`, `report_export` events with a
+  **per-event field allowlist** (defence in depth against PII leaks)
+- Counts are bucketed (`0` / `1-5` / `6-25` / `26-100` / `101-500` /
+  `500+`) so individual scans can't be fingerprinted
+- **Anonymous ID** is a UUID rotated every 90 days, never derived
+  from hostname / IP / username
+- **Local-first**: events go to `~/.wpsecscan/analytics/events.jsonl`;
+  upload requires BOTH `WPSECSCAN_ANALYTICS_UPLOAD_URL` AND explicit
+  opt-in
+- New CLI: `wpsecscan analytics [status|enable|disable|show|export|forget]`
+- New GUI entry: `Tools → Usage analytics options...`
+- New doc: `docs/analytics.md` documents every promise + the source-
+  code review checklist
+- Local log capped at 10 MB with rolling .1/.2/.3 archive files
+
+#### Privacy posture
+
+The analytics system is explicitly designed to honour the v2.1.0
+promise ("Zero telemetry — nothing flows back about who runs it").
+Default behaviour is unchanged: nothing is recorded, nothing is
+uploaded. The new code is dormant unless the user actively turns it
+on, with full visibility into every event before it's uploaded.
+
 ### Added (Round-64 — 165 features across 18 groups → v2.2.0)
 
 Tests: **607 → 646 passing**. Checks: **161 → 189**.
