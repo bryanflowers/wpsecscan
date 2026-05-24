@@ -317,6 +317,12 @@ class App:
                           command=self._open_mode_picker)
         tools.add_command(label="Report a bug / send feedback...",
                           command=self._open_bug_report)
+        tools.add_separator()
+        # Round-65: opt-in features behind explicit settings panels
+        tools.add_command(label="Advanced AI options...",
+                          command=self._open_advanced_ai_options)
+        tools.add_command(label="Usage analytics options...",
+                          command=self._open_analytics_options)
         from . import i18n as _i18n
         menubar.add_cascade(label=_i18n.t("tools"), menu=tools)
         # Round-S: View menu (light theme / TTS / etc.)
@@ -3171,6 +3177,48 @@ class App:
         messagebox.showinfo("Bug report",
                               f"Pre-filled GitHub issue opened in your browser.\n\n"
                               f"URL: {url[:160]}...")
+
+    def _open_advanced_ai_options(self) -> None:
+        """Round-65 Group C — Advanced AI triage options panel."""
+        try:
+            from . import ai_triage_ui
+            ai_triage_ui.open_advanced_ai_options(self.root)
+        except (ImportError, Exception) as e:  # noqa: BLE001
+            messagebox.showerror("AI options unavailable", str(e))
+
+    def _open_analytics_options(self) -> None:
+        """Round-65 — opt-in local usage analytics."""
+        try:
+            from . import analytics
+        except ImportError as e:
+            messagebox.showerror("Analytics unavailable", str(e)); return
+        from tkinter import simpledialog as _sd
+        st = analytics.status()
+        action = _sd.askstring(
+            "Usage analytics",
+            f"Current status: {'ENABLED' if st['enabled'] else 'DISABLED'}\n"
+            f"Events recorded: {st['event_count']}\n"
+            f"Anonymous ID: {st['anonymous_id']}\n"
+            f"Storage: {st['storage_path']}\n\n"
+            "Local-only by default. Nothing is uploaded.\n"
+            "Type one of: enable, disable, show, forget, export <path>"
+        )
+        if not action:
+            return
+        parts = action.strip().split(maxsplit=1)
+        cmd = parts[0].lower()
+        if cmd == "enable":
+            messagebox.showinfo("Analytics", analytics.enable())
+        elif cmd == "disable":
+            messagebox.showinfo("Analytics", analytics.disable())
+        elif cmd == "show":
+            messagebox.showinfo("Analytics — recent events", analytics.show_recent(limit=30))
+        elif cmd == "forget":
+            messagebox.showinfo("Analytics", analytics.forget())
+        elif cmd == "export" and len(parts) == 2:
+            messagebox.showinfo("Analytics", analytics.export(parts[1]))
+        else:
+            messagebox.showerror("Analytics", f"Unknown command: {action}")
 
 
 def main() -> None:
