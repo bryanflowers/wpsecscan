@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>wpsecscan</id>
+    <version>2.0.0</version>
+    <title>WPSecScan</title>
+    <authors>Bryan</authors>
+    <owners>bryanflowers</owners>
+    <projectUrl>https://github.com/bryanflowers/wpsecscan</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/bryanflowers/wpsecscan/main/wp-plugin/wpsecscan-companion/assets/icon-256x256.png</iconUrl>
+    <licenseUrl>https://www.gnu.org/licenses/agpl-3.0.html</licenseUrl>
+    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/bryanflowers/wpsecscan</projectSourceUrl>
+    <docsUrl>https://github.com/bryanflowers/wpsecscan/tree/main/docs</docsUrl>
+    <bugTrackerUrl>https://github.com/bryanflowers/wpsecscan/issues</bugTrackerUrl>
+    <tags>wordpress security scanner pentest defensive vulnerability cve</tags>
+    <summary>Defensive WordPress security scanner — runs locally, AGPLv3 open source, 150+ checks.</summary>
+    <description>
+WPSecScan is a defensive WordPress security scanner that runs entirely on your local machine. 150+ checks across 18 categories, AI-assisted remediation (BYO key), AGPLv3 open source, and a WordPress companion plugin for richest authenticated data.
+
+Use only on sites you own or have explicit written permission to test.
+    </description>
+    <releaseNotes>https://github.com/bryanflowers/wpsecscan/releases/tag/v2.0.0</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

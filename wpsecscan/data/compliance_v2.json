@@ -116,5 +116,13 @@
   "wp_multisite_deep":{"hitrust": "01.v","cmmc": "AC.L1-3.1.1","nist_csf": "PR.AA-01","cis_v8": "5.1","iso_27001_2022": "A.5.15"},
   "honeypot_admin":  {"hitrust": "09.aa","cmmc": "AU.L2-3.3.1","nist_csf": "DE.CM-01","cis_v8": "8.1","iso_27001_2022": "A.8.15"},
   "a11y_deep":       {"hitrust": "11.a","cmmc": "PL.L2-3.15.2","nist_csf": "GV.PO-01","cis_v8": "14.1","iso_27001_2022": "A.5.10"},
-  "perf_budget":     {"hitrust": "09.k","cmmc": "CP.L2-3.7.6","nist_csf": "PR.IR-04","cis_v8": "11.3","iso_27001_2022": "A.5.30"}
+  "perf_budget":     {"hitrust": "09.k","cmmc": "CP.L2-3.7.6","nist_csf": "PR.IR-04","cis_v8": "11.3","iso_27001_2022": "A.5.30"},
+
+  "server_stack_reveal": {"hitrust": "10.b","cmmc": "CM.L2-3.4.6","nist_csf": "PR.PS-06","cis_v8": "2.1","iso_27001_2022": "A.8.8"},
+  "waf_brand_deep":  {"hitrust": "01.o","cmmc": "SC.L2-3.13.6","nist_csf": "PR.IR-01","cis_v8": "13.10","iso_27001_2022": "A.8.20"},
+  "sri_audit":       {"hitrust": "10.h","cmmc": "SI.L2-3.14.6","nist_csf": "PR.DS-06","cis_v8": "16.11","iso_27001_2022": "A.8.24"},
+  "service_exposure":{"hitrust": "01.o","cmmc": "SC.L2-3.13.1","nist_csf": "PR.AC-05","cis_v8": "3.3","iso_27001_2022": "A.8.21"},
+  "js_framework_deep":{"hitrust": "10.b","cmmc": "CM.L2-3.4.6","nist_csf": "PR.PS-06","cis_v8": "2.1","iso_27001_2022": "A.8.8"},
+  "sri_pwa_misc":    {"hitrust": "10.b","cmmc": "SI.L2-3.14.7","nist_csf": "PR.PS-05","cis_v8": "16.10","iso_27001_2022": "A.8.28"},
+  "wp_cli_inject":   {"hitrust": "10.m","cmmc": "SI.L2-3.14.7","nist_csf": "PR.PS-05","cis_v8": "16.10","iso_27001_2022": "A.8.28"}
 }

@@ -303,6 +303,20 @@ class App:
         # Defender false-positive: one-click helper any time, not just first run.
         tools.add_command(label="Add Windows Defender exclusion...",
                           command=lambda: self._open_defender_dialog(is_first_run=False))
+        tools.add_separator()
+        # Round-62: new tools entries (graceful failure if module missing)
+        tools.add_command(label="Vulnerability DB status / update...",
+                          command=self._open_db_status)
+        tools.add_command(label="Sites dashboard...",
+                          command=self._open_sites_dashboard)
+        tools.add_command(label="CVE alert subscriptions...",
+                          command=self._open_cve_subscriptions)
+        tools.add_command(label="Proxy settings...",
+                          command=self._open_proxy_settings)
+        tools.add_command(label="User mode (Beginner / Standard / Expert)...",
+                          command=self._open_mode_picker)
+        tools.add_command(label="Report a bug / send feedback...",
+                          command=self._open_bug_report)
         from . import i18n as _i18n
         menubar.add_cascade(label=_i18n.t("tools"), menu=tools)
         # Round-S: View menu (light theme / TTS / etc.)
@@ -2735,7 +2749,8 @@ class App:
         from . import history as _h
         from tkinter import simpledialog
         current = _h.get_assignee(self._current_report.target, cid, f.title) or ""
-        new = simpledialog.askstring(
+        from tkinter import simpledialog as _sd
+        new = _sd.askstring(
             APP_NAME,
             f"Assign owner for:\n  {f.title[:80]}\n\n(Empty to clear)",
             initialvalue=current, parent=self.root,
@@ -2992,6 +3007,170 @@ class App:
             f"{s['low']} low · {s['info']} info"
         )
         return True
+
+    # ============================================================
+    # Round-62 GUI integration — dialogs for new modules.
+    # Each dialog is independent + tolerates missing modules gracefully.
+    # ============================================================
+
+    def _open_db_status(self) -> None:
+        try:
+            from . import db as _db
+        except ImportError as e:
+            messagebox.showerror("DB unavailable", str(e)); return
+        s = _db.status()
+        age_days = (s["age_seconds"] // 86400) if s["age_seconds"] >= 0 else -1
+        msg = (
+            f"Source:      {s['source']}\n"
+            f"Cache path:  {s['cache_path']}\n"
+            f"Cache exists:{s['cache_exists']}\n"
+            f"Entries:     {s['entry_count']:,}\n"
+            f"Age:         {age_days} days\n"
+            f"Stale:       {s['stale']}  (threshold {s['stale_after_seconds'] // 86400} days)\n"
+        )
+        if messagebox.askyesno("Vulnerability DB status",
+                                 msg + "\nRefresh DB now? (downloads from Wordfence + OSV)"):
+            try:
+                n, p = _db.update_db(verbose=False,
+                                       patchstack_token=os.environ.get("WPSECSCAN_PATCHSTACK_TOKEN", ""))
+                messagebox.showinfo("DB updated", f"OK — {n:,} entries cached at\n{p}")
+            except Exception as e:  # noqa: BLE001
+                messagebox.showerror("DB update failed", str(e))
+
+    def _open_sites_dashboard(self) -> None:
+        try:
+            from . import sites as _sites
+        except ImportError as e:
+            messagebox.showerror("Sites unavailable", str(e)); return
+        rows = _sites.list_sites()
+        if not rows:
+            messagebox.showinfo("Sites dashboard",
+                                  "No sites added yet.\n\n"
+                                  "Use the CLI: wpsecscan sites add <URL> --weekly\n"
+                                  "Or use Tools → Multi-target scan for one-off batches.")
+            return
+        import time as _t
+        body_lines = []
+        for s in rows:
+            ts = int(s.get("last_scan_ts") or 0)
+            when = "never" if not ts else _t.strftime("%Y-%m-%d", _t.localtime(ts))
+            body_lines.append(
+                f"{s['url'][:60]:60s}  weekly={s.get('weekly', False)}  "
+                f"last={when}  risk={s.get('last_risk_score', '?')}  "
+                f"crit={s.get('last_critical', 0)}  high={s.get('last_high', 0)}"
+            )
+        messagebox.showinfo("Sites dashboard", "\n".join(body_lines[:30]))
+
+    def _open_cve_subscriptions(self) -> None:
+        try:
+            from . import db as _db
+        except ImportError as e:
+            messagebox.showerror("DB unavailable", str(e)); return
+        subs = _db.subscriptions_load()
+        if not subs:
+            from tkinter import simpledialog as _sd
+            new = _sd.askstring("CVE subscription",
+                                 "No subscriptions configured.\n\n"
+                                 "Enter a webhook URL to subscribe to new-CVE alerts:")
+            if new:
+                try:
+                    _db.subscribe(new)
+                    messagebox.showinfo("Subscribed", f"OK — alerts will POST to {new}")
+                except ValueError as e:
+                    messagebox.showerror("Invalid", str(e))
+            return
+        messagebox.showinfo("CVE subscriptions",
+                              "\n".join(f"  {s.get('label', '?'):15s}  {s.get('site_url', '*'):30s}  {s.get('webhook_url', '')}"
+                                          for s in subs[:20]))
+
+    def _open_proxy_settings(self) -> None:
+        try:
+            from . import config as _cfg
+        except ImportError as e:
+            messagebox.showerror("Config unavailable", str(e)); return
+        from tkinter import simpledialog as _sd
+        cfg = _cfg.load()
+        cur_url = cfg.get("proxy_url", "")
+        cur_auth = cfg.get("proxy_auth", "")
+        new_url = _sd.askstring("Proxy URL",
+                                            "Proxy URL (http://, https://, socks5://) — blank to disable:",
+                                            initialvalue=cur_url)
+        if new_url is None:
+            return
+        new_auth = _sd.askstring("Proxy auth",
+                                             "Optional user:pass — blank for none:",
+                                             initialvalue=cur_auth)
+        if new_auth is None:
+            new_auth = ""
+        _cfg.save(proxy_url=new_url.strip(), proxy_auth=new_auth.strip())
+        # Best-effort connectivity test
+        if new_url.strip():
+            try:
+                from .integrations.tor_proxy import check_tor_exit
+                os.environ["WPSECSCAN_PROXY_URL"] = new_url.strip()
+                if new_auth.strip():
+                    os.environ["WPSECSCAN_PROXY_AUTH"] = new_auth.strip()
+                res = check_tor_exit()
+                if res.get("ok"):
+                    messagebox.showinfo("Proxy saved",
+                                          f"Saved.\nApparent exit IP: {res.get('ip', '?')}"
+                                          f"\nis_tor: {res.get('is_tor', False)}")
+                else:
+                    messagebox.showwarning("Proxy saved (test failed)",
+                                             f"Saved but test failed: {res.get('error', 'unknown')}")
+            except Exception as e:  # noqa: BLE001
+                messagebox.showinfo("Proxy saved", f"Saved (test skipped: {e}).")
+        else:
+            messagebox.showinfo("Proxy disabled", "Saved — proxy disabled.")
+
+    def _open_mode_picker(self) -> None:
+        try:
+            from . import config as _cfg
+        except ImportError as e:
+            messagebox.showerror("Config unavailable", str(e)); return
+        cur = _cfg.load().get("mode", "standard")
+        from tkinter import simpledialog as _sd
+        new = _sd.askstring("User mode",
+                                        f"Current mode: {cur}\n\n"
+                                        "Choose: beginner / standard / expert\n"
+                                        "  - beginner:  basic UI, AI off, aggressive disabled\n"
+                                        "  - standard:  current default UI\n"
+                                        "  - expert:    expose advanced toggles + experimental features",
+                                        initialvalue=cur)
+        if not new:
+            return
+        new = new.strip().lower()
+        if new not in ("beginner", "standard", "expert"):
+            messagebox.showerror("Invalid", "Mode must be beginner, standard, or expert.")
+            return
+        _cfg.save(mode=new)
+        messagebox.showinfo("Mode saved",
+                              f"Saved. Restart the GUI for the new layout to take effect.")
+
+    def _open_bug_report(self) -> None:
+        try:
+            from . import bug_report
+        except ImportError as e:
+            messagebox.showerror("Bug-report unavailable", str(e)); return
+        from tkinter import simpledialog as _sd
+        body = _sd.askstring("Report a bug / feedback",
+                                         "Describe what went wrong or what you'd like to see:")
+        if not body:
+            return
+        category = "general"
+        if "wrong" in body.lower() or "false" in body.lower():
+            category = "wrong_finding"
+        elif "feature" in body.lower() or "missing" in body.lower():
+            category = "missing_feature"
+        url = bug_report.send_feedback(message=body, category=category)
+        try:
+            import webbrowser
+            webbrowser.open(url)
+        except Exception:  # noqa: BLE001
+            pass
+        messagebox.showinfo("Bug report",
+                              f"Pre-filled GitHub issue opened in your browser.\n\n"
+                              f"URL: {url[:160]}...")
 
 
 def main() -> None:
