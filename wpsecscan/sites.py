@@ -103,6 +103,8 @@ def add(url: str, *, weekly: bool = False,
         auth_user: str | None = None,
         auth_app_password: str | None = None,
         companion_token: str | None = None,
+        proxy_url: str | None = None,
+        proxy_auth: str | None = None,
         notes: str = "") -> dict:
     """Add or update a site."""
     if not url.startswith(("http://", "https://")):
@@ -124,6 +126,11 @@ def add(url: str, *, weekly: bool = False,
         entry["auth_app_password_sealed"] = _seal(auth_app_password)
     if companion_token:
         entry["companion_token_sealed"] = _seal(companion_token)
+    # round-61: per-site proxy
+    if proxy_url:
+        entry["proxy_url"] = proxy_url
+    if proxy_auth:
+        entry["proxy_auth_sealed"] = _seal(proxy_auth)
     # Insert if new
     if entry not in sites:
         sites = [s for s in sites if s.get("url") != url] + [entry]
@@ -216,8 +223,12 @@ def _set_state(state: dict) -> None:
         pass
 
 
-def install_schedule(*, weekly: bool = True, time_hhmm: str = "03:00") -> dict:
-    """Register a weekly scheduled task. Returns {"ok": bool, "method": str, "detail": str}.
+def install_schedule(*, weekly: bool = True, time_hhmm: str = "03:00",
+                       db_refresh: bool = True, db_time_hhmm: str = "02:00") -> dict:
+    """Register a weekly scheduled scan + (round-61) a daily CVE-DB refresh.
+
+    Returns the scan-task result. The DB-refresh task result is reported
+    under `result["db_refresh"]`.
 
     Windows: Task Scheduler via `schtasks`.
     macOS:   launchd plist in ~/Library/LaunchAgents/.
@@ -225,41 +236,60 @@ def install_schedule(*, weekly: bool = True, time_hhmm: str = "03:00") -> dict:
     """
     if not re.match(r"^\d{2}:\d{2}$", time_hhmm):
         return {"ok": False, "method": "", "detail": "time must be HH:MM"}
+    if db_refresh and not re.match(r"^\d{2}:\d{2}$", db_time_hhmm):
+        return {"ok": False, "method": "", "detail": "db_time_hhmm must be HH:MM"}
+
     if sys.platform == "win32":
-        return _install_windows(time_hhmm)
-    if sys.platform == "darwin":
-        return _install_macos(time_hhmm)
-    return _install_linux(time_hhmm)
+        result = _install_windows(time_hhmm)
+    elif sys.platform == "darwin":
+        result = _install_macos(time_hhmm)
+    else:
+        result = _install_linux(time_hhmm)
+
+    if db_refresh:
+        if sys.platform == "win32":
+            result["db_refresh"] = _install_windows_db(db_time_hhmm)
+        elif sys.platform == "darwin":
+            result["db_refresh"] = _install_macos_db(db_time_hhmm)
+        else:
+            result["db_refresh"] = _install_linux_db(db_time_hhmm)
+    return result
 
 
 def uninstall_schedule() -> dict:
     if sys.platform == "win32":
-        try:
-            subprocess.run(["schtasks", "/Delete", "/TN", "WPSecScanWeekly", "/F"],
-                            capture_output=True, timeout=10)
-            return {"ok": True, "method": "schtasks", "detail": "removed"}
-        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-            return {"ok": False, "method": "schtasks", "detail": "schtasks unavailable"}
+        ok = True
+        for task in ("WPSecScanWeekly", "WPSecScanDbDaily"):
+            try:
+                subprocess.run(["schtasks", "/Delete", "/TN", task, "/F"],
+                                capture_output=True, timeout=10)
+            except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+                ok = False
+        return {"ok": ok, "method": "schtasks", "detail": "removed scan + db tasks"}
     if sys.platform == "darwin":
-        plist = Path.home() / "Library/LaunchAgents/com.wpsecscan.weekly.plist"
-        try:
-            subprocess.run(["launchctl", "unload", str(plist)], capture_output=True, timeout=10)
-        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-            pass
-        if plist.exists():
-            plist.unlink()
-        return {"ok": True, "method": "launchd", "detail": "unloaded"}
+        for label in ("com.wpsecscan.weekly", "com.wpsecscan.db"):
+            plist = Path.home() / f"Library/LaunchAgents/{label}.plist"
+            try:
+                subprocess.run(["launchctl", "unload", str(plist)],
+                                capture_output=True, timeout=10)
+            except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+                pass
+            if plist.exists():
+                plist.unlink()
+        return {"ok": True, "method": "launchd", "detail": "unloaded scan + db plists"}
     # Linux
     base = Path.home() / ".config/systemd/user"
-    for fn in ("wpsecscan-weekly.service", "wpsecscan-weekly.timer"):
+    for fn in ("wpsecscan-weekly.service", "wpsecscan-weekly.timer",
+                 "wpsecscan-db.service", "wpsecscan-db.timer"):
         p = base / fn
         if p.exists():
             p.unlink()
     try:
-        subprocess.run(["systemctl", "--user", "daemon-reload"], capture_output=True, timeout=10)
+        subprocess.run(["systemctl", "--user", "daemon-reload"],
+                        capture_output=True, timeout=10)
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
-    return {"ok": True, "method": "systemd", "detail": "removed"}
+    return {"ok": True, "method": "systemd", "detail": "removed scan + db timers"}
 
 
 def _install_windows(time_hhmm: str) -> dict:
@@ -308,6 +338,11 @@ def _install_macos(time_hhmm: str) -> dict:
 <key>RunAtLoad</key><false/>
 </dict></plist>
 """
+    if plist_path.is_symlink():
+        try:
+            plist_path.unlink()
+        except OSError as e:
+            return {"ok": False, "method": "launchd", "detail": f"plist symlink: {e}"}
     plist_path.write_text(plist, encoding="utf-8")
     try:
         subprocess.run(["launchctl", "load", str(plist_path)], capture_output=True, timeout=10)
@@ -331,8 +366,15 @@ def _install_linux(time_hhmm: str) -> dict:
         f"OnCalendar=Mon *-*-* {time_hhmm}:00\nPersistent=true\n\n"
         "[Install]\nWantedBy=timers.target\n"
     )
-    (base / "wpsecscan-weekly.service").write_text(svc, encoding="utf-8")
-    (base / "wpsecscan-weekly.timer").write_text(tmr, encoding="utf-8")
+    for name, content in (("wpsecscan-weekly.service", svc),
+                            ("wpsecscan-weekly.timer", tmr)):
+        p = base / name
+        if p.is_symlink():
+            try:
+                p.unlink()
+            except OSError as e:
+                return {"ok": False, "method": "systemd", "detail": f"{name} symlink: {e}"}
+        p.write_text(content, encoding="utf-8")
     try:
         subprocess.run(["systemctl", "--user", "daemon-reload"], capture_output=True, timeout=10)
         subprocess.run(["systemctl", "--user", "enable", "--now", "wpsecscan-weekly.timer"],
@@ -340,6 +382,110 @@ def _install_linux(time_hhmm: str) -> dict:
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
         return {"ok": False, "method": "systemd", "detail": str(e)}
     return {"ok": True, "method": "systemd", "detail": f"timer enabled MON {time_hhmm}"}
+
+
+# ---- round-61: daily DB-refresh task (alongside the weekly scan task) ----
+
+def _wpsecscan_invocation(*tail: str) -> tuple[list[str], str]:
+    """Build the command-line that launches `wpsecscan` portably.
+
+    Returns (args_list, quoted_for_schtasks_TR_string).
+    """
+    exe = shutil.which("wpsecscan") or sys.executable
+    if exe and exe.endswith("wpsecscan.exe"):
+        argv = ["wpsecscan", *tail]
+    else:
+        argv = [sys.executable, "-m", "wpsecscan", *tail]
+    quoted = '"' + '" "'.join(argv) + '"'
+    return argv, quoted
+
+
+def _install_windows_db(time_hhmm: str) -> dict:
+    if not shutil.which("schtasks"):
+        return {"ok": False, "method": "schtasks", "detail": "schtasks not on PATH"}
+    _argv, quoted = _wpsecscan_invocation("db", "update")
+    args = [
+        "schtasks", "/Create", "/TN", "WPSecScanDbDaily",
+        "/TR", quoted,
+        "/SC", "DAILY",
+        "/ST", time_hhmm,
+        "/F",
+    ]
+    try:
+        r = subprocess.run(args, capture_output=True, text=True, timeout=15)
+        if r.returncode == 0:
+            return {"ok": True, "method": "schtasks", "detail": f"daily DB refresh at {time_hhmm}"}
+        return {"ok": False, "method": "schtasks", "detail": (r.stderr or r.stdout)[:200]}
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        return {"ok": False, "method": "schtasks", "detail": str(e)}
+
+
+def _install_macos_db(time_hhmm: str) -> dict:
+    hh, mm = time_hhmm.split(":")
+    label = "com.wpsecscan.db"
+    plist_path = Path.home() / "Library/LaunchAgents" / f"{label}.plist"
+    plist_path.parent.mkdir(parents=True, exist_ok=True)
+    exe = shutil.which("wpsecscan") or sys.executable
+    plist = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>{label}</string>
+<key>ProgramArguments</key><array>
+<string>{exe}</string><string>db</string><string>update</string>
+</array>
+<key>StartCalendarInterval</key><dict>
+<key>Hour</key><integer>{int(hh)}</integer>
+<key>Minute</key><integer>{int(mm)}</integer>
+</dict>
+<key>RunAtLoad</key><false/>
+</dict></plist>
+"""
+    if plist_path.is_symlink():
+        try:
+            plist_path.unlink()
+        except OSError as e:
+            return {"ok": False, "method": "launchd", "detail": f"plist symlink: {e}"}
+    plist_path.write_text(plist, encoding="utf-8")
+    try:
+        subprocess.run(["launchctl", "load", str(plist_path)],
+                        capture_output=True, timeout=10)
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        return {"ok": False, "method": "launchd", "detail": str(e)}
+    return {"ok": True, "method": "launchd", "detail": f"daily DB refresh at {time_hhmm}"}
+
+
+def _install_linux_db(time_hhmm: str) -> dict:
+    base = Path.home() / ".config/systemd/user"
+    base.mkdir(parents=True, exist_ok=True)
+    exe = shutil.which("wpsecscan") or sys.executable
+    svc = (
+        "[Unit]\nDescription=WPSecScan daily DB refresh\n\n"
+        "[Service]\nType=oneshot\n"
+        f"ExecStart={exe} db update\n"
+    )
+    tmr = (
+        "[Unit]\nDescription=WPSecScan daily DB-refresh timer\n\n"
+        "[Timer]\n"
+        f"OnCalendar=*-*-* {time_hhmm}:00\nPersistent=true\n\n"
+        "[Install]\nWantedBy=timers.target\n"
+    )
+    for name, content in (("wpsecscan-db.service", svc),
+                            ("wpsecscan-db.timer", tmr)):
+        p = base / name
+        if p.is_symlink():
+            try:
+                p.unlink()
+            except OSError as e:
+                return {"ok": False, "method": "systemd", "detail": f"{name} symlink: {e}"}
+        p.write_text(content, encoding="utf-8")
+    try:
+        subprocess.run(["systemctl", "--user", "daemon-reload"],
+                        capture_output=True, timeout=10)
+        subprocess.run(["systemctl", "--user", "enable", "--now", "wpsecscan-db.timer"],
+                        capture_output=True, timeout=10)
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        return {"ok": False, "method": "systemd", "detail": str(e)}
+    return {"ok": True, "method": "systemd", "detail": f"daily DB refresh at {time_hhmm}"}
 
 
 # ---- email digest configuration ----

@@ -47,7 +47,57 @@ The plugin **never writes anything**. It exposes a single read-only REST endpoin
 3. Copy the token (shown once)
 4. Run: `wpsecscan --target https://yoursite.com --companion-token 'PASTED'`
 
+== Frequently Asked Questions ==
+
+= Does this plugin send my data to a third-party server? =
+
+No. The plugin only exposes a read-only REST endpoint on your own server. Nothing is sent anywhere. The scanner running on your machine connects to your WP site directly to read the diagnostics.
+
+= Why do I need this plugin if WPSecScan already works without it? =
+
+Without the plugin, the scanner has to HTTP-probe 30+ paths and guess at plugin versions. With it, you get exact data (file hashes, cron, auth filters, Site Health) in a single REST call. Result: ~3× more accurate plugin/theme detection and zero false positives from version-guessing.
+
+= What permissions does the plugin require? =
+
+`manage_options` (admin only) — to generate / revoke tokens on the settings page. The REST endpoint itself doesn't require WordPress login; it requires a valid one-time token in the `X-WPSecScan-Token` header.
+
+= Is the token safe? =
+
+Yes:
+* Stored as a password hash via `wp_hash_password()` — never plaintext
+* Single-use — invalidated the first time it's read
+* Expires after 60 minutes if unused
+* Requires HTTPS unless explicitly opted out via constant
+* Every access is logged on the admin page with IP + timestamp
+
+= What happens if I deactivate or delete the plugin? =
+
+Deactivation revokes any active token. Deletion (Plugins → Delete) wipes all plugin options + activity log via `uninstall.php`.
+
+= Can I use this with WP Multisite? =
+
+Yes. The plugin must be Network Activated to expose the endpoint on every sub-site. Each sub-site generates its own tokens independently.
+
+= Does it work without the WPSecScan scanner? =
+
+Yes — you can hit the endpoint with `curl` for your own diagnostics. The scanner is just the most convenient consumer.
+
+== Screenshots ==
+
+1. Settings → WPSecScan admin page with "Generate one-time token" button
+2. Activity log showing recent scanner accesses (timestamp + IP + sections returned)
+3. Example diagnostics JSON returned from the REST endpoint
+
 == Changelog ==
 
 = 1.0.0 =
 * Initial release
+* Read-only REST endpoint at `/wp-json/wpsecscan/v1/diagnostics`
+* Token-gated, single-use, 60-min TTL, hashed at rest
+* HTTPS-only enforcement
+* Activity log on admin page
+
+== Upgrade Notice ==
+
+= 1.0.0 =
+Initial release.

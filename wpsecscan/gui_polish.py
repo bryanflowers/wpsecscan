@@ -129,7 +129,35 @@ THEMES = {
     "hacker":     {"bg": "#1a0000", "fg": "#ff5252", "accent": "#ff9090"},
     "corporate":  {"bg": "#f4f6f8", "fg": "#222222", "accent": "#1565c0"},
     "high-contrast": {"bg": "#000000", "fg": "#ffff00", "accent": "#ffffff"},
+    "sv-ttk-dark":  {"bg": "#1c1c1c", "fg": "#ffffff", "accent": "#3b8eea"},
+    "sv-ttk-light": {"bg": "#fafafa", "fg": "#000000", "accent": "#0078d4"},
 }
+
+
+def apply_sv_ttk_if_available(root, theme: str = "dark") -> str:
+    """Round-61: apply the sv-ttk (Sun Valley) theme if installed.
+
+    Returns the name actually applied:
+        "sv-ttk-dark" / "sv-ttk-light" → applied successfully
+        otherwise the caller should fall back to its own ttk.Style code.
+
+    `theme` may be "sv-ttk-dark", "sv-ttk-light", or the short forms
+    "dark" / "light".
+    """
+    if root is None:
+        return ""
+    norm = theme.replace("sv-ttk-", "")
+    if norm not in ("dark", "light"):
+        norm = "dark"
+    try:
+        import sv_ttk  # type: ignore[import-not-found]
+    except ImportError:
+        return ""
+    try:
+        sv_ttk.set_theme(norm, root=root)
+        return f"sv-ttk-{norm}"
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 # ---- #99 sound effects ----

@@ -41,7 +41,7 @@ function wpsecscan_companion_core() {
         'multisite'  => is_multisite(),
         'language'   => get_locale(),
         'php'        => PHP_VERSION,
-        'mysql'      => function_exists( 'mysql_get_client_info' ) ? mysql_get_client_info() : '?',
+        'mysql'      => function_exists( 'mysqli_get_client_info' ) ? mysqli_get_client_info() : '?',
         'siteurl'    => get_option( 'siteurl' ),
         'home'       => get_option( 'home' ),
         'is_ssl'     => is_ssl(),

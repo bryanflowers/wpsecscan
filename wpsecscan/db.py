@@ -461,3 +461,142 @@ def find_for(vulns: Iterable[Vuln], type_: str, slug: str, installed_version: st
         else:
             out.append(v)
     return out
+
+
+# ============================================================
+# Round-61 — auto-update extras (status, subscribe, signatures)
+# ============================================================
+
+def status() -> dict:
+    """Snapshot of the local vuln-DB state, for `wpsecscan db status`."""
+    vulns, age, source = load_local()
+    cp = cache_path()
+    return {
+        "source":       source,
+        "entry_count":  len(vulns),
+        "age_seconds":  age,
+        "stale":        is_stale(age) if age >= 0 else True,
+        "cache_path":   str(cp),
+        "cache_exists": cp.exists(),
+        "stale_after_seconds": STALE_AFTER_SECONDS,
+        "next_refresh_due_seconds": max(0, STALE_AFTER_SECONDS - max(0, age)) if age >= 0 else 0,
+    }
+
+
+def _subscriptions_path() -> Path:
+    return cache_dir() / "cve_subscriptions.json"
+
+
+def subscriptions_load() -> list[dict]:
+    p = _subscriptions_path()
+    if not p.exists():
+        return []
+    try:
+        d = json.loads(p.read_text(encoding="utf-8")) or []
+        return d if isinstance(d, list) else []
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def _subscriptions_save(subs: list[dict]) -> None:
+    p = _subscriptions_path()
+    try:
+        if p.is_symlink():
+            p.unlink()
+        p.write_text(json.dumps(subs, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def subscribe(webhook_url: str, *, site_url: str = "", label: str = "") -> dict:
+    """Register a webhook to be fired by `watchers.cve_alert_check()` when
+    a new CVE matches a tracked plugin/theme. Returns the new entry.
+
+    `site_url` is optional — if set, only fire for that site; else fire for all.
+    """
+    if not webhook_url or not webhook_url.startswith(("http://", "https://")):
+        raise ValueError("webhook_url must be http(s)://")
+    subs = subscriptions_load()
+    entry = {
+        "webhook_url": webhook_url,
+        "site_url":    site_url or "*",
+        "label":       label or "default",
+        "added_at":    int(time.time()),
+    }
+    # Dedupe by (webhook_url, site_url)
+    subs = [s for s in subs if not (s.get("webhook_url") == webhook_url
+                                       and s.get("site_url") == entry["site_url"])]
+    subs.append(entry)
+    _subscriptions_save(subs)
+    return entry
+
+
+def unsubscribe(webhook_url: str, *, site_url: str = "") -> bool:
+    """Remove a subscription. Returns True if anything was removed."""
+    subs = subscriptions_load()
+    target_site = site_url or "*"
+    new = [s for s in subs if not (s.get("webhook_url") == webhook_url
+                                      and s.get("site_url") == target_site)]
+    if len(new) == len(subs):
+        return False
+    _subscriptions_save(new)
+    return True
+
+
+# --- Exploit-signature refresh (overrides bundled data/exploit_signatures.json) ---
+
+EXPLOIT_SIGS_REMOTE_URL = (
+    "https://raw.githubusercontent.com/bryanflowers/wpsecscan/"
+    "main/wpsecscan/data/exploit_signatures.json"
+)
+
+
+def exploit_signatures_cache_path() -> Path:
+    return cache_dir() / "exploit_signatures.json"
+
+
+def refresh_exploit_signatures(timeout: float = 20.0) -> dict:
+    """Pull the latest exploit-signatures JSON from GitHub raw. On success,
+    cache to ~/.wpsecscan/exploit_signatures.json so users get updates
+    without reinstalling the binary.
+
+    Returns {ok: bool, bytes: int, path: str, error?: str}.
+    """
+    if os.environ.get("WPSECSCAN_NO_NETWORK"):
+        return {"ok": False, "error": "WPSECSCAN_NO_NETWORK set"}
+    try:
+        with httpx.Client(timeout=timeout, follow_redirects=True) as c:
+            r = c.get(EXPLOIT_SIGS_REMOTE_URL)
+            if r.status_code != 200 or not r.content:
+                return {"ok": False, "error": f"HTTP {r.status_code}"}
+            # Validate it parses as JSON before overwriting cache
+            try:
+                json.loads(r.text)
+            except json.JSONDecodeError as e:
+                return {"ok": False, "error": f"bad JSON: {e}"}
+            p = exploit_signatures_cache_path()
+            if p.is_symlink():
+                p.unlink()
+            p.write_bytes(r.content)
+            return {"ok": True, "bytes": len(r.content), "path": str(p)}
+    except (httpx.HTTPError, OSError) as e:
+        return {"ok": False, "error": str(e)}
+
+
+def load_exploit_signatures() -> dict:
+    """Prefer the cached refresh over the bundled file.
+
+    Skips symlinked cache files (defence-in-depth — refuses to follow
+    attacker-planted symlinks under ~/.wpsecscan/).
+    """
+    cache = exploit_signatures_cache_path()
+    for p in (cache, Path(__file__).resolve().parent / "data" / "exploit_signatures.json"):
+        if not p.exists():
+            continue
+        if p.is_symlink():
+            continue
+        try:
+            return json.loads(p.read_text(encoding="utf-8")) or {}
+        except (OSError, json.JSONDecodeError):
+            continue
+    return {}

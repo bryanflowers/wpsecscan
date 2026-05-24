@@ -11,6 +11,7 @@
  * License:     GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: wpsecscan-companion
+ * Domain Path: /languages
  *
  * @package WPSecScan_Companion
  */
@@ -31,9 +32,21 @@ require_once __DIR__ . '/includes/diagnostics.php';
 /**
  * Bootstrap.
  */
+add_action( 'plugins_loaded', 'wpsecscan_companion_load_textdomain' );
 add_action( 'admin_menu',     'wpsecscan_companion_admin_menu' );
 add_action( 'admin_init',     'wpsecscan_companion_admin_init' );
 add_action( 'rest_api_init',  'wpsecscan_companion_register_routes' );
+
+/**
+ * Load translations from /languages/<text-domain>-<locale>.mo
+ */
+function wpsecscan_companion_load_textdomain() {
+    load_plugin_textdomain(
+        'wpsecscan-companion',
+        false,
+        dirname( plugin_basename( __FILE__ ) ) . '/languages'
+    );
+}
 
 /**
  * Activation: nothing to do — token is generated on demand from the admin page.

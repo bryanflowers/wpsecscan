@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wpsecscan"
-version = "1.9.0"
+version = "1.10.0"
 description = "Defensive WordPress security scanner — 150 checks across 18 categories, AI-assisted remediation (BYO key) with PII masking + cost tracking, vertical-plugin audits, privacy/GDPR inventory, headless WP, HITRUST/CMMC/NIST CSF 2.0/CIS v8/ISO 27001:2022 mapping, CLI + GUI."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -47,6 +47,8 @@ browser = ["playwright>=1.40"]
 yaml = ["pyyaml>=6.0"]
 # Distributed CVE-DB cache + RBAC bcrypt hashing
 ops = ["redis>=5.0", "bcrypt>=4.0"]
+# Round-61: Sun Valley ttk theme for a modern Windows-11 look (GUI only)
+ui = ["sv-ttk>=2.6", "Pillow>=10"]
 # OpenTelemetry traces
 otel = [
     "opentelemetry-api>=1.20",
@@ -63,6 +65,8 @@ all = [
     "opentelemetry-api>=1.20",
     "opentelemetry-sdk>=1.20",
     "opentelemetry-exporter-otlp>=1.20",
+    "sv-ttk>=2.6",
+    "Pillow>=10",
 ]
 # Test deps (also installed by CI)
 test = ["pytest>=7.4"]

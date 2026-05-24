@@ -227,3 +227,92 @@ def subdomain_takeover_scan(subdomains: list[str]) -> list[dict]:
     state["last_check"] = int(time.time())
     _save_state(name, state)
     return out
+
+
+# ---- Round-61 — new-CVE alert subscription ----
+
+def cve_alert_check() -> dict:
+    """For every tracked site, diff the latest CVE DB against the site's
+    last known plugin list. Fire registered webhooks for new matches.
+
+    Returns {checked_sites, new_alerts: [...]}. Never raises.
+    """
+    try:
+        from . import db as _db
+        from . import sites as _sites
+    except ImportError:
+        return {"checked_sites": 0, "new_alerts": []}
+
+    state = _load_state("cve_alerts")
+    already = set(state.get("alerted_keys", []))
+
+    vulns, _age, _src = _db.load_local()
+    subs = _db.subscriptions_load()
+
+    new_alerts: list[dict] = []
+    sites_checked = 0
+    for s in _sites.list_sites():
+        sites_checked += 1
+        url = s.get("url", "")
+        # Per-site plugin list lives in `last_plugins` (populated by the
+        # companion-plugin handshake during sites scan). Missing → skip.
+        known = s.get("last_plugins") or []
+        if not isinstance(known, list):
+            continue
+        for plugin in known:
+            if not isinstance(plugin, dict):
+                continue
+            slug = plugin.get("slug")
+            installed = plugin.get("version")
+            if not slug:
+                continue
+            for v in _db.find_for(vulns, "plugin", slug, installed):
+                key = f"{url}|{slug}|{v.cve or v.title}"
+                if key in already:
+                    continue
+                alert = {
+                    "site_url": url,
+                    "plugin_slug": slug,
+                    "installed_version": installed,
+                    "cve": v.cve,
+                    "severity": v.severity,
+                    "title": v.title,
+                }
+                new_alerts.append(alert)
+                already.add(key)
+                for sub in subs:
+                    if sub.get("site_url", "*") in ("*", url):
+                        _post_cve_subscription(sub.get("webhook_url", ""), alert)
+
+    state["alerted_keys"] = sorted(already)[-2000:]
+    state["last_check"] = int(time.time())
+    _save_state("cve_alerts", state)
+
+    if new_alerts:
+        _notify(
+            f"WPSecScan: {len(new_alerts)} new CVE alert(s)",
+            "\n".join(f"  - {a['site_url']}: {a['plugin_slug']} "
+                       f"{a['installed_version'] or '?'} [{a['severity']}] "
+                       f"{a['cve']} {a['title']}"
+                       for a in new_alerts[:20]),
+        )
+    return {"checked_sites": sites_checked, "new_alerts": new_alerts}
+
+
+def _post_cve_subscription(webhook_url: str, alert: dict) -> bool:
+    if not webhook_url or not webhook_url.startswith(("http://", "https://")):
+        return False
+    if os.environ.get("WPSECSCAN_NO_NETWORK"):
+        return False
+    try:
+        req = urllib.request.Request(
+            webhook_url,
+            data=json.dumps({"event": "cve_alert", **alert}).encode("utf-8"),
+            method="POST",
+            headers={"Content-Type": "application/json",
+                      "User-Agent": "WPSecScan/watchers/cve_alert"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return r.status < 300
+    except (HTTPError, URLError, OSError):
+        return False

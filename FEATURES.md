@@ -6,6 +6,38 @@ For install instructions, see [README.md](README.md).
 
 ---
 
+## Round-61 — plugin polish, auto-vuln-update, UI overhaul, proxy
+
+v1.10.0. Tests: **513 → 542 passing**.
+
+- **WP companion plugin → wp.org submission-ready**: all blockers fixed
+  (Domain Path header, `load_plugin_textdomain`, header-only token,
+  mysqli compat, FAQ + Screenshots + Upgrade Notice readme sections).
+  Placeholder banner + icon + 3 screenshots generated via
+  `scripts/gen-wp-plugin-assets.py`. Full SVN submission walkthrough
+  in `docs/wp-org-submission.md`.
+- **Auto-vuln-update system**: new `wpsecscan db {status|update|subscribe|
+  unsubscribe|signatures|alert-check}` subcommand. `wpsecscan schedule
+  install` now ALSO registers a daily 02:00 CVE-DB refresh on Windows
+  Task Scheduler / macOS launchd / Linux systemd. New-CVE alerts fire
+  registered webhooks when a vulnerability lands for a plugin you have
+  installed. See `docs/auto-update.md`.
+- **Private proxy**: `--proxy URL` + `--proxy-auth USER:PASS` flags +
+  `wpsecscan sites add URL --proxy ...` per-site config. SOCKS5 / HTTP
+  / HTTPS supported via httpx. Password URL-encoded automatically.
+  Tor exit verification via `tor_proxy.check_tor_exit()`. See
+  `docs/proxy.md`.
+- **Persistent user-prefs**: new `wpsecscan/config.py` —
+  `~/.wpsecscan/config.json` with theme / mode / follow_os_theme /
+  last_url / proxy / compliance defaults. Helpers `is_expert()`,
+  `is_beginner()`, `effective_theme()` (OS-dark-mode-follow). Foundation
+  for Beginner/Standard/Expert mode picker.
+- **Sun Valley ttk theme**: `apply_sv_ttk_if_available()` opt-in via
+  `pip install wpsecscan[ui]` for modern Windows-11 look. Falls back to
+  existing clam theme when not installed.
+
+---
+
 ## Round-60 — 28 features + WP companion plugin + AGPLv3 relicense
 
 v1.9.0. Inventory: **150 → 154 checks**. Tests: **485 → 513 passing**.

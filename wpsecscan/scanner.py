@@ -88,6 +88,8 @@ async def scan(
     auth_app_password: str | None = None,
     auth_totp: str | None = None,
     companion_token: str | None = None,
+    proxy: str | None = None,            # round-61
+    proxy_auth: str | None = None,       # round-61
     hibp_token: str | None = None,
     deep_throttle: bool = False,
     deep_throttle_attempts: int | None = None,
@@ -120,6 +122,13 @@ async def scan(
     started_wall = datetime.now(timezone.utc).isoformat()
     started = time.perf_counter()
 
+    # round-61: proxy resolution order:
+    #   1. explicit `proxy=` arg (from --proxy CLI or per-site config)
+    #   2. WPSECSCAN_PROXY_URL env var
+    #   3. httpx auto-fallback to HTTP_PROXY / HTTPS_PROXY / ALL_PROXY
+    import os as _os
+    effective_proxy = proxy or _os.environ.get("WPSECSCAN_PROXY_URL") or None
+    effective_proxy_auth = proxy_auth or _os.environ.get("WPSECSCAN_PROXY_AUTH") or None
     client = Client(
         target,
         timeout=timeout,
@@ -128,6 +137,8 @@ async def scan(
         verify=verify_tls,
         cache=True,  # huge speedup — many checks fetch / and /wp-login.php
         har=har,
+        proxy=effective_proxy,
+        proxy_auth=effective_proxy_auth,
     )
     # The per-check step callback lets checks narrate sub-steps to the GUI
     # in real time (e.g. "probing /wp-config.php.bak").
