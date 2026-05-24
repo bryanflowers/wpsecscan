@@ -10,7 +10,7 @@ a = Analysis(
     ['run_gui.py'],
     pathex=[],
     binaries=[],
-    datas=[('wpsecscan\\data', 'wpsecscan\\data'), ('scripts\\add-defender-exclusion.ps1', 'scripts')],
+    datas=[('wpsecscan/data', 'wpsecscan/data'), ('scripts/add-defender-exclusion.ps1', 'scripts')],
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

@@ -146,5 +146,20 @@
   "misc_injection_audit":    {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
   "tls_reneg_dos":           {"pci_dss": "6.2.4", "nist_800_53": "SC-13", "iso_27001": "A.8.24"},
   "cache_poisoning_v2":      {"pci_dss": "6.4.2", "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
-  "osint_enrich":            {"pci_dss": "1.4", "nist_800_53": "SI-4", "iso_27001": "A.8.7"}
+  "osint_enrich":            {"pci_dss": "1.4", "nist_800_53": "SI-4", "iso_27001": "A.8.7"},
+
+  "wp_builder_audit":          {"pci_dss": "6.3.3", "nist_800_53": "SI-2", "iso_27001": "A.8.8"},
+  "wp_form_audit":             {"pci_dss": "6.4.1", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
+  "wp_membership_lms_audit":   {"pci_dss": "7.2.1", "nist_800_53": "AC-3", "iso_27001": "A.5.15"},
+  "wp_commerce_alt_audit":     {"pci_dss": "7.2.1", "nist_800_53": "AC-3", "iso_27001": "A.5.15"},
+  "wp_plugin_ecosystem_audit": {"pci_dss": "6.3.3", "nist_800_53": "CM-7", "iso_27001": "A.8.8"},
+  "privacy_inventory":         {"pci_dss": "3.4.1", "nist_800_53": "PT-3", "iso_27001": "A.5.34"},
+  "email_security_deep":       {"pci_dss": "1.4",   "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
+  "dns_deep":                  {"pci_dss": "1.4",   "nist_800_53": "SC-20","iso_27001": "A.8.20"},
+  "auth_modernisation":        {"pci_dss": "8.4.2", "nist_800_53": "IA-2", "iso_27001": "A.5.17"},
+  "crypto_agility":            {"pci_dss": "4.2.1", "nist_800_53": "SC-13","iso_27001": "A.8.24"},
+  "cdn_edge_audit":            {"pci_dss": "1.4",   "nist_800_53": "SC-7", "iso_27001": "A.8.20"},
+  "payment_commerce_deep":     {"pci_dss": "6.4.3", "nist_800_53": "SC-8", "iso_27001": "A.5.34"},
+  "compliance_frameworks":     {"pci_dss": "12.1",  "nist_800_53": "PM-9", "iso_27001": "A.5.31"},
+  "headless_wp_audit":         {"pci_dss": "6.3.3", "nist_800_53": "AC-3", "iso_27001": "A.8.3"}
 }

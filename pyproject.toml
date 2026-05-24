@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wpsecscan"
-version = "1.7.0"
-description = "Defensive WordPress security scanner — 136 checks, AI-assisted remediation (BYO key), YAML templates, OSINT, exec reporting, CLI + GUI."
+version = "1.8.0"
+description = "Defensive WordPress security scanner — 150 checks across 18 categories, AI-assisted remediation (BYO key) with PII masking + cost tracking, vertical-plugin audits, privacy/GDPR inventory, headless WP, HITRUST/CMMC/NIST CSF 2.0/CIS v8/ISO 27001:2022 mapping, CLI + GUI."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }

@@ -7,6 +7,45 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (Round-59 — 111-feature mega-round, the best WordPress scanner)
+
+The biggest single round yet — 111 features across 18 waves (A-R).
+Inventory: **136 → 150 checks**. Tests: **427 → 485 passing**.
+
+- **14 new check modules** (registered in `ALL_CHECKS`):
+  - `wp_builder_audit` — block-theme/FSE + page-builder version pins (Elementor / Divi / Bricks / Oxygen)
+  - `wp_form_audit` — CF7 / WPForms / Gravity / Ninja / Formidable / Fluent (REST + upload-dir leaks)
+  - `wp_membership_lms_audit` — MemberPress / PMPro / RCP / LearnDash / LifterLMS / TutorLMS / Sensei
+  - `wp_commerce_alt_audit` — EDD / WP eCom / Square / Bookly / Amelia / BookingPress / MotoPress
+  - `wp_plugin_ecosystem_audit` — 28-plugin sweep (search/SEO/backup/SMTP/cache/CDN/sec/chat)
+  - `privacy_inventory` — PII patterns + cookie banner + 3p JS + Google Fonts CJEU + GA anonymize_ip + RTBE
+  - `email_security_deep` — DMARC progression, MTA-STS, BIMI, ARC, DKIM rotation, SPF 10-lookup, SPF macros
+  - `dns_deep` — DNSSEC, CAA, TXT-secret, HTTPS SVCB, resolver fingerprint, glue, wildcard, PTR
+  - `auth_modernisation` — passkey/WebAuthn detect, 2FA plugin sweep, SAML, OAuth/PKCE, JWT refresh, magic-link
+  - `crypto_agility` — TLS 1.3 + PQ KEX hints, cert inventory, RSA <2048, curve preference
+  - `cdn_edge_audit` — Cloudflare/CloudFront/Bunny/KeyCDN/Fastly/Akamai detection + Worker route + signed-URL bypass + origin-pull injection
+  - `payment_commerce_deep` — Stripe/PayPal/Square + test-key leak + PCI 4.0 checklist + 3DS2 hint + Woo IDOR + PCI evidence JSON
+  - `compliance_frameworks` — HITRUST / CMMC / NIST CSF 2.0 / CIS v8 / ISO 27001:2022
+  - `headless_wp_audit` — WPGraphQL deep, Next.js/Gatsby, Bedrock, Atlas/WPE purge-token leak, REST permalink
+- **8 new tooling modules** (not checks; pure helpers):
+  - `ai_safety` (#68-72) — hallucination verify, cost tracking, llama.cpp backend, prompt-injection guard, PII masking
+  - `ux_extras` (#74-82) — a11y audit, vim keys, power shortcuts, OS dark-mode, sound packs, quiet hours, stars, saved searches, Obsidian/Notion export
+  - `plugin_outreach` (#83-86) — disclosure email, wp.org submission, Patchstack, CVE 5.1 record
+  - `reliability` (#92-94) — per-check regression, per-target alerts, cache-trend 30-day
+  - `browser_replay` (#95-97) — Playwright recorder, report diff, attacker-view MP4
+  - `hardware_keys` (#98-100) — WebAuthn fido2, Yubikey GPG, TPM2/DPAPI sealing
+  - `waf_tuning` (#101-104) — allow-list generator, CF API push, ModSec CRS export, log-only flip
+  - `novel_research` (#105-109, 111, 112) — FP learner, honeypot detector, mutation testing, visual regression, X25519 sharing, remediation A/B, Merkle log
+- **i18n expansion (#73):** built-in locales added — FR, DE, PT-BR, JA, ZH-CN (was en + es)
+- **Compliance mapping v2 (`data/compliance_v2.json`):** 106-check mapping across HITRUST / CMMC / NIST CSF 2.0 / CIS v8 / ISO 27001:2022
+
+### Fixed (during round-59 QA pass)
+
+- `wp_membership_lms_audit` — removed dead `_probe()` / `ctx_url()` placeholder helpers
+- `hardware_keys._PGP_KEY_RE` — tightened regex (was too permissive on email format)
+- `integrations/osint.py` + `checks/upload_path_predictable.py` + `plugin_outreach.py` — `datetime.utcnow()` → timezone-aware `datetime.now(tz=timezone.utc)`
+- All new modules verified for: `WPSECSCAN_NO_AI` short-circuit (every LLM path), symlink guard before file write, host-count caps, parameterised SQL (`novel_research`), no `shell=True` in subprocess calls
+
 ### Added (Round-58 — 117-feature mega-round, becoming the best WP scanner)
 - **16 new checks** across 4 waves: WordPress deep dives (Gutenberg blocks,
   wp-cron DoS, REST permission audit, WP_Query SQLi, salt-age, Heartbeat

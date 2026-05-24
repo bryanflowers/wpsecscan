@@ -30,5 +30,20 @@
   "audit_log":       {"hipaa": "164.312(b)",      "soc2": "CC7.2",  "fedramp": "AU-2", "gdpr": "Article 30"},
   "audit_log_ship":  {"hipaa": "164.312(b)",      "soc2": "CC7.2",  "fedramp": "AU-6", "gdpr": "Article 30"},
   "dns_security":    {"hipaa": "164.312(e)(1)",   "soc2": "CC6.7",  "fedramp": "SC-8", "gdpr": "Article 32"},
-  "cloud_metadata_ssrf":{"hipaa": "164.308(a)(4)","soc2": "CC6.6", "fedramp": "SC-7", "gdpr": "Article 32"}
+  "cloud_metadata_ssrf":{"hipaa": "164.308(a)(4)","soc2": "CC6.6", "fedramp": "SC-7", "gdpr": "Article 32"},
+
+  "wp_builder_audit":          {"hipaa": "164.308(a)(1)",  "soc2": "CC7.1", "fedramp": "CM-7", "gdpr": "Article 32"},
+  "wp_form_audit":             {"hipaa": "164.312(c)(1)",  "soc2": "CC6.1", "fedramp": "SI-10","gdpr": "Article 32"},
+  "wp_membership_lms_audit":   {"hipaa": "164.312(a)(1)",  "soc2": "CC6.1", "fedramp": "AC-3", "gdpr": "Article 32"},
+  "wp_commerce_alt_audit":     {"hipaa": "164.312(a)(1)",  "soc2": "CC6.1", "fedramp": "AC-3", "gdpr": "Article 32"},
+  "wp_plugin_ecosystem_audit": {"hipaa": "164.308(a)(1)",  "soc2": "CC7.1", "fedramp": "CM-7", "gdpr": "Article 32"},
+  "privacy_inventory":         {"hipaa": "164.524",         "soc2": "C1.1", "fedramp": "PT-3", "gdpr": "Article 30"},
+  "email_security_deep":       {"hipaa": "164.312(e)(1)",  "soc2": "CC6.7", "fedramp": "SC-8", "gdpr": "Article 32"},
+  "dns_deep":                  {"hipaa": "164.312(e)(1)",  "soc2": "CC6.7", "fedramp": "SC-20","gdpr": "Article 32"},
+  "auth_modernisation":        {"hipaa": "164.312(d)",     "soc2": "CC6.1", "fedramp": "IA-2", "gdpr": "Article 32"},
+  "crypto_agility":            {"hipaa": "164.312(e)(2)(ii)","soc2": "CC6.7","fedramp": "SC-13","gdpr": "Article 32"},
+  "cdn_edge_audit":            {"hipaa": "164.312(e)(1)",  "soc2": "CC6.7", "fedramp": "SC-7", "gdpr": "Article 32"},
+  "payment_commerce_deep":     {"hipaa": "164.308(a)(8)",  "soc2": "CC8.1", "fedramp": "SI-2", "gdpr": "Article 32"},
+  "compliance_frameworks":     {"hipaa": "164.308(a)(1)",  "soc2": "CC3.1", "fedramp": "PM-9", "gdpr": "Article 30"},
+  "headless_wp_audit":         {"hipaa": "164.312(a)(1)",  "soc2": "CC6.1", "fedramp": "AC-3", "gdpr": "Article 32"}
 }
