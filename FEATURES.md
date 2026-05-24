@@ -6,6 +6,52 @@ For install instructions, see [README.md](README.md).
 
 ---
 
+## Round-63 — Multi-source CVE aggregator → v2.1.0
+
+Tests: **590 → 607 passing**.
+
+**What it does:** WPSecScan now runs a nightly aggregator that pulls
+from **8 free vulnerability sources**, merges + dedupes the results,
+and serves a single feed users hit with `wpsecscan db update`. No
+single source — paid or free — covers everything; running our own
+union gives users a strictly fresher and more complete database than
+any one upstream.
+
+**The 8 sources** (license + free/paid in `docs/data-sources.md`):
+
+| # | Source | License | Free? |
+|---|--------|---------|-------|
+| 1 | Wordfence Intelligence v3 | proprietary; v2 free tier sunsetted | partial |
+| 2 | **OSV.dev** (Packagist) | CC-BY-4.0 | ✓ free |
+| 3 | **GitHub Security Advisories** | CC0 | ✓ free |
+| 4 | **Mitre CVE List V5** | CC0 (canonical) | ✓ free |
+| 5 | **NVD National Vulnerability DB** | CC0 (US gov) | ✓ free |
+| 6 | **WPVulnerability.com** | CC-BY-SA | ✓ free |
+| 7 | Patchstack public RSS | vendor-discontinued; fail-soft | n/a |
+| 8 | **CIRCL CVE-Search** | EU public service | ✓ free |
+
+**6 of 8 are fully free with no key required.**
+
+**Infrastructure:**
+- `scripts/aggregate-cve-feed.py` — 700-line aggregator with per-source
+  error tolerance, regex-validated input, symlink guards, dedupe by
+  `(type, slug, cve)` keeping the highest-CVSS entry
+- `.github/workflows/cve-feed.yml` — nightly GitHub Action at 02:00 UTC.
+  Commits merged JSON to a `data-feed` branch.
+- `wpsecscan/db.py:fetch_aggregated()` — single round-trip pull of the
+  merged feed; falls back to Wordfence-direct → OSV → embedded for
+  defence in depth
+- `wpsecscan db source-stats` CLI — per-source contribution to the
+  local cache
+- `docs/data-sources.md` — full per-source documentation
+
+**Privacy:** zero telemetry — the aggregator pulls from public sources;
+nothing flows back about who runs it. Every nightly aggregation is a
+git commit on the `data-feed` branch (full audit trail). Forkable —
+set `WPSECSCAN_AGGREGATED_FEED_URL` to your fork's feed.
+
+---
+
 ## Round-62 — 89-feature mega-round → v2.0.0
 
 Biggest round yet. Inventory **154 → 161 checks**. Tests **542 → 585 passing**.

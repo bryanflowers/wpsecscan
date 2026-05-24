@@ -1,5 +1,5 @@
 PackageIdentifier: WPSecScan.Bryan
-PackageVersion: 2.0.0
+PackageVersion: 2.1.0
 PackageLocale: en-US
 Publisher: Bryan
 PublisherUrl: https://github.com/bryanflowers
@@ -27,16 +27,16 @@ Tags:
 Installers:
 - Architecture: x64
   InstallerType: portable
-  InstallerUrl: https://github.com/bryanflowers/wpsecscan/releases/download/v2.0.0/wpsecscan.exe
+  InstallerUrl: https://github.com/bryanflowers/wpsecscan/releases/download/v2.1.0/wpsecscan.exe
   InstallerSha256: REPLACE_WITH_SHA256_AT_RELEASE_TIME
   Commands:
   - wpsecscan
 - Architecture: x64
   InstallerType: portable
-  InstallerUrl: https://github.com/bryanflowers/wpsecscan/releases/download/v2.0.0/wpsecscan-gui.exe
+  InstallerUrl: https://github.com/bryanflowers/wpsecscan/releases/download/v2.1.0/wpsecscan-gui.exe
   InstallerSha256: REPLACE_WITH_SHA256_AT_RELEASE_TIME
   Commands:
   - wpsecscan-gui
-ReleaseNotesUrl: https://github.com/bryanflowers/wpsecscan/releases/tag/v2.0.0
+ReleaseNotesUrl: https://github.com/bryanflowers/wpsecscan/releases/tag/v2.1.0
 ManifestType: singleton
 ManifestVersion: 1.6.0

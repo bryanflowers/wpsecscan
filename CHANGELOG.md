@@ -7,6 +7,66 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (Round-63 — multi-source CVE aggregator → v2.1.0)
+
+Tests: **590 → 607 passing**.
+
+**Headline:** WPSecScan now runs its own nightly CVE aggregator that
+pulls from **8 free sources** and serves a single deduped feed — users
+get a strictly more complete + fresher database than any single paid
+or free service provides.
+
+#### Why this round shipped
+
+- Wordfence's free v2 Intelligence scanner endpoint was discontinued
+  (returns HTTP 410); v3 now requires a Wordfence Cloud account.
+- Users running `wpsecscan db update` against Wordfence directly were
+  starting to see empty refreshes.
+- Solution: aggregate from **8 free sources** every night, dedupe,
+  publish to a `data-feed` branch users can pull from.
+
+#### The 8 sources
+1. **Wordfence Intelligence v3** (when key set; partial-free)
+2. **OSV.dev** Packagist ecosystem (fully free, CC-BY-4.0)
+3. **GitHub Security Advisories** GraphQL (fully free, CC0)
+4. **Mitre CVE List V5** canonical (fully free, CC0)
+5. **NVD National Vulnerability Database** (fully free, CC0 US gov)
+6. **WPVulnerability.com** community DB (fully free, CC-BY-SA)
+7. **Patchstack public RSS** (fail-soft — currently down upstream)
+8. **CIRCL CVE-Search** EU mirror (fully free)
+
+**Net: 6 of 8 are fully free, no key required.**
+
+#### New files
+- `scripts/aggregate-cve-feed.py` — 700-line aggregator with per-source
+  error tolerance, regex-validated input, symlink guards, dedupe by
+  `(type, slug, cve)` keeping the highest-CVSS entry per key
+- `.github/workflows/cve-feed.yml` — nightly cron at 02:00 UTC,
+  commits merged JSON to `data-feed` branch
+- `docs/data-sources.md` — full per-source documentation (licence,
+  rate limit, coverage, opt-out env vars)
+
+#### Modified files
+- `wpsecscan/db.py`:
+  - New `AGGREGATED_FEED_URL` constant (override via `WPSECSCAN_AGGREGATED_FEED_URL`)
+  - New `fetch_aggregated()` function pulls our merged feed in one round-trip
+  - New `cached_sources()` reads per-source contribution from the cache
+  - `save_cache()` now persists `_sources` field
+  - `update_db()` reordered: aggregated feed first, Wordfence-direct fallback,
+    OSV final fallback (defence in depth)
+- `wpsecscan/__main__.py`:
+  - New `wpsecscan db source-stats` action — prints per-source
+    contribution table from the local cache
+
+#### QA fixes (caught during round-63 build)
+- aggregator Unicode arrow `→` replaced with `->` for Windows cp1252 compat
+- `datetime.utcnow()` → tz-aware (deprecation)
+- Patchstack RSS fetcher fail-soft when endpoint returns HTML
+- Mitre CVE-List fetcher honours `GITHUB_TOKEN` (raises rate limit
+  from 60/hr to 5000/hr)
+- `db.py` Vuln rehydration provides defaults for aggregator-missing fields
+- 17 new tests in `tests/test_round_63.py`
+
 ### Added (Round-62 — 89-feature mega-round → v2.0.0)
 
 Biggest round yet. Inventory: **154 → 161 checks**. Tests: **542 → 585 passing**.
