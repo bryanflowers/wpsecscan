@@ -314,6 +314,14 @@ def merkle_append(entry: dict) -> str:
                               sort_keys=True, default=str)
         if p.is_symlink():
             p.unlink()
+        # Round-62 QA: archive the log when it exceeds 100 MB to bound disk use.
+        # Hash chain restarts in the new file (prev_hash="") but the archive
+        # is preserved as `merkle.log.<ts>.archived` for forensic continuity.
+        try:
+            if p.is_file() and not p.is_symlink() and p.stat().st_size > 100_000_000:
+                p.rename(p.with_suffix(p.suffix + f".{int(time.time())}.archived"))
+        except OSError:
+            pass
         with p.open("a", encoding="utf-8") as f:
             f.write(record + "\n")
         return leaf_hash

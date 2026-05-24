@@ -73,14 +73,17 @@ def record(url: str, *, method: str = "GET", status: int | None = None,
     with _LOCK:
         try:
             # Round-62 QA: cap at 50 MB so a 24h scan can't fill the disk.
-            # Rollover to .<ts>.archived once exceeded.
-            if _ACTIVE_PATH.exists() and _ACTIVE_PATH.stat().st_size > 50_000_000:
-                archived = _ACTIVE_PATH.with_suffix(
-                    _ACTIVE_PATH.suffix + f".{int(time.time())}.archived")
-                try:
+            # Rollover to .<ts>.archived once exceeded. Be defensive against
+            # broken symlinks (where .exists() returns False but .stat() raises).
+            try:
+                if (_ACTIVE_PATH.is_file()
+                    and not _ACTIVE_PATH.is_symlink()
+                    and _ACTIVE_PATH.stat().st_size > 50_000_000):
+                    archived = _ACTIVE_PATH.with_suffix(
+                        _ACTIVE_PATH.suffix + f".{int(time.time())}.archived")
                     _ACTIVE_PATH.rename(archived)
-                except OSError:
-                    pass
+            except OSError:
+                pass
             with _ACTIVE_PATH.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(entry) + "\n")
         except OSError:

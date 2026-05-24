@@ -694,9 +694,29 @@ def _cmd_sites(args: list[str]) -> None:
         for s in sites_to_scan:
             url = s["url"]
             print(f"  -> {url}")
-            # Minimal: shell out to a fresh wpsecscan invocation per site so
-            # crashes in one don't kill the batch. Use the same Python entry.
+            # Shell out to a fresh wpsecscan invocation per site so a crash in
+            # one doesn't kill the batch. Pass through per-site proxy / auth.
             cmd = [sys.executable, "-m", "wpsecscan", url, "--out", "wpsecscan-reports"]
+            if s.get("auth_user"):
+                cmd.extend(["--auth-user", s["auth_user"]])
+            # Unseal proxy + auth + app password if present
+            if s.get("proxy_url"):
+                cmd.extend(["--proxy", s["proxy_url"]])
+            if s.get("proxy_auth_sealed"):
+                try:
+                    cmd.extend(["--proxy-auth", sites_mod._unseal(s["proxy_auth_sealed"])])
+                except Exception:  # noqa: BLE001
+                    pass
+            if s.get("auth_app_password_sealed"):
+                try:
+                    cmd.extend(["--auth-app-password", sites_mod._unseal(s["auth_app_password_sealed"])])
+                except Exception:  # noqa: BLE001
+                    pass
+            if s.get("companion_token_sealed"):
+                try:
+                    cmd.extend(["--companion-token", sites_mod._unseal(s["companion_token_sealed"])])
+                except Exception:  # noqa: BLE001
+                    pass
             __import__("subprocess").run(cmd, check=False)
         return
     print(f"unknown sites action: {action}", file=sys.stderr); sys.exit(2)

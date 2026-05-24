@@ -378,6 +378,73 @@ def test_round_62_compliance_v2_present():
             assert fw in cm[cid], f"{cid} missing {fw}"
 
 
+# ============================================================
+# QA fix regression tests (round-62 post-audit)
+# ============================================================
+
+def test_bookmarklet_js_rejects_bad_api_base():
+    """QA fix: bookmarklet must regex-validate api_base to prevent JS injection."""
+    from wpsecscan.round62_workflow import bookmarklet_js
+    assert bookmarklet_js("http://localhost:8765").startswith("javascript:")
+    assert bookmarklet_js("https://api.example.com").startswith("javascript:")
+    assert bookmarklet_js("http://10.0.0.1:9000/v1").startswith("javascript:")
+    assert bookmarklet_js("javascript:alert(1)") == ""
+    assert bookmarklet_js("'); alert(1); //") == ""
+    assert bookmarklet_js("data:text/html,<script>alert(1)") == ""
+    assert bookmarklet_js("") == ""
+    assert bookmarklet_js("ftp://example.com") == ""
+
+
+def test_service_exposure_strict_ip_validation():
+    """QA fix: service_exposure must not crash on garbage like '1234567'."""
+    import asyncio
+    from wpsecscan.checks.service_exposure import check
+    ctx = {"target": "https://1234567", "shared": {}, "step": lambda _s: None}
+    out = asyncio.run(check(FakeClient(base_url="https://1234567"), ctx))
+    assert isinstance(out, list) and out
+
+
+def test_merkle_log_caps_at_100mb(tmp_path, monkeypatch):
+    """QA fix: merkle.log archives when exceeding 100 MB."""
+    from wpsecscan import novel_research
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    p = novel_research._merkle_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("wb") as f:
+        f.seek(101 * 1024 * 1024)
+        f.write(b"\0")
+    h = novel_research.merkle_append({"x": 1})
+    assert h
+    archives = list(p.parent.glob("merkle.log.*.archived"))
+    assert archives, "expected merkle.log.<ts>.archived"
+
+
+def test_sites_scan_passes_proxy_through(monkeypatch, tmp_path):
+    """QA fix: sites.add saves proxy fields that _cmd_sites scan reads."""
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    from wpsecscan import sites as sites_mod
+    sites_mod.add("https://x.example", weekly=True,
+                   proxy_url="socks5://127.0.0.1:9050",
+                   proxy_auth="alice:pw",
+                   auth_user="admin",
+                   auth_app_password="abcd1234efgh")
+    site = sites_mod.get("https://x.example")
+    assert site["proxy_url"] == "socks5://127.0.0.1:9050"
+    assert site.get("proxy_auth_sealed", "").startswith(("plain:", "sealed:"))
+    assert site.get("auth_app_password_sealed", "").startswith(("plain:", "sealed:"))
+
+
+def test_installer_nsi_version_matches_pyproject():
+    """QA fix: installer APP_VERSION must match pyproject.toml version."""
+    import re as _re
+    root = Path(__file__).resolve().parents[1]
+    pyproj = (root / "pyproject.toml").read_text(encoding="utf-8")
+    nsi = (root / "installer" / "wpsecscan-setup.nsi").read_text(encoding="utf-8")
+    py_ver = _re.search(r'^version\s*=\s*"([^"]+)"', pyproj, _re.MULTILINE).group(1)
+    nsi_ver = _re.search(r'!define APP_VERSION\s+"([^"]+)"', nsi).group(1)
+    assert py_ver == nsi_ver, f"installer {nsi_ver} != pyproject {py_ver}"
+
+
 def test_distribution_manifests_exist():
     root = Path(__file__).resolve().parents[1]
     expected = [

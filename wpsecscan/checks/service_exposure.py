@@ -75,13 +75,17 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         return [Finding(severity="info", title="Service-port exposure — skipped for local target",
                         evidence=f"host={host}", remediation="No action.", url=ctx["target"])]
 
-    # Resolve hostname → IP for the RFC1918 check
+    # Resolve hostname → IP for the RFC1918 check.
+    # Use ipaddress.ip_address to decide if host is already a literal IP;
+    # `.replace(".","").isdigit()` would mis-classify garbage like "1.2.3.4.5".
     resolved_ip = host
     try:
-        if not host.replace(".", "").isdigit():
+        ipaddress.ip_address(host)  # raises ValueError on hostname
+    except ValueError:
+        try:
             resolved_ip = socket.gethostbyname(host)
-    except (socket.gaierror, OSError):
-        pass
+        except (socket.gaierror, OSError):
+            pass
 
     # Skip private / RFC1918 / link-local — these would fire on any LAN target
     # and the findings would be informational at best. Override with env var.

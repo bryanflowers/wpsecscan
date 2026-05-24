@@ -183,8 +183,19 @@ def apple_shortcuts_recipe(default_target: str = "https://example.com") -> dict:
 
 # ---- #E67 bookmarklet ----
 
+_BOOKMARKLET_API_BASE_RE = __import__("re").compile(r"^https?://[A-Za-z0-9.\-]+(?::\d{1,5})?(?:/[A-Za-z0-9._\-/]*)?$")
+
+
 def bookmarklet_js(api_base: str = "http://localhost:8765") -> str:
-    api_base = api_base.rstrip("/")
+    """Return a one-line JS bookmarklet that POSTs the current page URL
+    to the local WPSecScan API server.
+
+    `api_base` is regex-validated to prevent JS injection via crafted input
+    like `javascript://alert(1)`. On failure returns an empty string.
+    """
+    api_base = (api_base or "").rstrip("/")
+    if not _BOOKMARKLET_API_BASE_RE.match(api_base):
+        return ""
     return (
         "javascript:(()=>{const u=location.href;"
         f"fetch('{api_base}/scan',{{method:'POST',headers:{{'Content-Type':'application/json'}},"
