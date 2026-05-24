@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wpsecscan"
-version = "2.0.0"
-description = "Defensive WordPress security scanner — 161 checks, AI-assisted remediation (BYO key) with PII masking, vertical-plugin audits, headless WP, WAF brand fingerprinting, JS framework deep-detect, auto-vuln-update, proxy support, 15-framework compliance mapping, 12 report formats (pptx/docx/SBOM/Grafana/Splunk/Datadog), CLI + GUI + WP companion plugin."
+version = "2.1.0"
+description = "Defensive WordPress security scanner — 161 checks, 8-source nightly CVE aggregator (NVD/GHSA/Mitre/OSV/Wordfence/WPVulnerability/CIRCL/Patchstack), AI-assisted remediation (BYO key) with PII masking, 15 compliance frameworks (OWASP/MITRE/PCI 4.0/NIST/ISO/HIPAA/SOC2/HITRUST/CMMC), 12 report formats, 10 integrations (Burp/ZAP/Nuclei/JIRA/Splunk), proxy support, AGPLv3 + open source."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }

@@ -13,7 +13,7 @@ Build + push:
 ```
 cd distribution/chocolatey
 choco pack
-choco push wpsecscan.2.0.0.nupkg --source https://push.chocolatey.org/
+choco push wpsecscan.2.1.0.nupkg --source https://push.chocolatey.org/
 ```
 Account: https://chocolatey.org → publish your package.
 
@@ -24,7 +24,7 @@ winget install WPSecScan.Bryan
 Submit:
 ```
 gh repo fork microsoft/winget-pkgs
-# Copy the YAML to manifests/w/WPSecScan/Bryan/2.0.0/
+# Copy the YAML to manifests/w/WPSecScan/Bryan/2.1.0/
 # PR the change to microsoft/winget-pkgs
 ```
 Update SHA256 by running `Get-FileHash dist\wpsecscan.exe`.
@@ -43,13 +43,13 @@ Setup:
 ```
 appimage-builder --recipe distribution/appimage/AppImageBuilder.yml
 ```
-Output: `WPSecScan-2.0.0-x86_64.AppImage` — chmod +x and run.
+Output: `WPSecScan-2.1.0-x86_64.AppImage` — chmod +x and run.
 
 ## Snap (Ubuntu)
 ```
 cd distribution/snap
 snapcraft
-snapcraft push wpsecscan_2.0.0_amd64.snap --release=stable
+snapcraft push wpsecscan_2.1.0_amd64.snap --release=stable
 ```
 Account: https://snapcraft.io/account → register the name.
 

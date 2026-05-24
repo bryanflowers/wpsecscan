@@ -1,5 +1,5 @@
 name: wpsecscan
-version: '2.0.0'
+version: '2.1.0'
 summary: Defensive WordPress security scanner — 150+ checks, runs locally
 description: |
   WPSecScan is a defensive WordPress security scanner that runs entirely on

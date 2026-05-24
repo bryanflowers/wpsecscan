@@ -5,7 +5,7 @@
 class Wpsecscan < Formula
   desc "Defensive WordPress security scanner — 150+ checks, runs locally"
   homepage "https://github.com/bryanflowers/wpsecscan"
-  url "https://github.com/bryanflowers/wpsecscan/archive/refs/tags/v2.0.0.tar.gz"
+  url "https://github.com/bryanflowers/wpsecscan/archive/refs/tags/v2.1.0.tar.gz"
   sha256 "REPLACE_WITH_SHA256_AT_RELEASE_TIME"
   license "AGPL-3.0-or-later"
   head "https://github.com/bryanflowers/wpsecscan.git", branch: "main"

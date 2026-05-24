@@ -23,6 +23,14 @@ WORDFENCE_URLS = (
     "https://www.wordfence.com/api/intelligence/v3/vulnerabilities/production",
     "https://www.wordfence.com/api/intelligence/v3/vulnerabilities/scanner",
 )
+
+# Round-63: our nightly-aggregated multi-source feed. The bryanflowers
+# canonical instance is updated daily at 02:00 UTC by .github/workflows/
+# cve-feed.yml; forks should override via WPSECSCAN_AGGREGATED_FEED_URL.
+AGGREGATED_FEED_URL = (
+    "https://raw.githubusercontent.com/bryanflowers/wpsecscan/"
+    "data-feed/vuln-db.json"
+)
 STALE_AFTER_SECONDS = 7 * 24 * 3600  # 1 week
 
 
@@ -213,6 +221,27 @@ def is_stale(age_seconds: int) -> bool:
     return age_seconds > STALE_AFTER_SECONDS
 
 
+def fetch_aggregated(timeout: float = 30.0) -> dict:
+    """Round-63: pull WPSecScan's nightly-aggregated multi-source feed.
+
+    Returns a dict already in `wpsecscan/normalized-v1` format with
+    a `_sources` field showing per-source contribution. Raises
+    httpx.HTTPError on any network failure so the caller can fall back
+    to direct-source fetches.
+
+    Override the URL via WPSECSCAN_AGGREGATED_FEED_URL env var (e.g.
+    if you run your own aggregator fork).
+    """
+    url = os.environ.get("WPSECSCAN_AGGREGATED_FEED_URL") or AGGREGATED_FEED_URL
+    with httpx.Client(timeout=timeout, follow_redirects=True) as c:
+        r = c.get(url, headers={"User-Agent": "WPSecScan/db-aggregated"})
+        r.raise_for_status()
+        data = r.json()
+    if not isinstance(data, dict) or data.get("_format") != "wpsecscan/normalized-v1":
+        raise RuntimeError(f"aggregated feed at {url} returned unexpected format")
+    return data
+
+
 def fetch_remote(timeout: float = 30.0) -> dict:
     last_exc: Exception | None = None
     with httpx.Client(timeout=timeout, follow_redirects=True) as c:
@@ -231,11 +260,16 @@ def fetch_remote(timeout: float = 30.0) -> dict:
     raise RuntimeError("No Wordfence Intelligence endpoint reachable")
 
 
-def save_cache(vulns: list[Vuln]) -> Path:
+def save_cache(vulns: list[Vuln], sources: dict[str, int] | None = None) -> Path:
+    """Round-63: optionally store per-source contribution counts so
+    `wpsecscan db source-stats` can report breakdown."""
     cp = cache_path()
+    if cp.is_symlink():
+        cp.unlink()
     payload = {
         "_format": "wpsecscan/normalized-v1",
         "_fetched_at": int(time.time()),
+        "_sources": sources or {},
         "vulns": [v.to_dict() for v in vulns],
     }
     cp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
@@ -357,21 +391,71 @@ def fetch_patchstack(token: str, timeout: float = 20.0) -> list[Vuln]:
 
 
 def update_db(verbose: bool = True, patchstack_token: str = "") -> tuple[int, Path]:
-    """Pull the latest vulnerability DB. Tries Wordfence first, optionally adds
-    Patchstack (if token provided), falls back to OSV.dev if Wordfence fails."""
+    """Pull the latest vulnerability DB.
+
+    Round-63 precedence (defence in depth — each layer only runs if all
+    earlier layers came back empty):
+
+      1. WPSecScan aggregated feed (8 sources merged + deduped)
+      2. Wordfence Intelligence direct  (only if #1 was empty)
+      3. Patchstack premium overlay     (additive; runs if token is set, even
+                                          when aggregated feed succeeded —
+                                          adds entries Patchstack has that
+                                          the free sources don't)
+      4. OSV.dev fallback              (only if #1 + #2 were both empty)
+      5. Embedded data/plugin_cves.json (offline fallback at load_local())
+    """
     merged: list[Vuln] = []
-    wf_ok = False
+    sources_used: dict[str, int] = {}
+
+    # 1. Aggregated feed first — covers Wordfence + 7 other sources in one call.
     if verbose:
-        print("[db] fetching Wordfence Intelligence...", flush=True)
+        print("[db] fetching WPSecScan aggregated feed...", flush=True)
     try:
-        raw = fetch_remote()
-        merged.extend(normalize_wordfence(raw))
-        wf_ok = True
+        agg = fetch_aggregated()
+        for raw in agg.get("vulns", []) or []:
+            try:
+                # Map aggregator's flat dict → db.Vuln, with defaults for fields
+                # the aggregator doesn't carry (affected_from/to, to_inclusive, description)
+                kwargs = {k: v for k, v in raw.items()
+                          if k in Vuln.__dataclass_fields__}
+                kwargs.setdefault("cvss", None)
+                kwargs.setdefault("fixed_in", "")
+                kwargs.setdefault("affected_from", "")
+                kwargs.setdefault("affected_to", "")
+                kwargs.setdefault("to_inclusive", True)
+                kwargs.setdefault("references", [])
+                kwargs.setdefault("description", "")
+                merged.append(Vuln(**kwargs))
+            except (TypeError, ValueError):
+                continue
+        # Preserve the aggregator's per-source counts for `db source-stats`.
+        sources_used = dict(agg.get("_sources") or {})
         if verbose:
-            print(f"[db] Wordfence: {len(merged)} entries", flush=True)
-    except (httpx.HTTPError, RuntimeError) as e:
+            print(f"[db] aggregated feed: {len(merged):,} entries "
+                  f"(from {len(sources_used)} sources, generated "
+                  f"{agg.get('_generated_at', 'unknown')})", flush=True)
+    except (httpx.HTTPError, RuntimeError, KeyError) as e:
         if verbose:
-            print(f"[db] Wordfence unavailable ({e}).", flush=True)
+            print(f"[db] aggregated feed unavailable ({e}); "
+                  f"falling back to direct sources.", flush=True)
+
+    # 2. Wordfence direct — only if the aggregator was empty/unreachable.
+    wf_ok = False
+    if not merged:
+        if verbose:
+            print("[db] fetching Wordfence Intelligence...", flush=True)
+        try:
+            raw = fetch_remote()
+            wf_vulns = normalize_wordfence(raw)
+            merged.extend(wf_vulns)
+            wf_ok = True
+            sources_used["wordfence_direct"] = len(wf_vulns)
+            if verbose:
+                print(f"[db] Wordfence direct: {len(wf_vulns):,} entries", flush=True)
+        except (httpx.HTTPError, RuntimeError) as e:
+            if verbose:
+                print(f"[db] Wordfence direct unavailable ({e}).", flush=True)
 
     # A6: Patchstack (opt-in via token)
     if patchstack_token:
@@ -382,27 +466,32 @@ def update_db(verbose: bool = True, patchstack_token: str = "") -> tuple[int, Pa
             print(f"[db] Patchstack: {len(ps)} entries", flush=True)
         # Dedupe by (type, slug, cve) — Patchstack often has the same CVE Wordfence does.
         seen = {(v.type, v.slug, v.cve) for v in merged if v.cve}
+        added = 0
         for v in ps:
             if (v.type, v.slug, v.cve) not in seen:
                 merged.append(v)
+                added += 1
+        if added:
+            sources_used["patchstack_premium"] = added
 
     if merged:
-        cp = save_cache(merged)
+        cp = save_cache(merged, sources=sources_used)
         if verbose:
             print(f"[db] cached {len(merged)} merged entries to {cp}", flush=True)
         return len(merged), cp
 
-    # Fall through to OSV if Wordfence + Patchstack both yielded nothing
+    # Fall through to OSV if everything else yielded nothing
     if not wf_ok:
         if verbose:
             print("[db] Falling back to OSV.dev...", flush=True)
         vulns = fetch_osv_packagist()
         if not vulns:
             raise RuntimeError(
-                "Wordfence, Patchstack, and OSV.dev all returned no usable data. "
-                "Embedded fallback DB will continue to be used."
+                "Aggregated feed, Wordfence, Patchstack, and OSV.dev all "
+                "returned no usable data. Embedded fallback DB will continue to be used."
             )
-        cp = save_cache(vulns)
+        sources_used["osv"] = len(vulns)
+        cp = save_cache(vulns, sources=sources_used)
         if verbose:
             print(f"[db] cached {len(vulns)} OSV entries to {cp}", flush=True)
         return len(vulns), cp
@@ -466,6 +555,21 @@ def find_for(vulns: Iterable[Vuln], type_: str, slug: str, installed_version: st
 # ============================================================
 # Round-61 — auto-update extras (status, subscribe, signatures)
 # ============================================================
+
+def cached_sources() -> dict[str, int]:
+    """Round-63: read the `_sources` per-source contribution dict from
+    the local cache. Returns empty dict if cache doesn't have it (cache
+    written by an old version, or by Wordfence-direct without aggregation)."""
+    cp = cache_path()
+    if not cp.exists() or cp.is_symlink():
+        return {}
+    try:
+        data = json.loads(cp.read_text(encoding="utf-8"))
+        s = data.get("_sources") or {}
+        return s if isinstance(s, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
 
 def status() -> dict:
     """Snapshot of the local vuln-DB state, for `wpsecscan db status`."""

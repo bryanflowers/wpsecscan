@@ -801,7 +801,7 @@ def _cmd_ai_cost(args: list[str]) -> None:
 def _cmd_db(args: list[str]) -> None:
     """Round-61: `wpsecscan db {status|update|subscribe|unsubscribe|signatures|alert-check}`."""
     if not args or args[0] in ("-h", "--help", "help"):
-        print("usage: wpsecscan db {status|update|subscribe|unsubscribe|signatures|alert-check}")
+        print("usage: wpsecscan db {status|update|source-stats|subscribe|unsubscribe|signatures|alert-check}")
         return
     from . import db as _db
 
@@ -881,6 +881,30 @@ def _cmd_db(args: list[str]) -> None:
         for a in out["new_alerts"][:20]:
             print(f"  - {a['site_url']}: {a['plugin_slug']} {a['installed_version'] or '?'} "
                   f"[{a['severity']}] {a['cve']} {a['title']}")
+        return
+
+    if action == "source-stats":
+        s = _db.status()
+        sources = _db.cached_sources()
+        if not sources:
+            print("Cache has no per-source breakdown.")
+            print("Either:")
+            print("  - cache is empty (run `wpsecscan db update` first), OR")
+            print("  - cache predates round-63 (the aggregator format)")
+            print(f"Total entries in cache: {s['entry_count']:,}")
+            return
+        total = sum(sources.values())
+        print(f"  {'source':<22s} {'count':>9s}   share")
+        print(f"  {'-' * 22} {'-' * 9}   ------")
+        for name, n in sorted(sources.items(), key=lambda kv: -kv[1]):
+            pct = 100.0 * n / total if total else 0.0
+            print(f"  {name:<22s} {n:>9,}   {pct:>5.1f}%")
+        print(f"  {'-' * 22} {'-' * 9}")
+        print(f"  {'TOTAL (after dedup)':<22s} {s['entry_count']:>9,}")
+        age_days = (s["age_seconds"] // 86400) if s["age_seconds"] >= 0 else -1
+        print(f"\n  cache age:    {age_days} days  "
+              f"({'STALE' if s['stale'] else 'fresh'})")
+        print(f"  cache path:   {s['cache_path']}")
         return
 
     print(f"unknown db action: {action}", file=sys.stderr); sys.exit(2)

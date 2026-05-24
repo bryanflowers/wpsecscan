@@ -1,11 +1,14 @@
 # WPSecScan
 
 [![tests](https://github.com/bryanflowers/wpsecscan/actions/workflows/tests.yml/badge.svg)](https://github.com/bryanflowers/wpsecscan/actions/workflows/tests.yml)
+[![CVE feed](https://github.com/bryanflowers/wpsecscan/actions/workflows/cve-feed.yml/badge.svg)](https://github.com/bryanflowers/wpsecscan/actions/workflows/cve-feed.yml)
 [![license](https://img.shields.io/github/license/bryanflowers/wpsecscan)](LICENSE)
 [![release](https://img.shields.io/github/v/release/bryanflowers/wpsecscan)](https://github.com/bryanflowers/wpsecscan/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/bryanflowers/wpsecscan/total)](https://github.com/bryanflowers/wpsecscan/releases)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![checks](https://img.shields.io/badge/checks-161-brightgreen)](FEATURES.md)
+[![CVE sources](https://img.shields.io/badge/CVE%20sources-8-blue)](docs/data-sources.md)
+[![tests passing](https://img.shields.io/badge/tests-607%20passing-brightgreen)](tests/)
 
 > **⚠ AUTHORIZED USE ONLY**
 >
@@ -17,12 +20,50 @@
 > liability for misuse. By using this software you confirm you have the
 > required authorisation for every target you scan.
 
-Defensive WordPress security scanner for sites **you own** or have written permission to test.
+**The most thoroughly-sourced WordPress vulnerability scanner — open source, AGPLv3, runs locally.**
+
+161 checks across 18 categories. **8-source nightly CVE aggregator**
+gives you a fresher and more complete vulnerability database than
+any single paid or free service. Runs entirely on your machine — no
+telemetry, no per-site licensing, no data leaves your box.
+
 Ships as two standalone Windows binaries — no Python required on the machine you run them on.
 
-- **`wpsecscan.exe`** — command-line scanner. Output: console + HTML + JSON + CSV + SARIF.
-- **`wpsecscan-gui.exe`** — full GUI with a live progress tree, finding details, risk score,
+- **`wpsecscan.exe`** — command-line scanner. Output: console + HTML + JSON + CSV + SARIF + Markdown + PDF + PowerPoint + Word + SBOM (CycloneDX + VEX).
+- **`wpsecscan-gui.exe`** — full GUI with live progress tree, finding details, risk score,
   scan profiles, multi-target queue, scheduled scans, webhook alerts, exploit playbooks, and more.
+- **`wpsecscan-companion.zip`** — WordPress plugin that exposes a read-only, token-gated
+  REST endpoint so the scanner gets authoritative diagnostics in one round-trip (3× more
+  accurate plugin/theme detection vs HTTP-probe guessing).
+
+### Why people are switching to WPSecScan
+
+- **8-source CVE aggregator** runs nightly on our infrastructure — pulls
+  Wordfence + NVD + GitHub Security Advisories + Mitre CVE List + OSV.dev +
+  WPVulnerability.com + CIRCL + Patchstack and merges them into one feed.
+  Users get a strictly fresher + more complete DB than Wordfence/Patchstack
+  alone. **6 of 8 sources are fully free, no key required.**
+- **Daily DB refresh + per-CVE webhook alerts** — `wpsecscan schedule
+  install` registers a daily 02:00 CVE-refresh + weekly 03:00 site scan
+  on Windows Task Scheduler / macOS launchd / Linux systemd.
+  `wpsecscan db subscribe https://hooks.slack.com/...` fires the moment a
+  new CVE drops for a plugin you have installed.
+- **15 compliance frameworks mapped** per check: OWASP Top 10 + MITRE
+  ATT&CK + CWE + D3FEND + PCI-DSS 4.0 + NIST 800-53 + ISO 27001 + HIPAA +
+  FERPA + SOC 2 + FedRAMP + GDPR + HITRUST CSF v11.4 + CMMC 2.0 +
+  NIST CSF 2.0 + CIS Critical Controls v8 + ISO 27001:2022 Annex A.
+- **12 report formats** including PowerPoint executive deck, Word docx,
+  CycloneDX SBOM + VEX, Grafana dashboard JSON, Datadog dashboard,
+  Splunk HEC / Elastic / Loki NDJSON, quarterly trend PDF.
+- **10 third-party integrations** including Burp Suite project XML,
+  OWASP ZAP findings import, Nuclei template auto-pull, JIRA / Linear /
+  GitHub Issues bulk-create, Wordfence Cloud sync, Sucuri SiteCheck,
+  Patchstack + WPScan write-back, WP Engine / Kinsta / WP.com host APIs.
+- **AI-assisted remediation** with PII masking + prompt-injection guard +
+  per-backend cost tracking. Bring your own OpenAI / Anthropic / Ollama /
+  llama.cpp key. **`WPSECSCAN_NO_AI=1` to hard-disable.**
+- **Privacy-first**: no telemetry, runs locally, supports SOCKS5/HTTP
+  proxies (Tor friendly), `WPSECSCAN_NO_NETWORK=1` for air-gapped mode.
 
 ---
 
@@ -64,7 +105,7 @@ python -m venv .venv
 pip install -r requirements.txt
 python run.py https://example.com         # CLI
 python run_gui.py                          # GUI
-pytest                                     # 585+ tests
+pytest                                     # 607+ tests
 ```
 
 ---
