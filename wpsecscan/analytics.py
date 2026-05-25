@@ -400,11 +400,13 @@ class _TimedBlock:
         self._start = 0.0
 
     def __enter__(self):
-        self._start = time.monotonic()
+        # perf_counter is sub-microsecond on Windows; monotonic's ~15 ms
+        # default resolution can record 0 ms for short blocks.
+        self._start = time.perf_counter()
         return self
 
     def __exit__(self, exc_type, exc, tb):
-        duration_ms = int((time.monotonic() - self._start) * 1000)
+        duration_ms = int((time.perf_counter() - self._start) * 1000)
         fields = dict(self._extra)
         fields["duration_ms"] = duration_ms
         if exc_type is not None and "exit_status" not in fields:

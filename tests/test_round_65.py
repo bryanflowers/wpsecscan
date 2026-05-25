@@ -232,9 +232,9 @@ def test_analytics_time_block_records_duration(monkeypatch, tmp_path):
     importlib.reload(analytics)
     analytics.enable()
     with analytics.time_block("cli_command", subcommand="scan"):
-        time.sleep(0.01)
+        time.sleep(0.05)
     entry = json.loads((tmp_path / "analytics" / "events.jsonl").read_text(encoding="utf-8").strip())
-    assert entry["fields"]["duration_ms"] >= 10
+    assert entry["fields"]["duration_ms"] >= 30
     assert entry["fields"]["exit_status"] == "ok"
 
 
