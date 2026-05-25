@@ -25,6 +25,9 @@ permissions:
 jobs:
   scan:
     runs-on: ubuntu-latest
+    # Skip on PRs (incl. Dependabot) when no real target is configured —
+    # otherwise the scan runs against the placeholder host and always fails.
+    if: github.event_name != 'pull_request' || vars.WPSEC_TARGET != ''
     env:
       WPSEC_TARGET: ${{ github.event.inputs.target_url || vars.WPSEC_TARGET || 'https://your-wp-site.com' }}
     steps:
@@ -40,7 +43,7 @@ jobs:
         run: |
           pip install httpx[http2] jinja2 rich openpyxl
           # If/when wpsecscan is published to PyPI: `pip install wpsecscan`
-          git clone --depth 1 https://github.com/bryan/wpsecscan.git _wpsecscan
+          git clone --depth 1 https://github.com/bryanflowers/wpsecscan.git _wpsecscan
           pip install -e ./_wpsecscan
 
       - name: Run scan
