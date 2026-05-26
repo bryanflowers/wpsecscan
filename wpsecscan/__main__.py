@@ -1443,6 +1443,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_scan_zip(args)
     elif cmd == "reference-diff":
         _cmd_reference_diff(args)
+    elif cmd == "mobile-api":
+        _cmd_mobile_api(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -2287,6 +2289,32 @@ def _cmd_doctor(args: list[str]) -> None:
     else:
         print("All optional components detected.")
     sys.exit(0)
+
+
+def _cmd_mobile_api(args: list[str]) -> None:
+    """Item #80 — start the mobile companion (REST API + installable PWA).
+
+      wpsecscan mobile-api [--port 8765] [--host 0.0.0.0]
+
+    Open http://<host>:<port>/ on your phone, tap "Add to home screen",
+    enter your $WPSECSCAN_MOBILE_TOKEN once and the PWA stores it in
+    localStorage. Tunnel to your phone via Tailscale or WireGuard. Do
+    NOT expose to the open internet without TLS + reverse proxy.
+
+    Scope-down (per plan): no native iOS/Android app — the PWA is
+    installable from Safari (iOS 16.4+) and Android Chrome.
+    """
+    if args and args[0] in ("-h", "--help"):
+        print(_cmd_mobile_api.__doc__.strip()); return
+    host = "0.0.0.0"
+    port = 8765
+    for i, a in enumerate(args):
+        if a == "--port" and i + 1 < len(args):
+            port = int(args[i + 1])
+        elif a == "--host" and i + 1 < len(args):
+            host = args[i + 1]
+    from . import mobile_api as _m
+    _m.serve(host=host, port=port)
 
 
 def _cmd_reference_diff(args: list[str]) -> None:
