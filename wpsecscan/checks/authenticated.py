@@ -374,7 +374,29 @@ async def _login_cookie(target: str, user: str, password: str,
             return None
         # Best-effort: post the TOTP back to the same URL. Different plugins
         # use different field names — try the 3 most common.
-        for field in ("authcode", "wfls_two_factor_code", "two-factor-code"):
+        # #6: expanded 2FA field names — covers ~10 of the most-used WP
+        # 2FA plugins. The previously-cached winning field (if any) is
+        # tried first so re-scans don't iterate the full list.
+        _TOTP_FIELDS = (
+            "authcode",              # Two Factor (core)
+            "wfls_two_factor_code",  # Wordfence Login Security
+            "two-factor-code",       # iThemes Security / Solid
+            "isc_2fa_code",          # Solid Security (newer)
+            "wp_2fa_app_code",       # WP 2FA app (Melapress)
+            "wp_2fa_backup_code",    # WP 2FA backup code
+            "duo_passcode",          # Duo Security
+            "miniorange_2fa_otp",    # miniOrange 2FA
+            "miniorange_2fa_token",  # miniOrange (older)
+            "wdf_otp",               # Defender Security
+            "g2fa_code",             # Google Authenticator for WordPress
+            "provider_name",         # Two Factor (provider field)
+        )
+        cached_field = load_strategy(host).get("totp_field")
+        if cached_field:
+            ordered = (cached_field,) + tuple(f for f in _TOTP_FIELDS if f != cached_field)
+        else:
+            ordered = _TOTP_FIELDS
+        for field in ordered:
             try:
                 r2 = await c.post(
                     login_url,
@@ -438,6 +460,40 @@ async def _login_app_password(target: str, user: str, app_password: str) -> http
                 return c
         except ValueError:
             pass
+
+    # #7: REST is locked-down on this site (typical hardening: hide
+    # /wp-json/* from anon, or proxy strips Basic auth). Try XML-RPC as a
+    # fallback — wp.getProfile accepts the same Application Password and
+    # confirms the credentials work even when REST is closed.
+    if r.status_code in (401, 403, 404):
+        _auth_debug(host, "REST returned non-200, trying XML-RPC fallback",
+                     None, f"rest_status={r.status_code}")
+        try:
+            xml_body = (
+                "<?xml version='1.0'?>"
+                "<methodCall><methodName>wp.getProfile</methodName>"
+                "<params>"
+                f"<param><value><int>1</int></value></param>"
+                f"<param><value><string>{user}</string></value></param>"
+                f"<param><value><string>{clean_pw}</string></value></param>"
+                "</params></methodCall>"
+            )
+            r2 = await c.post(
+                base + "/xmlrpc.php",
+                content=xml_body,
+                headers={"Content-Type": "text/xml"},
+            )
+            _auth_debug(host, "POST /xmlrpc.php wp.getProfile", r2)
+            if r2.status_code == 200 and "<methodResponse>" in (r2.text or "") \
+                    and "<fault>" not in (r2.text or ""):
+                # XML-RPC accepted the AP — credentials are valid; the client
+                # has Basic-auth set and the cookie jar carries any session
+                # cookies XML-RPC issued. Return it.
+                save_strategy(host, app_password_via="xmlrpc")
+                return c
+        except httpx.HTTPError as e:
+            _auth_debug(host, "XML-RPC fallback transport error", None, str(e))
+
     await c.aclose()
     return None
 
