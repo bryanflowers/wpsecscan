@@ -346,6 +346,49 @@ def test_cmd_portfolio_no_sites_exits_two(monkeypatch, capsys):
     assert ei.value.code == 2
 
 
+# ============================== #51 GUI pause/resume ===========================
+
+def test_scan_honours_is_paused_then_resumes(monkeypatch):
+    """scan() with is_paused returning True for ~0.6s then False completes
+    without deadlock and respects the pause."""
+    import asyncio as _asyncio
+    import time as _time
+    from wpsecscan import scanner
+    # Stub out the actual checks: select_checks returns a single fake that
+    # records its call-time so we can verify pause delayed it.
+    captured: dict = {}
+
+    async def _fake_check(client, ctx):
+        captured["called_at"] = _time.perf_counter()
+        from wpsecscan.models import Finding
+        return [Finding(severity="info", title="fake done")]
+
+    def _fake_select(_agg, authenticated_enabled=False):
+        return [("fake_check", "Fake check", _fake_check)]
+
+    monkeypatch.setattr(scanner, "select_checks", _fake_select)
+
+    pause_until = _time.perf_counter() + 0.6
+    def _paused():
+        return _time.perf_counter() < pause_until
+
+    t0 = _time.perf_counter()
+    report = _asyncio.run(scanner.scan(
+        "https://example.invalid",
+        timeout=5.0,
+        aggressive=False,
+        sequential=True,
+        is_paused=_paused,
+    ))
+    # Scan should have waited at least ~0.5s before invoking the check,
+    # since the pause poll loop sleeps 0.5s per iteration.
+    assert "called_at" in captured
+    delay = captured["called_at"] - t0
+    assert delay >= 0.4, f"expected pause delay ≥0.4s, got {delay:.3f}s"
+    # And it eventually completed without deadlock.
+    assert report is not None
+
+
 # ============================== #61 / #62 ======================================
 
 def test_redact_jwt_and_session_cookie():

@@ -105,6 +105,7 @@ async def scan(
     since=None,  # K26 incremental: datetime — skip low-churn checks when target snapshot is newer
     on_progress: ProgressCallback | None = None,
     is_cancelled: Callable[[], bool] | None = None,
+    is_paused: Callable[[], bool] | None = None,
 ) -> ScanReport:
     """Run every check against `target` and return a ScanReport.
 
@@ -174,6 +175,9 @@ async def scan(
         "step": _emit_step,
         # #14: long-running checks (deep throttle, etc.) can poll this to bail cleanly.
         "is_cancelled": is_cancelled or (lambda: False),
+        # #51: GUI pause/resume — when this returns True, the per-check loop
+        # blocks on a short async sleep until it returns False.
+        "is_paused": is_paused or (lambda: False),
     }
     auth_enabled = bool(
         companion_token or
@@ -325,6 +329,11 @@ async def scan(
                         active.append((cid, cname, fn))
                     if is_cancelled and is_cancelled():
                         break
+                    # #51: block here when paused.
+                    while is_paused and is_paused():
+                        if is_cancelled and is_cancelled():
+                            break
+                        await asyncio.sleep(0.5)
                     if active:
                         tasks = [_run_check(cid, cname, fn, client, ctx, on_progress) for cid, cname, fn in active]
                         raw = await asyncio.gather(*tasks, return_exceptions=True)
@@ -341,6 +350,11 @@ async def scan(
                 for cid, cname, fn in group:
                     if is_cancelled and is_cancelled():
                         break
+                    # #51: block here when paused (mirrors the parallel-group site above).
+                    while is_paused and is_paused():
+                        if is_cancelled and is_cancelled():
+                            break
+                        await asyncio.sleep(0.5)
                     if cid in completed_check_ids:
                         continue
                     # K26 incremental: skip low-churn checks for unchanged targets

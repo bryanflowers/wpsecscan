@@ -192,6 +192,8 @@ class App:
         self.toast_var = StringVar(value="")
         self._toast_after_id = None
         self._cancel_requested: bool = False
+        # #51: GUI pause/resume — flipped True by _on_pause, polled by scanner.
+        self._pause_requested: bool = False
 
         self._queue: queue.Queue = queue.Queue()
         self._scan_thread: threading.Thread | None = None
@@ -408,6 +410,8 @@ class App:
         self.root.bind_all("<Control-o>", lambda _e: self._open_saved_report())
         self.root.bind_all("<Control-s>", lambda _e: self._save_profile_prompt())
         self.root.bind_all("<Control-Shift-E>", lambda _e: self._export_markdown())
+        # #51: Ctrl+P toggles pause/resume during an active scan.
+        self.root.bind_all("<Control-p>", lambda _e: self._on_pause())
         self.root.bind_all("<Control-d>", lambda _e: self._open_snapshot_diff())
 
         # --- Top bar: URL + scan + options ---
@@ -424,32 +428,36 @@ class App:
         self._install_placeholder(self.url_entry, "https://example.com")
         self.url_entry.focus_set()
         self.diff_btn = ttk.Button(top, text="Diff w/ last", command=self._on_diff_last, state=DISABLED)
-        self.diff_btn.grid(row=0, column=6, padx=(8, 0))
+        self.diff_btn.grid(row=0, column=7, padx=(8, 0))
         _Tooltip(self.diff_btn, "Enabled after a scan if a previous report\nfor this URL exists in ~/.wpsecscan/reports/.")
 
         self.scan_btn = ttk.Button(top, text="Scan", style="Accent.TButton", command=self._on_scan_click)
         self.scan_btn.grid(row=0, column=2, padx=(0, 8))
         # #7: live scan-duration estimate, updates as toggles change
         self.eta_var = StringVar(value="")
-        ttk.Label(top, textvariable=self.eta_var, foreground=MUTED).grid(row=0, column=7, padx=(8, 0), sticky="w")
+        ttk.Label(top, textvariable=self.eta_var, foreground=MUTED).grid(row=0, column=8, padx=(8, 0), sticky="w")
 
         self.cancel_btn = ttk.Button(top, text="Cancel", command=self._on_cancel, state=DISABLED)
         self.cancel_btn.grid(row=0, column=3, padx=(0, 8))
+        # #51: pause/resume — disabled until a scan starts. Same lifecycle as cancel.
+        self.pause_btn = ttk.Button(top, text="Pause", command=self._on_pause, state=DISABLED)
+        self.pause_btn.grid(row=0, column=4, padx=(0, 8))
+        _Tooltip(self.pause_btn, "Pause the scan (Ctrl+P).\nThe currently-running check finishes, then the loop blocks until you Resume.")
         # #4: re-scan re-uses the last-scanned URL + current toggle state. Disabled until a scan completes.
         self.rescan_btn = ttk.Button(top, text="Re-scan", command=self._on_rescan, state=DISABLED)
-        self.rescan_btn.grid(row=0, column=4, padx=(0, 8))
+        self.rescan_btn.grid(row=0, column=5, padx=(0, 8))
         _Tooltip(self.rescan_btn, "Re-run against the last URL using CURRENT toggles.\nTo repeat the same settings, save them via File → Profiles first.\nEnabled after a scan completes.")
 
         self.open_html_btn = ttk.Button(top, text="Open HTML", command=self._open_html, state=DISABLED)
-        self.open_html_btn.grid(row=0, column=5, padx=(0, 8))
+        self.open_html_btn.grid(row=0, column=6, padx=(0, 8))
         _Tooltip(self.open_html_btn, "Open the saved HTML report in your browser.\nEnabled after a successful scan.")
         # #3: open the output directory in Explorer so users find their JSON/CSV/SARIF files.
         self.open_folder_btn = ttk.Button(top, text="Open folder", command=self._open_out_folder, state=DISABLED)
-        self.open_folder_btn.grid(row=0, column=8, padx=(0, 8))
+        self.open_folder_btn.grid(row=0, column=9, padx=(0, 8))
         _Tooltip(self.open_folder_btn, "Open the output folder in Explorer.\nEnabled after a successful scan.")
 
         self.copy_btn = ttk.Button(top, text="Copy JSON", command=self._copy_json, state=DISABLED)
-        self.copy_btn.grid(row=0, column=9)
+        self.copy_btn.grid(row=0, column=10)
         _Tooltip(self.copy_btn, "Copy the full scan report (JSON) to clipboard.\nEnabled after a successful scan.")
 
         ttk.Checkbutton(
@@ -882,6 +890,9 @@ class App:
         self.url_var.set(target)
         self._cancel_requested = False
         self.cancel_btn.configure(state=NORMAL)
+        # #51: reset pause state + enable the button at scan start.
+        self._pause_requested = False
+        self.pause_btn.configure(state=NORMAL, text="Pause")
 
         # Reset UI
         for iid in self.tree.get_children(""):
@@ -963,6 +974,7 @@ class App:
                     deep_throttle_pacing_s=dt_pacing,
                     on_progress=progress_cb,
                     is_cancelled=lambda: self._cancel_requested,
+                    is_paused=lambda: self._pause_requested,
                     wpscan_token=tokens.get("wpscan_token") or None,
                     hibp_token=tokens.get("hibp_token") or None,
                     abuseipdb_token=tokens.get("abuseipdb_token") or None,
@@ -1582,6 +1594,8 @@ class App:
         self.progress.configure(value=100)
         self.scan_btn.configure(state=NORMAL, text="Scan")
         self.cancel_btn.configure(state=DISABLED)
+        self.pause_btn.configure(state=DISABLED, text="Pause")
+        self._pause_requested = False
         self.copy_btn.configure(state=NORMAL)
         # #3 / #4: enable open-folder + re-scan once we have a completed report
         self.open_folder_btn.configure(state=NORMAL)
@@ -1609,6 +1623,8 @@ class App:
     def _handle_error(self, err: str) -> None:
         self.scan_btn.configure(state=NORMAL, text="Scan")
         self.cancel_btn.configure(state=DISABLED)
+        self.pause_btn.configure(state=DISABLED, text="Pause")
+        self._pause_requested = False
         self.status_var.set(f"Error: {err}")
         self._cancel_requested = False
         # Reset stale risk badge so a failed scan doesn't display the prior scan's score.
@@ -1894,8 +1910,27 @@ class App:
         if not (self._scan_thread and self._scan_thread.is_alive()):
             return
         self._cancel_requested = True
+        # If we were paused when cancel was clicked, also clear pause so the
+        # scanner can complete the abort instead of looping forever.
+        self._pause_requested = False
         self.status_var.set("Cancelling after current check finishes...")
         self.cancel_btn.configure(state=DISABLED)
+        self.pause_btn.configure(state=DISABLED, text="Pause")
+
+    # #51 — pause / resume toggles
+    def _on_pause(self) -> None:
+        """Ctrl+P or Pause button. Toggles between Pause and Resume."""
+        if not (self._scan_thread and self._scan_thread.is_alive()):
+            return
+        if self._pause_requested:
+            # Currently paused → resume.
+            self._pause_requested = False
+            self.pause_btn.configure(text="Pause")
+            self.status_var.set("Resumed.")
+        else:
+            self._pause_requested = True
+            self.pause_btn.configure(text="Resume")
+            self.status_var.set("Paused — running check will finish, then the loop blocks.")
 
     # ---------- Tools menu ----------
 
