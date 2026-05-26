@@ -346,6 +346,31 @@ def test_cmd_portfolio_no_sites_exits_two(monkeypatch, capsys):
     assert ei.value.code == 2
 
 
+def test_cmd_snooze_list_empty(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    from wpsecscan.__main__ import _cmd_snooze
+    _cmd_snooze(["list"])
+    out = capsys.readouterr().out
+    assert "no annotations" in out
+
+
+def test_cmd_snooze_import_csv(monkeypatch, tmp_path):
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    csv_file = tmp_path / "in.csv"
+    csv_file.write_text(
+        "url,check_id,finding_title,status,snooze_until,note\n"
+        "https://x.com,headers,Missing CSP,accepted-risk,2026-12-31,reviewed by SecOps\n"
+        "https://x.com,cors,Wildcard CORS,false-positive,,plugin handles it\n",
+        encoding="utf-8",
+    )
+    from wpsecscan.__main__ import _cmd_snooze
+    _cmd_snooze(["import", str(csv_file)])
+    from wpsecscan.history import load_annotations
+    d = load_annotations()
+    assert "https://x.com" in d
+    assert len(d["https://x.com"]) == 2
+
+
 def test_sites_add_persists_tags(monkeypatch, tmp_path):
     """site_mod.add(..., tags=[...]) normalises + stores tags."""
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))

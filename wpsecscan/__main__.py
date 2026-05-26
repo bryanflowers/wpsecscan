@@ -496,7 +496,7 @@ def main() -> None:
     if len(sys.argv) >= 2 and sys.argv[1] in (
         "sites", "schedule", "digest", "ai-cost", "db", "ai-options", "analytics",
         "compare", "badge", "paths", "report", "annotate", "check", "config",
-        "verify-release", "watch", "portfolio", "refix",
+        "verify-release", "watch", "portfolio", "refix", "snooze",
     ):
         _dispatch_subcommand(sys.argv[1], sys.argv[2:])
         return
@@ -970,6 +970,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_portfolio(args)
     elif cmd == "refix":
         _cmd_refix(args)
+    elif cmd == "snooze":
+        _cmd_snooze(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -1534,6 +1536,113 @@ def _cmd_refix(args: list[str]) -> None:
             print(f"  [{f.get('severity').upper()}] {f.get('title')}")
         print(f"Receipt: {out_path}")
         sys.exit(64)
+
+
+def _cmd_snooze(args: list[str]) -> None:
+    """`wpsecscan snooze {list|import|clear} ...`
+
+    list [--active-only]
+        Print every (URL, check_id, finding_title, status, snooze_until)
+        from ~/.wpsecscan/annotations.json. With --active-only, hide
+        snoozes that have already expired.
+
+    import FILE.csv
+        Bulk-snooze (or bulk-accept-risk) from a CSV with header columns:
+          url, check_id, finding_title, status, snooze_until, note
+        Status is one of: accepted-risk, false-positive. snooze_until
+        is an ISO date YYYY-MM-DD; leave blank for "indefinite".
+
+    clear URL [CHECK_ID [TITLE]]
+        Remove annotation(s). Without CHECK_ID, clears every annotation
+        for the URL. With CHECK_ID, only that check's annotations.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_snooze.__doc__.strip()); sys.exit(0)
+
+    from . import history as _h
+    action = args[0]
+    rest = args[1:]
+
+    if action == "list":
+        active_only = "--active-only" in rest
+        ann = _h.load_annotations()
+        rows: list[tuple[str, str, str, str, str]] = []
+        for url, bucket in sorted(ann.items()):
+            for fp, entry in bucket.items():
+                if active_only and not _h.is_active_annotation(entry):
+                    continue
+                rows.append((
+                    url,
+                    str(entry.get("check_id") or fp.split(":", 1)[0]),
+                    str(entry.get("title") or fp.split(":", 1)[-1])[:40],
+                    str(entry.get("status") or ""),
+                    str(entry.get("snooze_until") or ""),
+                ))
+        if not rows:
+            print("(no annotations)")
+            return
+        print(f"{'URL':50s} {'CHECK':16s} {'TITLE':40s} {'STATUS':16s} SNOOZE")
+        for url, cid, title, status, snooze in rows:
+            print(f"{url[:50]:50s} {cid[:16]:16s} {title:40s} {status[:16]:16s} {snooze}")
+        return
+
+    if action == "import":
+        if not rest:
+            print("usage: wpsecscan snooze import FILE.csv", file=sys.stderr)
+            sys.exit(2)
+        import csv as _csv
+        path = Path(rest[0])
+        if not path.exists():
+            print(f"file not found: {path}", file=sys.stderr); sys.exit(2)
+        count = 0
+        with path.open(encoding="utf-8") as f:
+            reader = _csv.DictReader(f)
+            for row in reader:
+                url = (row.get("url") or "").strip()
+                cid = (row.get("check_id") or "").strip()
+                title = (row.get("finding_title") or row.get("title") or "").strip()
+                status = (row.get("status") or "accepted-risk").strip()
+                snooze = (row.get("snooze_until") or "").strip()
+                note = (row.get("note") or "").strip()
+                if not (url and cid and title):
+                    continue
+                _h.set_annotation(url, cid, title, status,
+                                    note=note, snooze_until=snooze)
+                count += 1
+        print(f"imported {count} annotation(s) from {path}")
+        return
+
+    if action == "clear":
+        if not rest:
+            print("usage: wpsecscan snooze clear URL [CHECK_ID [TITLE]]", file=sys.stderr)
+            sys.exit(2)
+        url = rest[0]
+        cid_filter = rest[1] if len(rest) > 1 else None
+        title_filter = rest[2] if len(rest) > 2 else None
+        ann = _h.load_annotations()
+        bucket = ann.get(url, {})
+        before = len(bucket)
+        if cid_filter and title_filter:
+            _h.set_annotation(url, cid_filter, title_filter, "")  # empty status clears
+            after = len(_h.load_annotations().get(url, {}))
+            print(f"cleared 1 annotation ({cid_filter} / {title_filter})")
+        elif cid_filter:
+            # iterate by fingerprint prefix
+            for fp in list(bucket.keys()):
+                if fp.startswith(cid_filter + ":"):
+                    title = bucket[fp].get("title") or fp.split(":", 1)[-1]
+                    _h.set_annotation(url, cid_filter, title, "")
+            after = len(_h.load_annotations().get(url, {}))
+            print(f"cleared {before - after} annotation(s) for {cid_filter}")
+        else:
+            # nuke all for this URL
+            ann.pop(url, None)
+            _h._save_annotations(ann)
+            print(f"cleared {before} annotation(s) for {url}")
+        return
+
+    print(f"unknown snooze action: {action}", file=sys.stderr)
+    sys.exit(2)
 
 
 def _cmd_config(args: list[str]) -> None:
