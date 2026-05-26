@@ -91,8 +91,8 @@ def _dwell_time_note(cve: str) -> tuple[str, int | None]:
     if not m:
         return "", None
     year = int(m.group(1))
-    from datetime import datetime as _dt
-    now_year = _dt.utcnow().year
+    from datetime import datetime as _dt, timezone as _tz
+    now_year = _dt.now(_tz.utc).year
     yrs = max(0, now_year - year)
     if yrs == 0:
         note = "Publicly known since this year — patch immediately to limit dwell time."

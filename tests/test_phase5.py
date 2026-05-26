@@ -23,8 +23,8 @@ def test_dwell_time_note_parses_cve_year():
 
 def test_dwell_time_note_handles_current_year():
     from wpsecscan.checks.plugin_cves import _dwell_time_note
-    from datetime import datetime as _dt
-    note, yrs = _dwell_time_note(f"CVE-{_dt.utcnow().year}-9999")
+    from datetime import datetime as _dt, timezone as _tz
+    note, yrs = _dwell_time_note(f"CVE-{_dt.now(_tz.utc).year}-9999")
     assert yrs == 0
     assert "this year" in note
 
@@ -69,8 +69,8 @@ def test_plugin_cemetery_flags_long_stale(monkeypatch, tmp_path):
         if slug == "abandoned-plugin":
             return {"last_updated": "2020-08-14 11:34am GMT", "active_installs": 1000, "tested": "5.5"}
         if slug == "fresh-plugin":
-            from datetime import datetime as _dt
-            return {"last_updated": _dt.utcnow().strftime("%Y-%m-%d %I:%M%p GMT"),
+            from datetime import datetime as _dt, timezone as _tz
+            return {"last_updated": _dt.now(_tz.utc).strftime("%Y-%m-%d %I:%M%p GMT"),
                     "active_installs": 50000, "tested": "6.4"}
         return None
 

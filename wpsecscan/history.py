@@ -128,9 +128,9 @@ def save_report_snapshot(url: str, report_json_text: str) -> None:
     """
     if not url or not report_json_text:
         return
-    from datetime import datetime as _dt
+    from datetime import datetime as _dt, timezone as _tz
     safe = _safe_filename(url)
-    ts = _dt.utcnow().strftime("%Y%m%d-%H%M%S")
+    ts = _dt.now(_tz.utc).strftime("%Y%m%d-%H%M%S")
     try:
         d = _reports_dir()
         (d / f"{safe}.json").write_text(report_json_text, encoding="utf-8")

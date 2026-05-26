@@ -752,10 +752,15 @@ def _cmd_badge(args: list[str]) -> None:
         sys.exit(64)
     url = args[0]
     out_path: Path | None = None
-    for i, a in enumerate(args[1:], 1):
-        if a == "--out" and i + 1 <= len(args) - 1:
+    # Replaced the previous fragile enumerate(args[1:], 1) + args[i+1] dance
+    # with a plain index walk over the remaining args.
+    i = 1
+    while i < len(args):
+        if args[i] == "--out" and i + 1 < len(args):
             out_path = Path(args[i + 1])
-            break
+            i += 2
+        else:
+            i += 1
     from . import history as _h
     from .reporters import badge_svg as _bs
     snap = _h.previous_report_path(url)

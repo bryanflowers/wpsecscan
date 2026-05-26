@@ -146,7 +146,7 @@ def cert_transparency_watch(host: str) -> dict:
     if not d or not isinstance(d, list):
         return {"new_certs": [], "changed": False, "error": "crt.sh unavailable"}
 
-    cutoff = (datetime.datetime.utcnow() - datetime.timedelta(days=7))
+    cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7))
     new_certs = []
     for entry in d[:200]:
         if not isinstance(entry, dict):
