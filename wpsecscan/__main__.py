@@ -737,8 +737,8 @@ def main() -> None:
     p.add_argument("--deep-throttle", action="store_true", help="Run the deep throttle mapping (N wrong-password attempts for a synthetic non-existent user). Reports the actual rate-limit threshold.")
     p.add_argument("--deep-throttle-attempts", type=int, default=120, metavar="N", help="How many wrong-login attempts the deep throttle test sends (10-500, default 120). Multiply by --deep-throttle-pacing for total runtime.")
     p.add_argument("--deep-throttle-pacing", type=float, default=10.0, metavar="SECONDS", help="Seconds between deep-throttle attempts (5-60, default 10). Below 5s tends to trip network-layer fail2ban before HTTP-layer throttling shows.")
-    p.add_argument("--aggressive", action="store_true", help="Enable active checks: SQLi, XSS, SSRF, path traversal, open redirect, upload probes, default-credentials probe (≤10 attempts).")
-    p.add_argument("--prove", action="store_true", help="For each confirmed aggressive finding, run a read-only proof helper (single-target only; requires --aggressive). Never writes to the target.")
+    p.add_argument("--aggressive", "-A", action="store_true", help="Enable active checks: SQLi, XSS, SSRF, path traversal, open redirect, upload probes, default-credentials probe (≤10 attempts).")
+    p.add_argument("--prove", "-P", action="store_true", help="For each confirmed aggressive finding, run a read-only proof helper (single-target only; requires --aggressive). Never writes to the target.")
     # Sensitive flags read from env vars when not given on the command line —
     # use env to avoid leaking secrets via `ps aux` / shell history.
     p.add_argument("--auth-user", default=os.environ.get("WPSECSCAN_AUTH_USER"),
@@ -791,10 +791,17 @@ def main() -> None:
     p.add_argument("--interval", type=int, default=300, metavar="SECONDS",
                    help="Polling interval for --continuous mode (default 300 = 5 minutes).")
     p.add_argument("--checkpoint", action="store_true", help="Save progress to ~/.wpsecscan/checkpoints/ so a Ctrl+C scan can resume on next run")
-    p.add_argument("--fail-on", default=None, metavar="LEVEL[,LEVEL]",
+    p.add_argument("--fail-on", "-F", default=None, metavar="LEVEL[,LEVEL]",
                    help="Exit with code 2 if any finding is at or above this severity. "
                         "Accepts a single value (critical|high|medium|low) or comma-separated list, "
                         "e.g. `critical,high`. Overrides the default exit-code logic.")
+    # #36: --format consolidation. Repeatable; replaces (and supplements)
+    # the separate --json-only / --csv / --md / etc. flags.
+    p.add_argument("--format", default=None, action="append", metavar="FORMAT",
+                   help="#36: emit specific report format(s). Repeat or "
+                        "comma-separate: --format json,html,sarif. Supported: "
+                        "json,html,csv,md,xlsx,sarif,burp,docx,exec-pdf. "
+                        "Aliases the legacy --json-only / --csv / etc. flags.")
     p.add_argument("--abuseipdb-token", default=os.environ.get("WPSECSCAN_ABUSEIPDB_TOKEN"),
                    help="AbuseIPDB API token (env: WPSECSCAN_ABUSEIPDB_TOKEN). Free tier: 1000/day.")
     p.add_argument("--vt-token", default=os.environ.get("WPSECSCAN_VT_TOKEN"),
@@ -881,6 +888,42 @@ def main() -> None:
     # values: argparse defaults are kept verbatim, and we only inject
     # values into args attributes that are still at their default.
     _apply_config_and_profile(p, args)
+
+    # #36 — expand --format into the legacy single-purpose flags.
+    if getattr(args, "format", None):
+        # Accept --format json,html OR repeated --format json --format html.
+        wanted: set[str] = set()
+        for f in args.format:
+            for piece in str(f).split(","):
+                piece = piece.strip().lower()
+                if piece:
+                    wanted.add(piece)
+        _FORMAT_ALIASES = {
+            "json":     ("json_only", True),
+            "html":     ("html_only", True),
+            "csv":      ("csv",       True),
+            "md":       ("md",        True),
+            "markdown": ("md",        True),
+            "xlsx":     ("xlsx",      True),
+            "sarif":    ("sarif",     True),
+            "burp":     ("burp_export", True),
+            "docx":     ("docx",      True),
+            "exec-pdf": ("exec_pdf",  True),
+            "pdf":      ("exec_pdf",  True),
+        }
+        unknown = wanted - set(_FORMAT_ALIASES)
+        if unknown:
+            print(f"--format: unknown value(s): {', '.join(sorted(unknown))}", file=sys.stderr)
+            print(f"valid: {', '.join(sorted(_FORMAT_ALIASES))}", file=sys.stderr)
+            sys.exit(2)
+        # json + html together = neither --json-only nor --html-only (default).
+        if "json" in wanted and "html" in wanted:
+            args.json_only = False
+            args.html_only = False
+            wanted -= {"json", "html"}
+        for fmt in wanted:
+            attr, val = _FORMAT_ALIASES[fmt]
+            setattr(args, attr, val)
 
     # O47 --completion is checked FIRST — before logging setup, before any
     # I/O — so the stdout output isn't contaminated by debug-log notices

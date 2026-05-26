@@ -27,6 +27,7 @@ FLAGS = [
     "--checkpoint",
     "--completion",
     "--concurrency",
+    "--config",
     "--csv",
     "--daemon",
     "--dashboard",
@@ -39,6 +40,7 @@ FLAGS = [
     "--exec-pdf",
     "--fail-on",
     "--file",
+    "--format",
     "--github-search-token",
     "--har",
     "--hibp-token",
@@ -53,6 +55,7 @@ FLAGS = [
     "--parallel-groups",
     "--password-audit",
     "--patchstack-token",
+    "--profile",
     "--prove",
     "--query",
     "--region",
@@ -79,6 +82,7 @@ _wpsecscan_completions() {{
     local cur prev opts
     COMPREPLY=()
     cur="${{COMP_WORDS[COMP_CWORD]}}"
+    prev="${{COMP_WORDS[COMP_CWORD-1]}}"
     opts="{flag_list}"
     if [[ ${{cur}} == -* ]] ; then
         COMPREPLY=( $(compgen -W "${{opts}}" -- ${{cur}}) )
@@ -86,8 +90,26 @@ _wpsecscan_completions() {{
     fi
     # File-completion for known flags
     case "${{prev:-}}" in
-        --file|--out|--har|--diff-against|--daemon|--replay-har|--sbom|--attestation|--auto-pr)
+        --file|--out|--har|--diff-against|--baseline|--daemon|--replay-har|--sbom|--attestation|--auto-pr|--config|--report-template)
             COMPREPLY=( $(compgen -f -- ${{cur}}) )
+            return 0
+            ;;
+        # #39 — value-completion for enum-style flags so <TAB> suggests valid choices.
+        --fail-on)
+            COMPREPLY=( $(compgen -W "info low medium high critical" -- ${{cur}}) )
+            return 0
+            ;;
+        --ai-explain-for)
+            COMPREPLY=( $(compgen -W "client dev exec" -- ${{cur}}) )
+            return 0
+            ;;
+        --completion)
+            COMPREPLY=( $(compgen -W "bash zsh powershell" -- ${{cur}}) )
+            return 0
+            ;;
+        --format)
+            COMPREPLY=( $(compgen -W "json html csv md xlsx sarif burp docx exec-pdf" -- ${{cur}}) )
+            return 0
             ;;
     esac
 }}
