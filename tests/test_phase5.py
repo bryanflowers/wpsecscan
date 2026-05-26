@@ -325,6 +325,38 @@ def test_cmd_watch_help_exits_zero(capsys):
     assert "watch URL" in out
 
 
+# ============================== #29 / #30 / #31 ================================
+
+def test_cmd_refix_unknown_check_id_exits_two(capsys):
+    """`wpsecscan refix bad_id https://x` exits 2 with a helpful error."""
+    from wpsecscan.__main__ import _cmd_refix
+    import pytest
+    with pytest.raises(SystemExit) as ei:
+        _cmd_refix(["wpsecscan_completely_unknown_check_id_xyz", "https://example.com"])
+    assert ei.value.code == 2
+
+
+def test_cmd_portfolio_no_sites_exits_two(monkeypatch, capsys):
+    """`wpsecscan portfolio` with no sites exits 2 cleanly."""
+    from wpsecscan.__main__ import _cmd_portfolio
+    monkeypatch.setattr("wpsecscan.sites.list_sites", lambda: [])
+    import pytest
+    with pytest.raises(SystemExit) as ei:
+        _cmd_portfolio([])
+    assert ei.value.code == 2
+
+
+def test_sites_add_persists_tags(monkeypatch, tmp_path):
+    """site_mod.add(..., tags=[...]) normalises + stores tags."""
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    from wpsecscan import sites as sites_mod
+    e = sites_mod.add("https://example.com", tags=["Client:Acme", "tier:gold", "tier:gold"])
+    assert e["tags"] == ["client:acme", "tier:gold"]
+    # Re-load and re-fetch
+    sites = sites_mod.list_sites()
+    assert sites[0]["tags"] == ["client:acme", "tier:gold"]
+
+
 # ============================== FEAT-010 --ai-explain-for ======================
 
 def test_client_summarize_report_attaches_extra(monkeypatch):

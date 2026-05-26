@@ -496,7 +496,7 @@ def main() -> None:
     if len(sys.argv) >= 2 and sys.argv[1] in (
         "sites", "schedule", "digest", "ai-cost", "db", "ai-options", "analytics",
         "compare", "badge", "paths", "report", "annotate", "check", "config",
-        "verify-release", "watch",
+        "verify-release", "watch", "portfolio", "refix",
     ):
         _dispatch_subcommand(sys.argv[1], sys.argv[2:])
         return
@@ -966,6 +966,10 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_verify_release(args)
     elif cmd == "watch":
         _cmd_watch(args)
+    elif cmd == "portfolio":
+        _cmd_portfolio(args)
+    elif cmd == "refix":
+        _cmd_refix(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -1392,6 +1396,146 @@ def _cmd_watch(args: list[str]) -> None:
         _time.sleep(interval)
 
 
+def _cmd_portfolio(args: list[str]) -> None:
+    """`wpsecscan portfolio [--tag FOO] [--out DIR] [--no-pdf]`
+
+    Bulk-scan every site in ~/.wpsecscan/sites.json (filtered by --tag if
+    given) and write a single agency-style dashboard + one exec-PDF per
+    site. Combines `sites scan` + `--dashboard --agency-dashboard` +
+    `--exec-pdf` in one verb.
+    """
+    if args and args[0] in ("-h", "--help"):
+        print(_cmd_portfolio.__doc__.strip())
+        sys.exit(0)
+    tag_filter: str | None = None
+    out_dir = "wpsecscan-portfolio"
+    want_pdf = True
+    for i, a in enumerate(args):
+        if a == "--tag" and i + 1 < len(args):
+            tag_filter = args[i + 1].lower()
+        elif a == "--out" and i + 1 < len(args):
+            out_dir = args[i + 1]
+        elif a == "--no-pdf":
+            want_pdf = False
+    from . import sites as sites_mod
+    all_sites = sites_mod.list_sites()
+    if tag_filter:
+        sel = [s for s in all_sites if tag_filter in (s.get("tags") or [])]
+    else:
+        sel = all_sites
+    if not sel:
+        msg = "no sites match" + (f" tag {tag_filter!r}" if tag_filter else "")
+        print(msg); sys.exit(2)
+    print(f"portfolio scan: {len(sel)} site(s) → {out_dir}/")
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    for s in sel:
+        url = s["url"]
+        print(f"  -> {url}")
+        cmd = [sys.executable, "-m", "wpsecscan", url,
+               "--out", out_dir, "--agency-dashboard"]
+        if want_pdf:
+            cmd.append("--exec-pdf")
+        child_env = dict(os.environ)
+        if s.get("auth_user"):
+            child_env["WPSECSCAN_AUTH_USER"] = s["auth_user"]
+        if s.get("proxy_url"):
+            cmd.extend(["--proxy", s["proxy_url"]])
+        for sealed_key, env_name in (
+            ("proxy_auth_sealed", "WPSECSCAN_PROXY_AUTH"),
+            ("auth_app_password_sealed", "WPSECSCAN_AUTH_APP_PASSWORD"),
+            ("companion_token_sealed", "WPSECSCAN_COMPANION_TOKEN"),
+        ):
+            if s.get(sealed_key):
+                try:
+                    child_env[env_name] = sites_mod._unseal(s[sealed_key])
+                except Exception:  # noqa: BLE001
+                    pass
+        import subprocess as _sp
+        _sp.run(cmd, env=child_env, check=False)
+    print(f"\nportfolio complete: open {out_dir}/wpsecscan-agency-dashboard.html")
+
+
+def _cmd_refix(args: list[str]) -> None:
+    """`wpsecscan refix CHECK_ID URL` — re-run only one check and write a
+    fix-attested receipt to ~/.wpsecscan/refix/<host>-<check>-<ts>.json.
+
+    Useful after fixing a specific finding: instead of running a full
+    20-minute scan, this re-executes the single check that flagged the
+    issue and tells you whether it's now clean.
+    """
+    if len(args) < 2 or args[0] in ("-h", "--help"):
+        print("usage: wpsecscan refix CHECK_ID URL\n"
+              "  CHECK_ID is the `check_id` from a JSON report.")
+        sys.exit(0 if args and args[0] in ("-h", "--help") else 2)
+    check_id, target = args[0], args[1]
+    if not target.startswith(("http://", "https://")):
+        target = "https://" + target
+
+    import asyncio as _asyncio
+    import json as _json
+    from datetime import datetime, timezone
+    from urllib.parse import urlparse
+    from . import scanner as _sc
+
+    async def _refix_one() -> tuple[bool, list[dict]]:
+        # Find the check function from the registry.
+        from .checks import ALL_CHECKS
+        ours = [c for c in ALL_CHECKS if c[0] == check_id]
+        if not ours:
+            print(f"unknown check_id: {check_id}\n"
+                  "see `wpsecscan check list` for valid IDs", file=sys.stderr)
+            return False, []
+        cid, name, fn, aggressive = ours[0]
+        # Build a minimal client + ctx and run the check function directly.
+        from .http import Client
+        client = Client(target, timeout=15.0, user_agent="WPSecScan/refix")
+        try:
+            ctx = {"target": target, "shared": {}, "step": lambda _s: None,
+                   "aggressive": False}
+            findings = await fn(client, ctx)
+            return True, [f.to_dict() for f in (findings or [])]
+        finally:
+            try:
+                await client.aclose()
+            except Exception:  # noqa: BLE001
+                pass
+
+    ok, findings_out = _asyncio.run(_refix_one())
+    if not ok:
+        sys.exit(2)
+
+    # Classify pass/fail: any finding above 'info' = still failing.
+    fail_findings = [f for f in findings_out
+                      if f.get("severity") in ("low", "medium", "high", "critical")]
+    passed = not fail_findings
+
+    home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+    out_dir = home / "refix"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    host = (urlparse(target).hostname or "site").replace(".", "-")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    receipt = {
+        "check_id": check_id,
+        "target": target,
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "passed": passed,
+        "findings": findings_out,
+    }
+    out_path = out_dir / f"{host}-{check_id}-{ts}.json"
+    out_path.write_text(_json.dumps(receipt, indent=2), encoding="utf-8")
+
+    if passed:
+        print(f"PASS: {check_id} on {target} — no actionable findings.")
+        print(f"Receipt: {out_path}")
+        sys.exit(0)
+    else:
+        print(f"FAIL: {check_id} on {target} — {len(fail_findings)} finding(s) still present.")
+        for f in fail_findings[:5]:
+            print(f"  [{f.get('severity').upper()}] {f.get('title')}")
+        print(f"Receipt: {out_path}")
+        sys.exit(64)
+
+
 def _cmd_config(args: list[str]) -> None:
     """`wpsecscan config validate <path>` — lint the daemon YAML config."""
     if not args or args[0] in ("-h", "--help"):
@@ -1649,10 +1793,20 @@ def _cmd_sites(args: list[str]) -> None:
     action = args[0]
     rest = args[1:]
     if action == "list":
+        # #31: --tag FOO filter
+        tag_filter = None
+        for i, a in enumerate(rest):
+            if a == "--tag" and i + 1 < len(rest):
+                tag_filter = rest[i + 1].lower()
+                break
         for s in sites_mod.list_sites():
+            tags = s.get("tags") or []
+            if tag_filter and tag_filter not in tags:
+                continue
             ts = s.get("last_scan_ts") or 0
             when = "never" if not ts else __import__("time").strftime("%Y-%m-%d", __import__("time").localtime(ts))
-            print(f"  {s['url']:60s} weekly={s.get('weekly', False)}  last={when}  risk={s.get('last_risk_score', '?')}")
+            tag_str = (" [" + ",".join(tags) + "]") if tags else ""
+            print(f"  {s['url']:60s} weekly={s.get('weekly', False)}  last={when}  risk={s.get('last_risk_score', '?')}{tag_str}")
         return
     if action == "remove":
         if not rest:
@@ -1664,7 +1818,7 @@ def _cmd_sites(args: list[str]) -> None:
         url = None
         flags = {"weekly": False, "auth_user": None, "auth_app_password": None,
                   "companion_token": None, "proxy_url": None, "proxy_auth": None,
-                  "notes": ""}
+                  "notes": "", "tags": None}
         i = 0
         while i < len(rest):
             a = rest[i]
@@ -1682,14 +1836,20 @@ def _cmd_sites(args: list[str]) -> None:
                 flags["proxy_auth"] = rest[i + 1]; i += 2
             elif a == "--notes" and i + 1 < len(rest):
                 flags["notes"] = rest[i + 1]; i += 2
+            elif a == "--tag" and i + 1 < len(rest):
+                if flags["tags"] is None:
+                    flags["tags"] = []
+                flags["tags"].append(rest[i + 1])
+                i += 2
             elif not a.startswith("--") and url is None:
                 url = a; i += 1
             else:
                 i += 1
         if not url:
-            print("usage: wpsecscan sites add URL [--weekly] [--auth-user U] [--auth-app-password P] [--proxy URL] [--proxy-auth user:pass]"); sys.exit(2)
+            print("usage: wpsecscan sites add URL [--weekly] [--auth-user U] [--auth-app-password P] [--proxy URL] [--proxy-auth user:pass] [--tag client:foo]"); sys.exit(2)
         entry = sites_mod.add(url, **flags)
-        print(f"added: {entry['url']} (weekly={entry['weekly']}{', proxied' if flags['proxy_url'] else ''})")
+        tag_str = (" tags=" + ",".join(entry.get("tags", []))) if entry.get("tags") else ""
+        print(f"added: {entry['url']} (weekly={entry['weekly']}{', proxied' if flags['proxy_url'] else ''}{tag_str})")
         return
     if action == "scan":
         from . import sites as sites_mod

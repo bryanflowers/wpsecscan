@@ -105,8 +105,10 @@ def add(url: str, *, weekly: bool = False,
         companion_token: str | None = None,
         proxy_url: str | None = None,
         proxy_auth: str | None = None,
-        notes: str = "") -> dict:
-    """Add or update a site."""
+        notes: str = "",
+        tags: list[str] | None = None) -> dict:
+    """Add or update a site. #31 — accepts a list of free-form tags
+    (e.g. `client:acme`, `tier:gold`) for portfolio filtering."""
     if not url.startswith(("http://", "https://")):
         url = "https://" + url.lstrip("/")
     # Validate URL
@@ -120,6 +122,10 @@ def add(url: str, *, weekly: bool = False,
     entry.setdefault("added_at", int(time.time()))
     entry["weekly"] = bool(weekly)
     entry["notes"] = notes or entry.get("notes", "")
+    if tags is not None:
+        # Normalise: lowercased, deduped, alphabetical.
+        cleaned = sorted({t.strip().lower() for t in tags if t and t.strip()})
+        entry["tags"] = cleaned
     if auth_user:
         entry["auth_user"] = auth_user
     if auth_app_password:
