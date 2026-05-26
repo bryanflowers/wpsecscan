@@ -83,17 +83,9 @@ build-*.log
 release-*.zip
 release-notes-*.md
 
-# --- Scratch dirs from manual scan runs ---
-test-aggr/
-test-audit*/
-test-audit*.html
-test-audit*.json
-test-bundle*/
-test-final*/
-test-out/
-test-prove/
-test-v[0-9]*/
-test-wporg/
+# --- Scratch dirs / files from manual scan runs ---
+# Catch-all: `tests/` (no hyphen) is the real test suite and stays tracked.
+test-*
 
 # --- Local target lists (often contain customer URLs) ---
 targets.txt
@@ -102,4 +94,5 @@ targets.*.txt
 # --- Misc ---
 *.bak
 *.tmp
+.tmp.driveupload/
 *.orig
