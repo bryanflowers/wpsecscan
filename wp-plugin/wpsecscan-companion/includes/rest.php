@@ -215,12 +215,12 @@ function wpsecscan_companion_check_token( $request ) {
     if ( ! is_array( $stored ) || empty( $stored['token'] ) ) {
         return new WP_Error( 'wpsecscan_no_token', 'No active token', [ 'status' => 401 ] );
     }
-    // v1.1: token allows up to 10 reads within the TTL window so a single
-    // scan can pull all 9+ endpoints without re-prompting the user. The
-    // upper bound mitigates token-replay risk if the same token is sniffed
-    // off the wire (TLS is still enforced above).
+    // v1.2 — token-use cap is now operator-configurable. Default 10 (was
+    // hardcoded in v1.1). The Settings page stores a 1-100 integer in
+    // wpsecscan_companion_max_uses.
+    $max_uses  = max( 1, min( 100, (int) get_option( 'wpsecscan_companion_max_uses', 10 ) ) );
     $use_count = isset( $stored['use_count'] ) ? (int) $stored['use_count'] : 0;
-    if ( $use_count >= 10 ) {
+    if ( $use_count >= $max_uses ) {
         return new WP_Error( 'wpsecscan_token_exhausted', 'Token use cap reached', [ 'status' => 401 ] );
     }
     if ( ( time() - (int) ( $stored['created'] ?? 0 ) ) > WPSECSCAN_COMPANION_TOKEN_TTL ) {
@@ -231,13 +231,65 @@ function wpsecscan_companion_check_token( $request ) {
         return new WP_Error( 'wpsecscan_bad_token', 'Bad token', [ 'status' => 401 ] );
     }
 
+    // #25 — IP pinning. If the token was issued with a pinned IP, refuse
+    // requests from a different IP. The first-issued token (no pin) is
+    // permissive; subsequent issuances honor whatever the operator
+    // configured.
+    $pinned = isset( $stored['pinned_ip'] ) ? (string) $stored['pinned_ip'] : '';
+    if ( $pinned ) {
+        $req_ip = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) $_SERVER['REMOTE_ADDR'] : '';
+        if ( $req_ip !== $pinned ) {
+            // Revoke the token on IP mismatch — strong signal of replay attempt.
+            delete_option( WPSECSCAN_COMPANION_TOKEN_OPTION );
+            // #32 — fire the access webhook so the operator sees this immediately.
+            wpsecscan_companion_fire_access_webhook( 'ip_mismatch_token_revoked', [
+                'expected_ip' => $pinned,
+                'got_ip'      => $req_ip,
+            ] );
+            return new WP_Error( 'wpsecscan_ip_mismatch', 'Token pinned to a different IP — revoked', [ 'status' => 403 ] );
+        }
+    }
+
     // Increment usage counter, retain backward-compat `used` flag for any
     // external code reading the option.
     $stored['use_count'] = $use_count + 1;
-    $stored['used']      = $stored['use_count'] >= 10;
+    $stored['used']      = $stored['use_count'] >= $max_uses;
     update_option( WPSECSCAN_COMPANION_TOKEN_OPTION, $stored, false );
 
+    // #32 — fire the access webhook (when configured) so the operator gets
+    // proactive notification of every endpoint access.
+    wpsecscan_companion_fire_access_webhook( 'endpoint_accessed', [
+        'route'      => $request->get_route(),
+        'use_count'  => $stored['use_count'],
+        'max_uses'   => $max_uses,
+        'pinned'     => (bool) $pinned,
+    ] );
+
     return true;
+}
+
+/**
+ * #32 — POST a small JSON event to the configured access-webhook URL
+ * (when set in Settings). Best-effort, never blocks the request flow:
+ * a non-blocking wp_remote_post with a 2s timeout.
+ */
+function wpsecscan_companion_fire_access_webhook( $event, $payload = [] ) {
+    $url = (string) get_option( 'wpsecscan_companion_access_webhook', '' );
+    if ( ! $url || ! preg_match( '#^https?://#i', $url ) ) {
+        return;
+    }
+    $body = wp_json_encode( array_merge( [
+        'event'     => (string) $event,
+        'timestamp' => gmdate( 'c' ),
+        'ip'        => isset( $_SERVER['REMOTE_ADDR'] ) ? (string) $_SERVER['REMOTE_ADDR'] : '',
+        'site'      => home_url(),
+    ], (array) $payload ) );
+    wp_remote_post( $url, [
+        'timeout'     => 2,
+        'blocking'    => false,
+        'headers'     => [ 'Content-Type' => 'application/json' ],
+        'body'        => $body,
+    ] );
 }
 
 /**

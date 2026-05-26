@@ -55,6 +55,16 @@ function wpsecscan_companion_admin_init() {
         // #26 CSV export of activity log
         wpsecscan_companion_export_log_csv();
         exit;
+    } elseif ( $action === 'save_security' ) {
+        // #27 configurable max-uses + #32 access webhook
+        $max = isset( $_POST['max_uses'] ) ? (int) $_POST['max_uses'] : 10;
+        $max = max( 1, min( 100, $max ) );
+        update_option( 'wpsecscan_companion_max_uses', $max, false );
+        $url = isset( $_POST['access_webhook'] ) ? trim( wp_unslash( $_POST['access_webhook'] ) ) : '';
+        if ( $url === '' || preg_match( '#^https?://[^\s<>"\']+$#i', $url ) ) {
+            update_option( 'wpsecscan_companion_access_webhook', esc_url_raw( $url ), false );
+        }
+        add_settings_error( 'wpsecscan-companion', 'saved-sec', 'Security policy saved.', 'updated' );
     }
 }
 
@@ -129,17 +139,34 @@ function wpsecscan_companion_export_log_csv() {
  */
 function wpsecscan_companion_generate_token() {
     $token = wp_generate_password( 48, false, false );
+    // #25 — IP-pin support. The operator can tick "Pin to a specific IP"
+    // and supply the scanner-machine's IP; subsequent requests from any
+    // other IP are auto-revoked.
+    $pinned_ip = '';
+    if ( ! empty( $_POST['pin_ip'] ) ) {
+        $raw = isset( $_POST['pin_ip_value'] ) ? trim( (string) $_POST['pin_ip_value'] ) : '';
+        // Sanitise: only allow what looks like a v4 or v6 address.
+        if ( filter_var( $raw, FILTER_VALIDATE_IP ) ) {
+            $pinned_ip = $raw;
+        }
+    }
     update_option(
         WPSECSCAN_COMPANION_TOKEN_OPTION,
         [
-            'token'   => wp_hash_password( $token ),  // store HASH, not plaintext
-            'created' => time(),
-            'used'    => false,
+            'token'     => wp_hash_password( $token ),  // store HASH, not plaintext
+            'created'   => time(),
+            'used'      => false,
+            'use_count' => 0,
+            'pinned_ip' => $pinned_ip,
         ],
         false // not autoload
     );
     set_transient( 'wpsecscan_companion_token_plain', $token, 30 ); // show plain once
-    add_settings_error( 'wpsecscan-companion', 'generated', 'Token generated. Copy it now — it will not be shown again.', 'updated' );
+    $msg = 'Token generated. Copy it now — it will not be shown again.';
+    if ( $pinned_ip ) {
+        $msg .= ' Pinned to IP ' . esc_html( $pinned_ip ) . ' (other IPs will be rejected + revoke the token).';
+    }
+    add_settings_error( 'wpsecscan-companion', 'generated', $msg, 'updated' );
 }
 
 /**
@@ -193,6 +220,38 @@ function wpsecscan_companion_render_admin_page() {
                 <?php endif; ?>
                 <button class="button button-primary" name="wpsecscan_action" value="generate">Generate one-time token</button>
             </p>
+            <p>
+                <label>
+                    <input type="checkbox" name="pin_ip" value="1">
+                    Pin to a specific IP (recommended if you know the scanner machine):
+                </label>
+                <input type="text" name="pin_ip_value" placeholder="203.0.113.4 or 2001:db8::1" size="40">
+            </p>
+        </form>
+
+        <h2>#25 / #27 / #32 Security policy</h2>
+        <form method="post">
+            <?php wp_nonce_field( 'wpsecscan-companion' ); ?>
+            <input type="hidden" name="wpsecscan_action" value="save_security">
+            <table class="form-table">
+                <tr>
+                    <th><label for="wpsec-max-uses">Max uses per token</label></th>
+                    <td>
+                        <input id="wpsec-max-uses" type="number" name="max_uses" min="1" max="100"
+                               value="<?php echo (int) get_option( 'wpsecscan_companion_max_uses', 10 ); ?>" style="width:5em;">
+                        <p class="description">Default 10. Set to 1 for strict single-use mode. The full scan with all v1.2 endpoints needs around 17 reads, so 1-9 will require a fresh token mid-scan.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="wpsec-webhook">Access webhook URL (optional)</label></th>
+                    <td>
+                        <input id="wpsec-webhook" type="url" name="access_webhook" size="60"
+                               value="<?php echo esc_attr( get_option( 'wpsecscan_companion_access_webhook', '' ) ); ?>">
+                        <p class="description">When set, every endpoint access posts a small JSON event here ({event, timestamp, ip, route, use_count}). IP-mismatch revocations also post here as 'ip_mismatch_token_revoked'.</p>
+                    </td>
+                </tr>
+            </table>
+            <p><button class="button button-primary" type="submit">Save security policy</button></p>
         </form>
 
         <h2>#23 Test connection</h2>
