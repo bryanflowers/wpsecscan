@@ -1433,17 +1433,132 @@ def _cmd_annotate(args: list[str]) -> None:
     print(msg)
 
 
-def _cmd_check(args: list[str]) -> None:
-    """`wpsecscan check list [--category CAT]` — print the full check inventory.
+_USER_CHECK_TEMPLATE = '''"""User-supplied wpsecscan check.
 
-    Categories are derived from each check's OWASP tag. Useful for operators
-    auditing what the scanner does before running it on a client.
+Drop this file into ~/.wpsecscan/checks/ and it will be auto-loaded the
+next time wpsecscan starts. The framework injects an httpx.AsyncClient and
+a context dict (ctx) into your check function.
+
+Required attributes:
+  CHECK_ID:     str (unique among all checks)
+  CHECK_NAME:   str (one-line human label)
+  IS_AGGRESSIVE: bool (default False — set True if it sends destructive payloads)
+
+Required function (async):
+  async def check(client, ctx) -> list[Finding]
+
+Convention:
+  - One Finding per concrete weakness, with severity ∈ info|low|medium|high|critical.
+  - Include `evidence` (raw bytes you observed) and `remediation` (the fix) for every finding.
+"""
+from __future__ import annotations
+
+from wpsecscan.models import Finding
+
+CHECK_ID = "{slug}"
+CHECK_NAME = "{name}"
+IS_AGGRESSIVE = False
+
+
+async def check(client, ctx) -> list[Finding]:
+    target = ctx["target"]
+    findings: list[Finding] = []
+
+    # EXAMPLE: probe a path and flag it if reachable.
+    # try:
+    #     r = await client.get(target.rstrip("/") + "/example-path")
+    #     if r.status_code == 200:
+    #         findings.append(Finding(
+    #             severity="medium",
+    #             title="Example finding from {slug}",
+    #             evidence=f"HTTP {{r.status_code}} from /example-path",
+    #             remediation="Block public access to /example-path.",
+    #             url=str(r.url),
+    #         ))
+    # except Exception:  # noqa: BLE001
+    #     pass
+
+    return findings
+'''
+
+
+def _cmd_check(args: list[str]) -> None:
+    """`wpsecscan check list [--category CAT]`   — print the full check inventory.
+    `wpsecscan check new SLUG [--name "Label"]` — scaffold a user check (#56).
+    `wpsecscan check list-custom`               — list only user-supplied checks.
+    `wpsecscan check publish SLUG`              — append a custom check to
+                                                  ~/.wpsecscan/marketplace.json
+                                                  for sharing (e.g. via Gist).
     """
     if not args or args[0] in ("-h", "--help"):
-        print("usage: wpsecscan check list [--category OWASP-CATEGORY]")
+        print("usage: wpsecscan check {list|list-custom|new SLUG|publish SLUG} [options]")
+        return
+    if args[0] == "new":
+        if len(args) < 2:
+            print("usage: wpsecscan check new SLUG [--name \"Human label\"]", file=sys.stderr)
+            sys.exit(64)
+        slug = args[1].strip().lower().replace(" ", "_")
+        if not re.match(r"^[a-z][a-z0-9_]{2,40}$", slug):
+            print(f"invalid slug {slug!r}: must be [a-z][a-z0-9_]{{2,40}}", file=sys.stderr)
+            sys.exit(64)
+        name = slug.replace("_", " ").title()
+        for i, a in enumerate(args[2:]):
+            if a == "--name" and i + 3 < len(args) + 2:
+                name = args[i + 3]
+        home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+        out_dir = home / "checks"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_file = out_dir / f"{slug}.py"
+        if out_file.exists():
+            print(f"refusing to overwrite existing {out_file}", file=sys.stderr); sys.exit(2)
+        out_file.write_text(_USER_CHECK_TEMPLATE.format(slug=slug, name=name), encoding="utf-8")
+        print(f"scaffolded user check: {out_file}")
+        print(f"next: edit the file, then run `wpsecscan only {slug} https://your-site.test`")
+        return
+    if args[0] == "list-custom":
+        from .checks import ALL_CHECKS
+        home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+        custom_dirs = [home / "plugins", home / "checks", home / "marketplace" / "checks"]
+        custom_ids: set[str] = set()
+        for d in custom_dirs:
+            if d.exists():
+                custom_ids.update(p.stem for p in d.glob("*.py"))
+        rows = [(cid, cname, agg) for cid, cname, _fn, agg in ALL_CHECKS if cid in custom_ids]
+        print(f"{len(rows)} user-supplied check(s):")
+        for cid, cname, agg in rows:
+            mode = "aggressive" if agg else "passive"
+            print(f"  {cid:35s}  ({mode:11s})  {cname}")
+        return
+    if args[0] == "publish":
+        import json
+        if len(args) < 2:
+            print("usage: wpsecscan check publish SLUG", file=sys.stderr); sys.exit(64)
+        slug = args[1].strip()
+        home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+        candidates = [home / "checks" / f"{slug}.py",
+                       home / "plugins" / f"{slug}.py"]
+        src = next((p for p in candidates if p.exists()), None)
+        if src is None:
+            print(f"no custom check found for slug {slug!r}", file=sys.stderr); sys.exit(2)
+        manifest_path = home / "marketplace.json"
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {"version": 1, "checks": []}
+        except (OSError, json.JSONDecodeError):
+            manifest = {"version": 1, "checks": []}
+        manifest.setdefault("checks", [])
+        manifest["checks"] = [c for c in manifest["checks"] if c.get("slug") != slug]
+        manifest["checks"].append({
+            "slug": slug,
+            "path": str(src),
+            "source": src.read_text(encoding="utf-8"),
+            "published_at": __import__("datetime").datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        })
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        print(f"appended {slug} to {manifest_path}")
+        print("upload this JSON to a Gist / GitHub repo to share with others.")
         return
     if args[0] != "list":
-        print("usage: wpsecscan check list [--category OWASP-CATEGORY]", file=sys.stderr)
+        print("usage: wpsecscan check {list|list-custom|new SLUG|publish SLUG} [options]", file=sys.stderr)
         sys.exit(64)
     cat_filter = ""
     i = 1
