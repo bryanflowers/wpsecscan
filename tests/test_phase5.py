@@ -74,7 +74,9 @@ def test_plugin_cemetery_flags_long_stale(monkeypatch, tmp_path):
                     "active_installs": 50000, "tested": "6.4"}
         return None
 
-    monkeypatch.setattr(pc, "_fetch_wporg", fake_fetch)
+    # _fetch_wporg is now an async wrapper around _fetch_wporg_sync; patch the
+    # sync function so our test still gets to control the response shape.
+    monkeypatch.setattr(pc, "_fetch_wporg_sync", fake_fetch)
     ctx = {"target": "https://example.com",
            "shared": {"plugins": {"abandoned-plugin": "1.0", "fresh-plugin": "2.0"}},
            "step": lambda _s: None}
@@ -94,7 +96,7 @@ def test_plugin_cemetery_flags_delisted(monkeypatch, tmp_path):
     import importlib, sys
     importlib.import_module("wpsecscan.checks.plugin_cemetery")
     pc = sys.modules["wpsecscan.checks.plugin_cemetery"]
-    monkeypatch.setattr(pc, "_fetch_wporg", lambda slug, timeout=8.0: {"_delisted": True})
+    monkeypatch.setattr(pc, "_fetch_wporg_sync", lambda slug, timeout=8.0: {"_delisted": True})
     ctx = {"target": "https://example.com",
            "shared": {"plugins": {"removed-plugin": "1.0"}},
            "step": lambda _s: None}
@@ -115,7 +117,9 @@ def test_plugin_cemetery_skips_plugins_with_cves(monkeypatch, tmp_path):
     def fake_fetch(slug, timeout=8.0):
         calls.append(slug)
         return {"last_updated": "2020-01-01 11:34am GMT"}
-    monkeypatch.setattr(pc, "_fetch_wporg", fake_fetch)
+    # _fetch_wporg is now an async wrapper around _fetch_wporg_sync; patch the
+    # sync function so our test still gets to control the response shape.
+    monkeypatch.setattr(pc, "_fetch_wporg_sync", fake_fetch)
     ctx = {"target": "https://example.com",
            "shared": {"plugins": {"vulnerable-plugin": "1.0"},
                       "cve_matched_slugs": {"vulnerable-plugin"}},

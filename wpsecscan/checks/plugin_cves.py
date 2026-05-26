@@ -302,6 +302,10 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         for vuln in matches:
             matched_any = True
             findings.append(_vuln_to_finding(slug, ver, vuln, client))
+            # Mark this slug as CVE-matched so the plugin_cemetery check can
+            # skip it (avoids double-reporting "abandoned + vulnerable" — the
+            # CVE finding is already actionable).
+            ctx.setdefault("shared", {}).setdefault("cve_matched_slugs", set()).add(slug.lower())
 
         # Aggressive: run any confirmed-exploit signatures for this slug
         await _run_sigs_for(client, sigs_by_slug.get(slug.lower(), []), ver, findings, step)

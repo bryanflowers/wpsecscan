@@ -19,6 +19,7 @@ on disk under ~/.wpsecscan/cache/wporg/).
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from datetime import datetime, timezone
@@ -41,9 +42,11 @@ def _cache_dir() -> Path:
     return p
 
 
-def _fetch_wporg(slug: str, timeout: float = 8.0) -> dict | None:
-    """Returns a parsed JSON dict, or None on failure / 404 (delisted).
-    Result is sentinel-coded: {"_delisted": True} when wp.org 404s the slug."""
+def _fetch_wporg_sync(slug: str, timeout: float = 8.0) -> dict | None:
+    """Synchronous wp.org fetch. Returns a parsed JSON dict, or None on
+    failure / 404 (delisted). Result is sentinel-coded: {"_delisted": True}
+    when wp.org 404s the slug. Called via asyncio.to_thread from the async
+    check() so it doesn't block the event loop."""
     cache_path = _cache_dir() / f"{slug}.json"
     if cache_path.exists():
         try:
@@ -78,22 +81,49 @@ def _fetch_wporg(slug: str, timeout: float = 8.0) -> dict | None:
     return data
 
 
+async def _fetch_wporg(slug: str, timeout: float = 8.0) -> dict | None:
+    """Async wrapper around the synchronous wp.org fetch — runs in a thread
+    so a slow wp.org response doesn't block the entire scan's event loop
+    (which would freeze every other concurrent check for up to 8 s each)."""
+    return await asyncio.to_thread(_fetch_wporg_sync, slug, timeout)
+
+
 def _years_since(iso_or_date_str: str) -> float | None:
-    """Parse '2022-08-14 11:34am GMT' (wp.org's quirky format) or ISO."""
+    """Parse '2022-08-14 11:34am GMT' (wp.org's quirky format) or ISO.
+
+    wp.org uses lowercase am/pm, and on Linux strptime's %p only matches
+    uppercase — so we uppercase the string and strip the GMT suffix before
+    trying time-of-day formats. Without this, every wp.org last_updated
+    string silently failed to parse on Linux runners.
+    """
     if not iso_or_date_str:
         return None
     s = iso_or_date_str.strip()
-    # wp.org common: "2022-08-14 11:34am GMT"
-    for fmt in ("%Y-%m-%d %I:%M%p GMT", "%Y-%m-%d %H:%M:%S",
+    # Strip trailing " GMT" so strptime doesn't have to match it literally.
+    if s.upper().endswith(" GMT"):
+        s = s[:-4].strip()
+    upper = s.upper()
+    for fmt in ("%Y-%m-%d %I:%M%p", "%Y-%m-%d %H:%M:%S",
                 "%Y-%m-%d", "%Y-%m-%dT%H:%M:%S"):
         try:
-            dt = datetime.strptime(s, fmt)
+            dt = datetime.strptime(upper, fmt)
             dt = dt.replace(tzinfo=timezone.utc)
             delta = datetime.now(timezone.utc) - dt
             return delta.total_seconds() / (365.25 * 86400)
         except ValueError:
             continue
     return None
+
+
+def _format_installs(v) -> str:
+    """wp.org sometimes returns int (e.g. 50000) and sometimes string ('1+'
+    for plugins with < ~10 installs). The :, format spec crashes on strings,
+    so coerce to int when possible and fall back to a safe display string."""
+    if isinstance(v, int):
+        return f"{v:,}"
+    if isinstance(v, str) and v.rstrip("+").isdigit():
+        return v
+    return str(v) if v else "?"
 
 
 async def check(client: Client, ctx: dict) -> list[Finding]:
@@ -118,7 +148,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         if slug in cve_matched:
             continue
         step(f"checking wp.org maintenance status of {slug}...")
-        data = _fetch_wporg(slug)
+        data = await _fetch_wporg(slug)
         if data is None:
             continue
         if data.get("_delisted"):
@@ -156,7 +186,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
             title=label,
             evidence=(
                 f"wp.org last_updated: {data.get('last_updated', '?')}\n"
-                f"Active installs: {data.get('active_installs', '?'):,}\n"
+                f"Active installs: {_format_installs(data.get('active_installs'))}\n"
                 f"Tested up to WP: {data.get('tested', '?')}\n"
                 f"Requires WP: {data.get('requires', '?')}\n\n"
                 "Unmaintained plugins accumulate undisclosed vulnerabilities and stop "
