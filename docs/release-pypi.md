@@ -6,55 +6,35 @@ release pipeline. The workflow at
 implements both **TestPyPI dry runs** (for verifying the build) and **real
 PyPI publishes** (the user-facing release).
 
-## One-time setup
+## Auth model (as shipped)
 
-You only do these three steps once.
+Both indexes use **API-token authentication**, stored as repo-level
+GitHub Actions secrets. We initially intended to use PyPI Trusted
+Publisher OIDC, but the user-side OIDC mapping turned out fragile
+during initial onboarding — API tokens were faster to ship and the
+secrets are scoped to the `wpsecscan` project only.
 
-### Step 1 — claim the project on PyPI
+| Index    | Secret name           | Issued at                                            |
+|----------|-----------------------|------------------------------------------------------|
+| TestPyPI | `TEST_PYPI_API_TOKEN` | https://test.pypi.org/manage/account/token/          |
+| PyPI     | `PYPI_API_TOKEN`      | https://pypi.org/manage/account/token/               |
 
-1. Sign in or sign up at <https://pypi.org/account/login/>.
-2. The first publish creates the `wpsecscan` project automatically; you
-   don't need to pre-register it. But you DO need an account in good
-   standing (e-mail verified, password set, 2FA strongly recommended).
+Both tokens are also mirrored at
+`C:\Users\bryan\migration\HANDOFF.md` for rotation reference.
 
-### Step 2 — register the Trusted Publisher
+## One-time setup (already done)
 
-PyPI lets a GitHub Actions workflow publish without storing any API
-token in the repo. Setup is per-project + per-workflow + per-environment:
-
-1. Go to <https://pypi.org/manage/account/publishing/>.
-2. Click **Add a new pending publisher**.
-3. Fill in:
-   - **PyPI project name**: `wpsecscan`
-   - **Owner**: `bryanflowers`
-   - **Repository name**: `wpsecscan`
-   - **Workflow name**: `pypi-publish.yml`
-   - **Environment name**: `pypi`
-4. Save. Repeat with environment name `testpypi` if you also want
-   TestPyPI dry runs (recommended).
-
-The OIDC claim that the workflow presents (already verified by a
-dry-run on 2026-05-26) is:
-
-```
-sub:               repo:bryanflowers/wpsecscan:environment:testpypi
-repository:        bryanflowers/wpsecscan
-repository_owner:  bryanflowers
-workflow_ref:      bryanflowers/wpsecscan/.github/workflows/pypi-publish.yml@refs/heads/main
-ref:               refs/heads/main
-environment:       testpypi          ← swap to `pypi` for the real publisher
-```
-
-If your Trusted Publisher entry on (Test)PyPI matches these exactly,
-the next `gh workflow run` invocation will succeed.
-
-### Step 3 — create the GitHub Actions environments
-
-1. In the GitHub repo, go to **Settings → Environments**.
-2. Create two environments named `pypi` and `testpypi`. No secrets
-   needed (Trusted Publisher uses OIDC).
-3. Optionally add a **required reviewer** on the `pypi` environment
-   so real publishes require a manual approve-and-merge click.
+1. Created accounts on both pypi.org and test.pypi.org (separate
+   sign-ups, separate credentials, separate token namespaces).
+2. Issued an API token on each, scoped to the `wpsecscan` project.
+3. Registered both as repo secrets:
+   ```
+   gh secret set TEST_PYPI_API_TOKEN --repo bryanflowers/wpsecscan --body "<test-token>"
+   gh secret set PYPI_API_TOKEN      --repo bryanflowers/wpsecscan --body "<real-token>"
+   ```
+4. Created GitHub Actions environments `pypi` and `testpypi`. Optional
+   but recommended: add a **required reviewer** to the `pypi`
+   environment so real releases require a manual approval click.
 
 ## Per-release runbook
 
@@ -134,29 +114,23 @@ gh release create vX.Y.Z --notes-from-tag
 The existing `release-attestation.yml` workflow will then attach
 cosign signatures + SHA256SUMS + the SBOM to the release.
 
-## Auth model (as actually shipped)
+## Token rotation
 
-- **TestPyPI** uses an API token stored in the repo secret
-  `TEST_PYPI_API_TOKEN`. Token issued at
-  <https://test.pypi.org/manage/account/token/>. Mirrored in
-  `C:\Users\bryan\migration\HANDOFF.md` for rotation reference.
-- **Real PyPI** uses Trusted Publisher OIDC. No token stored.
-  Configure once at <https://pypi.org/manage/account/publishing/>.
+When a token leaks or expires, issue a new one and update both the
+GitHub secret AND the mirror in `C:\Users\bryan\migration\HANDOFF.md`:
 
-Rotation:
 ```
-gh secret set TEST_PYPI_API_TOKEN --repo bryanflowers/wpsecscan --body "<new>"
+gh secret set TEST_PYPI_API_TOKEN --repo bryanflowers/wpsecscan --body "<new-test-token>"
+gh secret set PYPI_API_TOKEN      --repo bryanflowers/wpsecscan --body "<new-real-token>"
 ```
 
 ## Common failures
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| TestPyPI publish: `Token-based authentication failed` | `TEST_PYPI_API_TOKEN` secret missing, expired, or scoped to a different project | Re-issue at test.pypi.org/manage/account/token/, then `gh secret set` (see Rotation above) |
-| TestPyPI publish: `403 from OIDC exchange` | An older workflow revision still tries OIDC instead of token-auth | Confirm workflow has `user: __token__` + `password: ${{ secrets.TEST_PYPI_API_TOKEN }}` on the publish-testpypi step |
+| `Token-based authentication failed` | Token secret missing, expired, or scoped to a different project | Re-issue at the relevant token page, then `gh secret set` (see Rotation above) |
 | `400 File already exists` | This version was already published | Bump the patch (PyPI is immutable — you can't republish the same version) |
-| `403 OIDC token verification failed` | Trusted Publisher mapping is wrong | Re-check the workflow filename + environment name in Step 2; they must match the workflow YAML byte-for-byte |
-| `Repository name does not match` | Repo renamed or forked | Update the mapping at <https://pypi.org/manage/project/wpsecscan/settings/publishing/> |
+| `400 'summary' field must be 512 characters or less` | pyproject.toml `description` is too long | Shorten `description` in pyproject.toml. The README handles the long form |
 | `README content-type` complaint | Long-description format wrong | Ensure `[project] readme = "README.md"` in pyproject.toml; PyPI infers content-type from the extension |
 | `Missing required field 'author'` | Stripped from pyproject during a refactor | Add back `authors = [{ name = "..." }]` under `[project]` |
 

@@ -4,14 +4,13 @@ name: pypi-publish
 #
 # Two trigger modes:
 #   1. workflow_dispatch with environment=testpypi   → TestPyPI (token-auth)
-#   2. workflow_dispatch with environment=pypi      → real PyPI (Trusted Publisher OIDC)
+#   2. workflow_dispatch with environment=pypi      → real PyPI (token-auth)
 #
-# Auth split: TestPyPI uses the API token in the repo secret
-# TEST_PYPI_API_TOKEN (setting Trusted Publisher on test.pypi.org was
-# a hassle vs just storing a token); real PyPI uses GitHub Trusted
-# Publisher OIDC (no token stored).
-# Trusted Publisher config for pypi.org lives at
-# https://pypi.org/manage/account/publishing/ — see docs/release-pypi.md.
+# Both indexes use API-token auth. Tokens stored as repo secrets:
+#   TEST_PYPI_API_TOKEN  (issued at https://test.pypi.org/manage/account/token/)
+#   PYPI_API_TOKEN       (issued at https://pypi.org/manage/account/token/)
+# Mirrored for rotation reference in C:\Users\bryan\migration\HANDOFF.md.
+# See docs/release-pypi.md for the runbook.
 
 on:
   workflow_dispatch:
@@ -26,8 +25,7 @@ on:
           - pypi
 
 permissions:
-  contents: read
-  id-token: write   # required for Trusted Publisher OIDC
+  contents: read   # token-auth path doesn't need id-token: write
 
 jobs:
   build:
@@ -89,4 +87,6 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           # Default endpoint is https://upload.pypi.org/legacy/ — leave unset.
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
           skip-existing: true
