@@ -385,6 +385,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
                     title="WPScan API lookup failed",
                     evidence=f"{type(e).__name__}: {e}",
                     remediation="Verify --wpscan-token and remaining quota (free tier: 25 req/day).",
+                    url=ctx["target"],
                 )
             )
 

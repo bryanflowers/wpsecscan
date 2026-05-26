@@ -22,10 +22,12 @@ SECRET_PATTERNS: tuple[tuple[str, str, re.Pattern], ...] = (
     ("Stripe test secret key",     "medium",   re.compile(r"\b(sk_test_[0-9a-zA-Z]{24,})", re.IGNORECASE)),
     ("AWS access key ID",          "high",     re.compile(r"\b(AKIA[0-9A-Z]{16})\b")),
     # 40-char base64 strings are extremely common (hashes, CSS-loader IDs,
-    # build manifests). Require a leading `=` or `:` so it looks like an
-    # assignment, not arbitrary content — plus the AWS context check below.
+    # build manifests). Require a leading `=`/`:`/quote so it looks like an
+    # assignment — plus the AWS context check below. Whitespace was previously
+    # in the char class but that includes newlines, so any 40-char hash at a
+    # line start would trip the gate.
     ("AWS secret access key",      "critical",
-        re.compile(r"(?<=[=:\"'\s])([A-Za-z0-9/+=]{40})(?![0-9A-Za-z+/=])", re.IGNORECASE)),
+        re.compile(r"(?<=[=:\"'])([A-Za-z0-9/+=]{40})(?![0-9A-Za-z+/=])", re.IGNORECASE)),
     ("Google API key",             "medium",   re.compile(r"\b(AIza[0-9A-Za-z\-_]{35})\b")),
     ("GitHub personal access token","critical",re.compile(r"\b(gh[pousr]_[A-Za-z0-9]{36,})\b")),
     ("Slack bot/app token",        "critical", re.compile(r"\b(xox[baprs]-[A-Za-z0-9\-]{10,})\b")),
@@ -42,7 +44,10 @@ SECRET_PATTERNS: tuple[tuple[str, str, re.Pattern], ...] = (
     ("SendGrid API key",           "high",     re.compile(r"\b(SG\.[A-Za-z0-9_\-]{22}\.[A-Za-z0-9_\-]{43})\b")),
     ("Twilio Account SID",         "low",      re.compile(r"\b(AC[0-9a-f]{32})\b")),
     ("JWT token in source",        "low",      re.compile(r"\b(eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,})\b")),
-    ("Cloudflare API token",       "high",     re.compile(r"\b([A-Za-z0-9_\-]{40})(?=.*cloudflare)", re.IGNORECASE)),
+    # Bounded the lookahead distance to 200 chars to avoid catastrophic
+    # backtracking on large minified JS bundles containing many 40-char
+    # base64 sequences before any "cloudflare" mention.
+    ("Cloudflare API token",       "high",     re.compile(r"\b([A-Za-z0-9_\-]{40})(?=.{0,200}cloudflare)", re.IGNORECASE | re.DOTALL)),
     ("Generic private key (PEM)",  "critical", re.compile(r"(-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----)")),
 )
 
