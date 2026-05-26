@@ -359,6 +359,44 @@ async def _amain(args) -> int:
         if not args.no_console:
             console.print(f"[green]✓[/green] Batch dashboard: [bold]{dpath}[/bold]")
 
+    # FEAT-019: --diff-since 7d — automatically pick the right historical
+    # snapshot from ~/.wpsecscan/reports/{safe}-*.json and use it as the
+    # baseline. Composes with normal scan flow.
+    if getattr(args, "diff_since", None) and all_reports:
+        try:
+            from . import history as _hmod
+            from .diff import diff_dicts as _diff_dicts2
+            import re as _re_dur, json as _j_dur
+            from datetime import datetime as _dt_dur, timedelta as _td_dur, timezone as _tz_dur
+            m = _re_dur.match(r"^(\d+)([hdw])$", args.diff_since.strip())
+            if not m:
+                console.print(f"[red]--diff-since: invalid WINDOW '{args.diff_since}' (use e.g. 7d, 24h, 2w)[/red]")
+            else:
+                qty, unit = int(m.group(1)), m.group(2)
+                hours = qty * (1 if unit == "h" else 24 if unit == "d" else 24 * 7)
+                cutoff = _dt_dur.now(_tz_dur.utc) - _td_dur(hours=hours)
+                # Pick the most recent snapshot OLDER than the cutoff
+                target_url = all_reports[-1][0].target
+                snaps = _hmod.snapshot_history(target_url)
+                older = [p for p in snaps if _dt_dur.fromtimestamp(
+                    p.stat().st_mtime, tz=_tz_dur.utc) < cutoff]
+                if not older:
+                    console.print(f"[yellow]--diff-since {args.diff_since}: no snapshots older than that window for {target_url}[/yellow]")
+                else:
+                    baseline_path = older[-1]
+                    baseline = _j_dur.loads(baseline_path.read_text(encoding="utf-8"))
+                    current = json_reporter._enrich(all_reports[-1][0])
+                    delta = _diff_dicts2(baseline, current)
+                    console.print(f"\n[bold cyan]--- DIFF vs {baseline_path.name} ({args.diff_since} window) ---[/bold cyan]")
+                    console.print(f"[red]NEW    ({len(delta['new'])}):[/red]")
+                    for f in delta["new"][:30]:
+                        console.print(f"  + [{f.get('severity','?').upper()}] {f.get('title','?')[:100]}")
+                    console.print(f"[green]RESOLVED ({len(delta['resolved'])}):[/green]")
+                    for f in delta["resolved"][:30]:
+                        console.print(f"  - [{f.get('severity','?').upper()}] {f.get('title','?')[:100]}")
+        except (OSError, ValueError, TypeError) as e:
+            console.print(f"[red]--diff-since failed: {e}[/red]")
+
     # D4: --diff-against — compare the most recent scan against a saved baseline.
     if args.diff_against and all_reports:
         try:
@@ -414,7 +452,7 @@ def main() -> None:
     # `wpsecscan <url>` invocations stay backward-compatible.
     if len(sys.argv) >= 2 and sys.argv[1] in (
         "sites", "schedule", "digest", "ai-cost", "db", "ai-options", "analytics",
-        "compare", "badge", "paths", "report", "annotate", "check",
+        "compare", "badge", "paths", "report", "annotate", "check", "config",
     ):
         _dispatch_subcommand(sys.argv[1], sys.argv[2:])
         return
@@ -547,6 +585,9 @@ def main() -> None:
 
     p.add_argument("--update-db", action="store_true", help="Download the Wordfence Intelligence vulnerability database and exit")
     p.add_argument("--diff", nargs=2, metavar=("OLD.json", "NEW.json"), help="Compare two report JSONs and print the diff, then exit")
+    p.add_argument("--diff-since", default=None, metavar="WINDOW",
+                   help="Diff scan-in-progress against the most recent saved snapshot older than WINDOW "
+                        "(e.g. `7d`, `24h`, `2w`). Composes with the scan; outputs the delta after the scan completes.")
     p.add_argument("--debug", action="store_true", help="Verbose logging to ~/.wpsecscan/logs/")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     args = p.parse_args()
@@ -831,6 +872,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_annotate(args)
     elif cmd == "check":
         _cmd_check(args)
+    elif cmd == "config":
+        _cmd_config(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -978,6 +1021,63 @@ def _cmd_check(args: list[str]) -> None:
     print()
     for cid, cname, owasp, owasp_label, mode in rows:
         print(f"  [{owasp:8s}]  {cid:35s}  ({mode:11s})  {cname}")
+
+
+def _cmd_config(args: list[str]) -> None:
+    """`wpsecscan config validate <path>` — lint the daemon YAML config."""
+    if not args or args[0] in ("-h", "--help"):
+        print("usage: wpsecscan config validate <path>")
+        return
+    if args[0] != "validate" or len(args) < 2:
+        print("usage: wpsecscan config validate <path>", file=sys.stderr)
+        sys.exit(64)
+    issues = _validate_yaml_config(Path(args[1]))
+    if not issues:
+        print(f"OK — {args[1]} validated cleanly.")
+        return
+    print(f"FAIL — {len(issues)} issue(s) in {args[1]}:")
+    for i in issues:
+        print(f"  - {i}")
+    sys.exit(1)
+
+
+def _validate_yaml_config(path: Path) -> list[str]:
+    """Lint the daemon YAML config; return a list of human-readable issues
+    (empty list = valid). Used by the new `wpsecscan config validate` cmd."""
+    issues: list[str] = []
+    if not path.exists():
+        return [f"file not found: {path}"]
+    try:
+        import yaml as _yaml  # type: ignore
+    except ImportError:
+        return ["PyYAML not installed (pip install pyyaml or pip install wpsecscan[yaml])"]
+    try:
+        doc = _yaml.safe_load(path.read_text(encoding="utf-8"))
+    except _yaml.YAMLError as e:
+        return [f"YAML parse error: {e}"]
+    if not isinstance(doc, dict):
+        return ["top-level must be a mapping (key: value, ...)"]
+    schedule = doc.get("schedule") or {}
+    if not isinstance(schedule, dict):
+        issues.append("`schedule` must be a mapping")
+    targets = doc.get("targets") or doc.get("sites") or []
+    if not isinstance(targets, list):
+        issues.append("`targets` (or `sites`) must be a list")
+    elif not targets:
+        issues.append("`targets` is empty — daemon would do nothing")
+    for i, t in enumerate(targets if isinstance(targets, list) else []):
+        if isinstance(t, str):
+            if not t.startswith(("http://", "https://")):
+                issues.append(f"targets[{i}]: URL must start with http:// or https://")
+        elif isinstance(t, dict):
+            if not t.get("url"):
+                issues.append(f"targets[{i}]: missing `url` key")
+        else:
+            issues.append(f"targets[{i}]: must be string URL or mapping with `url`")
+    cron = doc.get("cron")
+    if cron and not isinstance(cron, str):
+        issues.append("`cron` must be a string in 5-field cron format")
+    return issues
 
 
 def _cmd_paths(args: list[str]) -> None:
