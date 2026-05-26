@@ -179,6 +179,103 @@ def test_secret_leak_clean_when_no_secrets():
     assert any("No accidental secret patterns" in f.title for f in findings)
 
 
+# ============================== item 1 — WC Stripe escalation ==============================
+
+def test_stripe_pk_live_escalates_to_medium_on_woocommerce():
+    """Item 1: pk_live found alongside WooCommerce markers should be medium,
+    not the default low — it's a real billing-impact key."""
+    from wpsecscan.checks.secret_leak import check
+    fake = "pk_" + "live_" + "ABCdef1234567890ABCdef1234"
+    body = (
+        f"window.wc_add_to_cart_params = {{stripe: '{fake}'}};\n"
+        "<script src='/wp-content/plugins/woocommerce-gateway-stripe/...'></script>"
+    )
+    client = FakeClient(responses={"/checkout/": FakeResponse(text=body)})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = run(check(client, ctx))
+    pks = [f for f in findings if "Stripe live publishable" in f.title]
+    assert pks, "expected at least one Stripe pk_live finding"
+    assert pks[0].severity == "medium", f"expected medium on WC page, got {pks[0].severity}"
+
+
+def test_stripe_pk_live_stays_low_off_woocommerce():
+    from wpsecscan.checks.secret_leak import check
+    fake = "pk_" + "live_" + "ABCdef1234567890ABCdef1234"
+    body = f"var stripe = '{fake}';"
+    client = FakeClient(responses={"/": FakeResponse(text=body)})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = run(check(client, ctx))
+    pks = [f for f in findings if "Stripe live publishable" in f.title]
+    assert pks
+    assert pks[0].severity == "low"
+
+
+# ============================== item 5 — extended secret patterns ==============================
+
+def test_secret_leak_flags_mapbox_secret_token():
+    from wpsecscan.checks.secret_leak import check
+    body = ('TOKEN = "sk.eyJ1IjoiYWJjZGVmZ2hpamtsbW5vcCJ9'
+            '.abcdef0123456789abcdef0123456789"')
+    client = FakeClient(responses={"/": FakeResponse(text=body)})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = run(check(client, ctx))
+    hits = [f for f in findings if "Mapbox secret token" in f.title]
+    assert hits and hits[0].severity == "critical"
+
+
+def test_secret_leak_flags_algolia_admin_key_with_context():
+    from wpsecscan.checks.secret_leak import check
+    body = ("algolia.init({adminKey: '0123456789abcdef0123456789abcdef'});")
+    client = FakeClient(responses={"/": FakeResponse(text=body)})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = run(check(client, ctx))
+    assert any("Algolia admin API key" in f.title for f in findings)
+
+
+def test_secret_leak_algolia_pattern_requires_context():
+    """A bare 32-char hex string with no algolia mention should NOT fire."""
+    from wpsecscan.checks.secret_leak import check
+    body = "<p>md5: 0123456789abcdef0123456789abcdef</p>"
+    client = FakeClient(responses={"/": FakeResponse(text=body)})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = run(check(client, ctx))
+    assert not any("Algolia" in f.title for f in findings)
+
+
+def test_secret_leak_flags_sentry_dsn():
+    from wpsecscan.checks.secret_leak import check
+    body = ('Sentry.init({dsn: "https://abcdef0123456789abcdef0123456789'
+            '@o123456.ingest.us.sentry.io/4500000000000000"});')
+    client = FakeClient(responses={"/": FakeResponse(text=body)})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = run(check(client, ctx))
+    assert any("Sentry DSN" in f.title for f in findings)
+
+
+def test_secret_leak_flags_meilisearch_master_key_with_context():
+    from wpsecscan.checks.secret_leak import check
+    body = ('const meili = new MeiliSearch({'
+            'host: "https://meili.example.com",'
+            'apiKey: "abcDEF123456ghiJKL789mnoPQR012stu"});')
+    client = FakeClient(responses={"/": FakeResponse(text=body)})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = run(check(client, ctx))
+    assert any("MeiliSearch master key" in f.title for f in findings)
+
+
+def test_secret_leak_flags_new_relic_browser_key():
+    from wpsecscan.checks.secret_leak import check
+    body = (
+        '<script>window.NREUM||(NREUM={});NREUM.info='
+        '{"beacon":"bam.nr-data.net","licenseKey":"NRBR-ABC123def456ghi789jkl"};'
+        'window.newrelic=NREUM;</script>'
+    )
+    client = FakeClient(responses={"/": FakeResponse(text=body)})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = run(check(client, ctx))
+    assert any("New Relic" in f.title for f in findings)
+
+
 # ============================== check registry ==============================
 
 def test_all_new_checks_registered():

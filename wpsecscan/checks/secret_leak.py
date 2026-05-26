@@ -49,7 +49,36 @@ SECRET_PATTERNS: tuple[tuple[str, str, re.Pattern], ...] = (
     # base64 sequences before any "cloudflare" mention.
     ("Cloudflare API token",       "high",     re.compile(r"\b([A-Za-z0-9_\-]{40})(?=.{0,200}cloudflare)", re.IGNORECASE | re.DOTALL)),
     ("Generic private key (PEM)",  "critical", re.compile(r"(-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----)")),
+    # Mapbox: pk.* is the public token (intended to be exposed but should be
+    # URL-restricted; flag at low). sk.* is the secret token (critical).
+    ("Mapbox secret token",        "critical", re.compile(r"\b(sk\.eyJ[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{20,})\b")),
+    ("Mapbox public token (unrestricted)", "low",
+        re.compile(r"\b(pk\.eyJ[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{20,})\b")),
+    # Algolia admin keys are 32 lowercase hex chars; require co-occurrence of
+    # "algolia" within 200 chars (either direction — context-gated below) to
+    # avoid matching every MD5 on the page.
+    ("Algolia admin API key",      "critical",
+        re.compile(r"\b([a-f0-9]{32})\b", re.IGNORECASE)),
+    # MeiliSearch master key — context-gated below on "meili" within 200 chars.
+    ("MeiliSearch master key",     "critical",
+        re.compile(r"(?<=[=:\"'])([A-Za-z0-9_\-]{32,})(?=[\"'])", re.IGNORECASE)),
+    # Sentry public DSN. Public-by-design but leaking the project number aids
+    # event-spoofing on a low-rate-limit org; flag low for awareness.
+    ("Sentry DSN",                 "low",
+        re.compile(r"\b(https://[a-f0-9]{32}@(?:[a-z0-9-]+\.)?o?\d+\.ingest\.(?:us\.|de\.)?sentry\.io/\d+)\b")),
+    # New Relic browser license key — context-gated on "NREUM"/"newrelic"
+    # within 400 chars (either direction).
+    ("New Relic browser license key", "medium",
+        re.compile(r"\"licenseKey\"\s*:\s*\"([A-Za-z0-9_\-]{16,})\"")),
 )
+
+# Per-finding context-gating words. Pattern only fires if any of these words
+# appears in the surrounding ±200 chars of the match (±400 for New Relic).
+CONTEXT_GATES: dict[str, tuple[tuple[str, ...], int]] = {
+    "Algolia admin API key":           (("algolia",), 200),
+    "MeiliSearch master key":          (("meili",), 200),
+    "New Relic browser license key":   (("nreum", "newrelic"), 400),
+}
 
 # Reduce false positives: AWS secret-style 40-char strings need to appear
 # near AWS context words to be considered a real key.
@@ -64,7 +93,19 @@ SCAN_PATHS = (
     # JS bundle paths that frequently leak frontend configs
     "/wp-content/themes/twentytwentyfour/assets/js/scripts.js",
     "/wp-content/themes/twentytwentyfour/dist/index.js",
+    # WooCommerce checkout & cart pages — Stripe pk_live keys are routinely
+    # embedded in the WC Blocks JS bundle. Item 1 bumps severity when these
+    # pages are the source of the leak.
+    "/cart/",
+    "/checkout/",
+    "/shop/",
 )
+
+# Markers identifying a WooCommerce-rendered page. Used to escalate the
+# generic "Stripe live publishable" finding from low → medium when seen
+# in a real WC checkout context (where rotating the key has billing impact).
+WC_CONTEXT_WORDS = ("wc_add_to_cart", "woocommerce", "wc-blocks-style",
+                    "wc/store/v1", "checkout_params")
 
 
 def _redact(value: str) -> str:
@@ -101,7 +142,23 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
                     context = body[span_start:span_end].lower()
                     if not any(w in context for w in AWS_CONTEXT_WORDS):
                         continue
-                found.append((name, sev, path, _redact(value)))
+                if name in CONTEXT_GATES:
+                    words, radius = CONTEXT_GATES[name]
+                    span_start = max(0, m.start() - radius)
+                    span_end = min(len(body), m.end() + radius)
+                    context = body[span_start:span_end].lower()
+                    if not any(w in context for w in words):
+                        continue
+                # Item 1: escalate the Stripe pk_live default-low finding to
+                # medium if the page also looks like a real WooCommerce
+                # checkout / cart / shop bundle. A pk_live there means a real
+                # storefront billing risk if rotation is needed.
+                effective_sev = sev
+                if name == "Stripe live publishable":
+                    body_lower = body.lower()
+                    if any(w in body_lower for w in WC_CONTEXT_WORDS):
+                        effective_sev = "medium"
+                found.append((name, effective_sev, path, _redact(value)))
 
     # Dedupe by (name, redacted) so the same key found in 4 pages = 1 finding
     seen: set[tuple[str, str]] = set()
