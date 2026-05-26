@@ -687,7 +687,7 @@ def main() -> None:
         "sites", "schedule", "digest", "ai-cost", "db", "ai-options", "analytics",
         "compare", "badge", "paths", "report", "annotate", "check", "config",
         "verify-release", "watch", "portfolio", "refix", "snooze", "diff-tree",
-        "pr-comment", "publish",
+        "pr-comment", "publish", "only", "doctor",
     ):
         _dispatch_subcommand(sys.argv[1], sys.argv[2:])
         return
@@ -1251,6 +1251,10 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_pr_comment(args)
     elif cmd == "publish":
         _cmd_publish(args)
+    elif cmd == "only":
+        _cmd_only(args)
+    elif cmd == "doctor":
+        _cmd_doctor(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -1815,6 +1819,171 @@ def _cmd_refix(args: list[str]) -> None:
             print(f"  [{f.get('severity').upper()}] {f.get('title')}")
         print(f"Receipt: {out_path}")
         sys.exit(64)
+
+
+def _cmd_only(args: list[str]) -> None:
+    """`wpsecscan only CHECK_ID URL [--aggressive] [--auth-user U] [...]`
+
+    Run ONE named check against URL and print the findings. Faster than
+    `refix` (which writes a fix-attested receipt to disk); intended for
+    ad-hoc testing of a single check during development or debugging.
+    """
+    if len(args) < 2 or args[0] in ("-h", "--help"):
+        print("usage: wpsecscan only CHECK_ID URL [--aggressive] [--auth-user U] [...]\n"
+              "  CHECK_ID: see `wpsecscan check list` for valid IDs.\n"
+              "  URL:      target site, e.g. https://example.com")
+        sys.exit(0 if args and args[0] in ("-h", "--help") else 2)
+    check_id, target = args[0], args[1]
+    if not target.startswith(("http://", "https://")):
+        target = "https://" + target
+
+    aggressive = "--aggressive" in args
+    auth_user = None
+    auth_pass = None
+    for i, a in enumerate(args):
+        if a == "--auth-user" and i + 1 < len(args):
+            auth_user = args[i + 1]
+        elif a == "--auth-pass" and i + 1 < len(args):
+            auth_pass = args[i + 1]
+
+    import asyncio as _asyncio
+    from .checks import ALL_CHECKS
+    from .http import Client
+    ours = [c for c in ALL_CHECKS if c[0] == check_id]
+    if not ours:
+        print(f"unknown check_id: {check_id}", file=sys.stderr)
+        print("see `wpsecscan check list` for valid IDs", file=sys.stderr)
+        sys.exit(2)
+    cid, name, fn = ours[0][:3]
+
+    async def _run():
+        client = Client(target, timeout=15.0, user_agent="WPSecScan/only")
+        try:
+            ctx = {
+                "target": target,
+                "shared": {},
+                "step": lambda _s: None,
+                "aggressive": aggressive,
+                "auth_user": auth_user,
+                "auth_pass": auth_pass,
+                "is_cancelled": lambda: False,
+                "is_paused":    lambda: False,
+            }
+            return await fn(client, ctx)
+        finally:
+            try:
+                await client.aclose()
+            except Exception:  # noqa: BLE001
+                pass
+
+    findings = _asyncio.run(_run()) or []
+    if not findings:
+        print(f"{cid} on {target}: no findings.")
+        sys.exit(0)
+    print(f"{cid} on {target}: {len(findings)} finding(s)")
+    for f in findings:
+        print(f"  [{f.severity.upper()}] {f.title}")
+        if f.url:
+            print(f"      url: {f.url}")
+        if f.evidence:
+            ev = (f.evidence or "")[:200].replace("\n", " ")
+            print(f"      evidence: {ev}")
+    has_actionable = any(
+        f.severity in ("low", "medium", "high", "critical") for f in findings
+    )
+    sys.exit(1 if has_actionable else 0)
+
+
+def _cmd_doctor(args: list[str]) -> None:
+    """`wpsecscan doctor` — one-shot environment audit.
+
+    Checks every optional component that wpsecscan can leverage and
+    prints a green / yellow / red verdict so the user knows at a glance
+    what's available and what's not.
+    """
+    if args and args[0] in ("-h", "--help"):
+        print(_cmd_doctor.__doc__.strip()); sys.exit(0)
+    import importlib
+    import shutil as _shutil
+    rows: list[tuple[str, str, str]] = []  # (status, name, hint)
+
+    def _check_import(mod: str, hint: str) -> None:
+        try:
+            importlib.import_module(mod)
+            rows.append(("✓", mod, "installed"))
+        except ImportError:
+            rows.append(("•", mod, hint))
+
+    def _check_bin(name: str, hint: str) -> None:
+        if _shutil.which(name):
+            rows.append(("✓", name, "on PATH"))
+        else:
+            rows.append(("•", name, hint))
+
+    def _check_env(var: str, hint: str) -> None:
+        if os.environ.get(var):
+            rows.append(("✓", var, "set"))
+        else:
+            rows.append(("•", var, hint))
+
+    # Core
+    rows.append(("✓", f"wpsecscan v{__version__}", "running"))
+    rows.append(("✓", f"Python {sys.version.split()[0]}", "running"))
+
+    # Optional Python deps
+    _check_import("httpx",          "required — should always be installed")
+    _check_import("jinja2",         "required — HTML reports")
+    _check_import("dnspython",      "[yaml]/[all] extra — DNSSEC + MX checks need it")
+    _check_import("PIL",            "[ui] extra — DPI-aware GUI + tray icon + score-trend chart")
+    _check_import("pystray",        "[ui] extra — minimize-to-tray for the GUI")
+    _check_import("reportlab",      "[pdf] extra — true PDF executive reports (else HTML fallback)")
+    _check_import("docx",           "python-docx — true DOCX reports (else RTF fallback)")
+    _check_import("yaml",           "[yaml] extra — daemon config + policy.yml + --config .yml")
+    _check_import("keyring",        "[ui] extra — store creds in OS keychain")
+    _check_import("playwright",     "[browser] extra — headless DOM-XSS + screenshots")
+    _check_import("redis",          "[ops] extra — distributed CVE-DB cache")
+    _check_import("sigstore",       "verify-release subcommand")
+
+    # External binaries the scanner shells out to
+    _check_bin("openssl",  "tls_modern check uses openssl s_client for 0-RTT + OCSP stapling")
+    _check_bin("dig",      "dns_security falls back to dig when dnspython is missing")
+    _check_bin("nslookup", "ditto — alt fallback")
+    _check_bin("git",      "release-attestation verification")
+    _check_bin("gh",       "pypi-publish workflow trigger + verify-release")
+
+    # Tokens
+    _check_env("WPSECSCAN_WPSCAN_TOKEN",        "wpscan.com plugin-CVE enrichment (25 req/day free)")
+    _check_env("WPSECSCAN_PATCHSTACK_TOKEN",    "patchstack.com WP-specific CVE feed")
+    _check_env("WPSECSCAN_HIBP_TOKEN",          "HaveIBeenPwned email-breach check ($4/mo)")
+    _check_env("WPSECSCAN_VT_TOKEN",            "VirusTotal URL+IP reputation (4 req/min free)")
+    _check_env("WPSECSCAN_ABUSEIPDB_TOKEN",     "AbuseIPDB IP-reputation (1000/day free)")
+    _check_env("WPSECSCAN_GITHUB_SEARCH_TOKEN", "GitHub code-search for leaked secrets")
+    _check_env("WPSECSCAN_OPENAI_API_KEY",      "AI-assisted features (else --ai-explain-for is a no-op)")
+    _check_env("WPSECSCAN_ANTHROPIC_API_KEY",   "alt AI backend")
+    _check_env("WPSECSCAN_OLLAMA_URL",          "alt local AI backend (no token, just URL)")
+
+    # Files / dirs
+    home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+    rows.append(("✓" if home.exists() else "•", f"~/.wpsecscan/", str(home)))
+    rows.append(("✓" if (home / "reports").exists() else "•",
+                  "~/.wpsecscan/reports/", "report snapshots"))
+    rows.append(("✓" if (home / "policy.yml").exists() or (home / "policy.json").exists() else "•",
+                  "~/.wpsecscan/policy.{yml,json}", "per-site policy overrides"))
+
+    # Output
+    print()
+    print(f"{'':2}  {'COMPONENT':40}  HINT")
+    print(f"{'':2}  {'-' * 40}  {'-' * 40}")
+    for status, name, hint in rows:
+        print(f"{status:2}  {name[:40]:40}  {hint}")
+    print()
+    missing = sum(1 for s, _n, _h in rows if s == "•")
+    if missing:
+        print(f"{missing} optional component(s) not detected. Wpsecscan will still run; "
+               "install the listed extras / set the env vars to enable the relevant features.")
+    else:
+        print("All optional components detected.")
+    sys.exit(0)
 
 
 def _cmd_publish(args: list[str]) -> None:
