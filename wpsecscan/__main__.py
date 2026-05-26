@@ -541,6 +541,12 @@ def main() -> None:
     p.add_argument("--dry-run", action="store_true",
                    help="Validate config + print the list of checks that would run against the target, then exit. "
                         "Does not perform any HTTP requests; safe to run against any URL.")
+    p.add_argument("--continuous", action="store_true",
+                   help="FEAT-036: poll the companion plugin's /file-monitor endpoint and "
+                        "report any file changes on plugin/theme directories. Requires "
+                        "--companion-token. Use --interval N to control polling cadence.")
+    p.add_argument("--interval", type=int, default=300, metavar="SECONDS",
+                   help="Polling interval for --continuous mode (default 300 = 5 minutes).")
     p.add_argument("--checkpoint", action="store_true", help="Save progress to ~/.wpsecscan/checkpoints/ so a Ctrl+C scan can resume on next run")
     p.add_argument("--fail-on", default=None, metavar="LEVEL[,LEVEL]",
                    help="Exit with code 2 if any finding is at or above this severity. "
@@ -698,6 +704,25 @@ def main() -> None:
             sys.exit(64)
         serve(host=host, port=port, token=getattr(args, "api_token", None))
         sys.exit(0)
+
+    # --continuous monitor mode — long-running poll loop, no scan.
+    if getattr(args, "continuous", False):
+        if not args.target:
+            print("--continuous requires a target URL.", file=sys.stderr)
+            sys.exit(64)
+        if not args.companion_token:
+            print("--continuous requires --companion-token (or WPSECSCAN_COMPANION_TOKEN env var) "
+                  "to authenticate against the companion plugin's /file-monitor endpoint.",
+                  file=sys.stderr)
+            sys.exit(64)
+        from . import continuous_monitor as _cm
+        try:
+            sys.exit(asyncio.run(_cm.run(args.target,
+                                          companion_token=args.companion_token,
+                                          interval_s=args.interval)))
+        except KeyboardInterrupt:
+            print("\nContinuous monitor stopped.", file=sys.stderr)
+            sys.exit(130)
 
     # --dry-run short-circuit: print what would happen, exit without HTTP.
     if getattr(args, "dry_run", False):
