@@ -326,6 +326,9 @@ class App:
         # #41 — saved-sites credential vault
         tools.add_command(label="Saved sites (credential vault)...",
                             command=self._open_saved_sites)
+        # #47 — per-check heatmap across recent snapshots of the current URL
+        tools.add_command(label="Check-history heatmap (current URL)...",
+                            command=self._open_check_heatmap)
         # E7: drill historical findings by OWASP/ATT&CK/CWE/D3FEND tag
         tools.add_command(label="Drill historical findings by tag...", command=self._open_drill_by_tag)
         # F5: drop-in marketplace browser
@@ -1035,7 +1038,23 @@ class App:
                 if not f:
                     continue
                 sev_ok = show.get(f.severity, True)
-                q_ok = (q in f.title.lower()) or (q in (f.evidence or "").lower()) if q else True
+                # #44 — CVE search. Two paths:
+                #   "cve:CVE-2024-..." → exact match against finding.extra.cve
+                #   anything else      → existing title/evidence substring match,
+                #                        PLUS the extra.cve field for free.
+                if q:
+                    extra_cve = ((f.extra or {}).get("cve") or "").lower()
+                    if q.startswith("cve:"):
+                        wanted = q[4:].strip()
+                        q_ok = bool(wanted) and wanted == extra_cve
+                    else:
+                        q_ok = (
+                            q in f.title.lower()
+                            or q in (f.evidence or "").lower()
+                            or q in extra_cve
+                        )
+                else:
+                    q_ok = True
                 new_ok = (f.title in new_set) if only_new else True
                 conf_ok = f.title.startswith("[CONFIRMED]") if only_confirmed else True
                 ann_ok = True
@@ -2080,6 +2099,101 @@ class App:
     def _open_saved_sites(self) -> None:
         from . import gui_windows as _gw
         _gw.open_saved_sites(self)
+
+    def _open_check_heatmap(self) -> None:
+        """#47 — render an SVG heatmap of (check_id × recent snapshots) for
+        the current URL, open it in the browser."""
+        target = self.url_var.get().strip()
+        if not target:
+            messagebox.showinfo(APP_NAME, "Enter a URL first.")
+            return
+        if not target.startswith(("http://", "https://")):
+            target = "https://" + target
+        from . import history as _h
+        import json as _json
+        import tempfile, webbrowser
+        snaps = _h.snapshot_history(target)[-12:]
+        if len(snaps) < 2:
+            messagebox.showinfo(APP_NAME,
+                f"Need at least 2 saved snapshots for {target}; "
+                f"found {len(snaps)}.")
+            return
+        scans: list[tuple[str, dict[str, str]]] = []  # (ts, {check_id: worst_sev})
+        all_check_ids: set[str] = set()
+        for sp in snaps:
+            try:
+                d = _json.loads(sp.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            ts = d.get("scanned_at", sp.stem.split("-")[-1])[:19]
+            worst_by_cid: dict[str, str] = {}
+            rank = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+            for r in d.get("results", []) or []:
+                cid = r.get("check_id", "")
+                if not cid:
+                    continue
+                cur = worst_by_cid.get(cid, "")
+                for f in r.get("findings", []) or []:
+                    sev = f.get("severity", "info")
+                    if rank.get(sev, 0) > rank.get(cur, -1):
+                        cur = sev
+                if cur:
+                    worst_by_cid[cid] = cur
+                    all_check_ids.add(cid)
+            scans.append((ts, worst_by_cid))
+        # Build an inline SVG. Rows = checks (only those that fired at
+        # least once), cols = scans.
+        rows = sorted(all_check_ids)
+        if not rows:
+            messagebox.showinfo(APP_NAME, "No findings across recent snapshots — nothing to plot.")
+            return
+        cell_w, cell_h = 60, 18
+        label_w = 220
+        header_h = 30
+        w = label_w + cell_w * len(scans) + 16
+        h = header_h + cell_h * len(rows) + 16
+        colors = {"critical": "#67000d", "high": "#5a1816", "medium": "#4a3a10",
+                   "low": "#133246", "info": "#21262d", "": "#1f1f1f"}
+        svg_parts: list[str] = [
+            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}"'
+            f' style="background:#0d1117;color:#e6edf3;font:11px sans-serif">',
+        ]
+        # Column headers
+        for ci, (ts, _) in enumerate(scans):
+            x = label_w + ci * cell_w + cell_w // 2
+            svg_parts.append(
+                f'<text x="{x}" y="{header_h - 4}" fill="#8b949e" '
+                f'text-anchor="middle" font-size="9" '
+                f'transform="rotate(-30 {x},{header_h - 4})">{ts[:16]}</text>'
+            )
+        # Rows
+        for ri, cid in enumerate(rows):
+            y = header_h + ri * cell_h
+            svg_parts.append(
+                f'<text x="8" y="{y + cell_h - 4}" fill="#e6edf3">{cid[:32]}</text>'
+            )
+            for ci, (_ts, worst) in enumerate(scans):
+                sev = worst.get(cid, "")
+                color = colors[sev]
+                x = label_w + ci * cell_w
+                svg_parts.append(
+                    f'<rect x="{x}" y="{y}" width="{cell_w - 1}" '
+                    f'height="{cell_h - 1}" fill="{color}"/>'
+                )
+        svg_parts.append("</svg>")
+        svg = "".join(svg_parts)
+        html_doc = (
+            "<!doctype html><meta charset='utf-8'>"
+            f"<title>WPSecScan check-history heatmap — {target}</title>"
+            "<body style='background:#0d1117;color:#e6edf3;font:14px sans-serif;margin:24px'>"
+            f"<h2>Check-history heatmap — {target}</h2>"
+            "<p>Each cell is the worst severity that check produced on that scan. "
+            "Empty cells = check fired info-only or wasn't run.</p>"
+            f"<div>{svg}</div></body></html>"
+        )
+        out_path = Path(tempfile.gettempdir()) / "wpsecscan-heatmap.html"
+        out_path.write_text(html_doc, encoding="utf-8")
+        webbrowser.open(out_path.as_uri())
 
     def _open_saved_report(self) -> None:
         """#55: open a saved JSON report from disk into the current view."""
