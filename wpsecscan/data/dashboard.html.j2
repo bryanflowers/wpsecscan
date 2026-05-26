@@ -50,6 +50,41 @@
   .brand-header img{max-height:48px;max-width:160px;border-radius:4px}
   .agency-name{font-size:18px;font-weight:600;color:var(--fg)}
   footer{padding:16px 24px;color:var(--muted);font-size:12px;border-top:1px solid var(--border);text-align:center}
+@media (max-width: 700px) {
+  header{padding:20px 14px 12px}
+  main{padding:14px}
+  table{display:block;overflow-x:auto}
+  table thead, table tbody{display:table;width:max-content;min-width:100%}
+  th,td{padding:8px 10px;font-size:13px;white-space:nowrap}
+  .summary{gap:6px}
+  .pill{padding:2px 7px;font-size:10px}
+  .brand-header img{max-height:32px;max-width:100px}
+  .agency-name{font-size:15px}
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg:#f6f8fa; --panel:#ffffff; --panel2:#f0f3f6; --fg:#0d1117; --muted:#586069; --border:#d0d7de;
+    --crit-bg:#ffd6d6; --crit-fg:#67000d;
+    --high-bg:#ffe1de; --high-fg:#5a1816;
+    --med-bg:#fff0c2;  --med-fg:#5d4500;
+    --low-bg:#dbeafe;  --low-fg:#133246;
+    --info-bg:#eef0f2; --info-fg:#586069;
+    --ok-bg:#dbf5e3;   --ok-fg:#133320;
+  }
+  a{color:#0969da}
+}
+@media print {
+  @page{margin:1.5cm 1cm}
+  body{background:#fff!important;color:#111!important;font-size:10pt}
+  header,main,footer{background:#fff!important;color:#111!important}
+  main{padding:0}
+  table{font-size:10pt}
+  th{background:#eee!important;color:#111!important;border:1px solid #999!important}
+  td{border-bottom:1px solid #ccc!important}
+  .pill,.spark{background:#eee!important;color:#111!important;border:1px solid #999!important}
+  a{color:#0055cc;text-decoration:underline}
+  tr{break-inside:avoid;page-break-inside:avoid}
+}
 {% if agency and brand and brand.primary_color %}
   /* brand.json override */
   body{--accent: {{ brand.primary_color }}}

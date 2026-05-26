@@ -159,15 +159,56 @@
     --info-bg:#eee;    --info-fg:#555;
   }
   @media print {
-    .printbtn{display:none}
-    body{background:#fff;color:#111}
-    header,main{background:#fff;color:#111}
-    .summary .pill,.badge{border:1px solid #999;color:#111;background:#eee}
-    details,.finding pre,.quickfix,.proof,.nextsteps,.playbook{background:#fff;color:#111;border-color:#ccc;page-break-inside:avoid}
-    details{break-inside:avoid}
+    .printbtn,.themebtn{display:none}
+    @page{margin:1.5cm 1cm}
+    body{background:#fff!important;color:#111!important;font-size:11pt}
+    header,main{background:#fff!important;color:#111!important;padding-left:0;padding-right:0}
+    main{max-width:none;padding:0}
+    header{padding:0 0 12pt 0;border-bottom:1pt solid #999;margin-bottom:12pt}
+    .summary .pill,.badge{border:1px solid #999;color:#111!important;background:#eee!important;break-inside:avoid}
+    details,.finding pre,.quickfix,.proof,.nextsteps,.playbook,.wafrule{background:#fff!important;color:#111!important;border-color:#ccc!important;page-break-inside:avoid;break-inside:avoid}
+    details[open]{break-after:auto}
+    details:not([open]){display:none}  /* hide closed-by-default sections — they print without context */
+    summary{break-after:avoid}
+    .finding{break-inside:avoid;page-break-inside:avoid}
+    .finding h3{break-after:avoid}
     a{color:#0055cc;text-decoration:underline}
-    .riskbanner{border:2px solid #000;color:#000;background:#fff}
-    .chip,.conf{border:1px solid #999;color:#222;background:#eee}
+    a[href]::after{content:" (" attr(href) ")";font-size:9pt;color:#555}
+    a[href^="#"]::after{content:""}
+    .riskbanner{border:2px solid #000!important;color:#000!important;background:#fff!important;break-inside:avoid}
+    .chip,.conf{border:1px solid #999;color:#222!important;background:#eee!important}
+    h1,h2,h3{page-break-after:avoid}
+  }
+  /* #43 — mobile responsive: stack riskbanner + tighten padding under 700px */
+  @media (max-width: 700px) {
+    header{padding:18px 14px 12px}
+    header h1{font-size:18px}
+    main{padding:14px}
+    .riskbanner{flex-direction:column;align-items:flex-start;gap:8px;padding:12px}
+    .riskbanner .score{font-size:30px}
+    .riskbanner .grade{font-size:30px!important;padding:0 10px!important}
+    .summary{gap:6px}
+    .pill{padding:4px 9px;font-size:12px}
+    summary{flex-wrap:wrap}
+    summary .right{font-size:11px}
+    .finding{padding:12px}
+    .finding h3{font-size:13px;flex-wrap:wrap}
+    .finding pre{font-size:11px;padding:8px}
+    .printbtn,.themebtn{top:8px;font-size:12px;padding:5px 10px}
+    .themebtn{right:80px}
+    .themebtn[style*="240px"]{right:140px}
+    .quickfix,.proof,.nextsteps,.playbook,.wafrule{padding:10px;font-size:12px}
+  }
+  /* #44 — honour OS preference when the user hasn't manually toggled */
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+      --bg:#f6f8fa; --panel:#ffffff; --panel2:#f0f3f6; --fg:#0d1117; --muted:#586069; --border:#d0d7de;
+      --crit-bg:#ffd6d6; --crit-fg:#67000d;
+      --high-bg:#ffe1de; --high-fg:#5a1816;
+      --med-bg:#fff0c2;  --med-fg:#5d4500;
+      --low-bg:#dbeafe;  --low-fg:#133246;
+      --info-bg:#eef0f2; --info-fg:#586069;
+    }
   }
   footer{text-align:center;color:var(--muted);font-size:12px;padding:24px}
 </style>
