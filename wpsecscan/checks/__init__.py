@@ -164,6 +164,13 @@ from .heartbeat_frontend import check as heartbeat_frontend
 from .users_me_capability_leak import check as users_me_capability_leak
 from .rest_link_header import check as rest_link_header
 from .csp_report_endpoint import check as csp_report_endpoint
+# Audit-extras-v2 (FEAT-004/008/013/023/033/041)
+from .wp_cron_disabled import check as wp_cron_disabled
+from .rest_fields_dos import check as rest_fields_dos
+from .woocommerce_order_idor import check as woocommerce_order_idor
+from .rest_namespace_leak import check as rest_namespace_leak
+from .gtm_inventory import check as gtm_inventory
+from .uploads_year_listing import check as uploads_year_listing
 
 # Aggressive (active payloads) — opt-in
 from .sqli import check as sqli
@@ -304,6 +311,13 @@ ALL_CHECKS = [
     ("users_me_capability_leak",   "REST /users/me unauthenticated capabilities", users_me_capability_leak,   False),
     ("rest_link_header",           "Link: header leaks internal URLs",            rest_link_header,           False),
     ("csp_report_endpoint",        "CSP report-uri/report-to endpoint health",    csp_report_endpoint,        False),
+    # ---- Audit-extras-v2 (FEAT-004/008/013/023/033/041) ----
+    ("wp_cron_disabled",           "DISABLE_WP_CRON without replacement",         wp_cron_disabled,           False),
+    ("rest_fields_dos",            "REST _fields=* DoS amplification probe",      rest_fields_dos,            False),
+    ("woocommerce_order_idor",     "Unauthenticated WC order IDOR probe",         woocommerce_order_idor,     False),
+    ("rest_namespace_leak",        "REST namespace internal-name leak",           rest_namespace_leak,        False),
+    ("gtm_inventory",              "Google Tag Manager container inventory",       gtm_inventory,              False),
+    ("uploads_year_listing",       "/wp-content/uploads/YYYY/ directory listing",  uploads_year_listing,       False),
     # ---- Aggressive ----
     ("sqli",               "SQL injection probes",       sqli,               True),
     ("xss_reflected",      "Reflected XSS probes",       xss_reflected,      True),
