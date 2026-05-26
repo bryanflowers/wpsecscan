@@ -376,12 +376,15 @@ async def _amain(args) -> int:
             if report and html_filename:
                 all_reports.append((report, html_filename))
 
-    if args.dashboard and all_reports:
+    if (args.dashboard or args.agency_dashboard) and all_reports:
         out_dir = _outdir(args.out)
-        dpath = out_dir / "wpsecscan-dashboard.html"
-        dashboard_reporter.write(all_reports, dpath)
+        agency_mode = bool(args.agency_dashboard)
+        fname = "wpsecscan-agency-dashboard.html" if agency_mode else "wpsecscan-dashboard.html"
+        dpath = out_dir / fname
+        dashboard_reporter.write(all_reports, dpath, agency=agency_mode)
         if not args.no_console:
-            console.print(f"[green]✓[/green] Batch dashboard: [bold]{dpath}[/bold]")
+            label = "Agency dashboard" if agency_mode else "Batch dashboard"
+            console.print(f"[green]✓[/green] {label}: [bold]{dpath}[/bold]")
 
     # FEAT-019: --diff-since 7d — automatically pick the right historical
     # snapshot from ~/.wpsecscan/reports/{safe}-*.json and use it as the
@@ -618,6 +621,10 @@ def main() -> None:
     p.add_argument("--exec-pdf", action="store_true", help="Also write a one-page executive summary PDF (uses reportlab if installed; otherwise an HTML print-to-PDF fallback)")
     p.add_argument("--daemon", default=None, metavar="CONFIG.yml", help="Run as a daemon: schedule scans via cron-style config (see SDK.md)")
     p.add_argument("--dashboard", action="store_true", help="When scanning multiple sites, also write a batch dashboard")
+    p.add_argument("--agency-dashboard", action="store_true",
+                   help="FEAT-015: write an agency-style dashboard with per-site risk-score sparklines + "
+                        "Δ-vs-prior + brand.json header. Designed to be printed to PDF and handed to a "
+                        "non-technical client as a monthly posture summary. Implies --dashboard.")
     format_group = p.add_mutually_exclusive_group()
     format_group.add_argument("--json-only", action="store_true", help="Write JSON only (no HTML)")
     format_group.add_argument("--html-only", action="store_true", help="Write HTML only (no JSON)")

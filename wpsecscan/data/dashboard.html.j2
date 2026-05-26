@@ -42,11 +42,35 @@
   a{color:#79c0ff;text-decoration:none}
   a:hover{text-decoration:underline}
   .summary{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .spark{font-family:"Cascadia Mono","Consolas",monospace;font-size:16px;letter-spacing:1px;color:#79c0ff}
+  .delta-up{color:#ff5252;font-weight:700}
+  .delta-dn{color:#6cc474;font-weight:700}
+  .delta-flat{color:var(--muted)}
+  .brand-header{display:flex;align-items:center;gap:16px;margin-bottom:8px}
+  .brand-header img{max-height:48px;max-width:160px;border-radius:4px}
+  .agency-name{font-size:18px;font-weight:600;color:var(--fg)}
+  footer{padding:16px 24px;color:var(--muted);font-size:12px;border-top:1px solid var(--border);text-align:center}
+{% if agency and brand and brand.primary_color %}
+  /* brand.json override */
+  body{--accent: {{ brand.primary_color }}}
+  a{color:{{ brand.primary_color }}}
+  .pill.high{background:{{ brand.primary_color }}22;color:{{ brand.primary_color }}}
+{% endif %}
 </style>
 </head>
 <body>
 <header>
+{% if agency and brand and (brand.agency_name or brand.logo_url) %}
+  <div class="brand-header">
+    {% if brand.logo_url %}<img src="{{ brand.logo_url }}" alt="{{ brand.agency_name or 'Agency logo' }}">{% endif %}
+    {% if brand.agency_name %}<span class="agency-name">{{ brand.agency_name }}</span>{% endif %}
+  </div>
+{% endif %}
+{% if agency %}
+  <h1>Monthly security posture — {{ brand.client_name if brand and brand.client_name else 'site portfolio' }}</h1>
+{% else %}
   <h1>WPSecScan — batch dashboard</h1>
+{% endif %}
   <div class="meta">Generated {{ generated_at }} · {{ reports|length }} site(s) scanned</div>
   <div class="summary">
     <span class="pill crit">{{ totals.critical }} critical</span>
@@ -62,6 +86,7 @@
 <tr>
   <th>Site</th>
   <th>Worst</th>
+  {% if agency %}<th class="num">Score</th><th class="num">Δ vs prior</th><th>Trend</th>{% endif %}
   <th class="num">Crit</th>
   <th class="num">High</th>
   <th class="num">Med</th>
@@ -78,17 +103,30 @@
   <tr>
     <td>{{ row.target }}</td>
     <td><span class="pill {{ short }}">{{ sev|upper }}</span></td>
+    {% if agency %}
+      <td class="num">{{ row.risk_score }}/100</td>
+      <td class="num">
+        {% if row.delta_score is none %}—
+        {% elif row.delta_score > 0 %}<span class="delta-up">+{{ row.delta_score }}</span>
+        {% elif row.delta_score < 0 %}<span class="delta-dn">{{ row.delta_score }}</span>
+        {% else %}<span class="delta-flat">0</span>{% endif %}
+      </td>
+      <td class="spark" title="{{ row.scan_count }} recent scan(s)">{{ row.spark }}</td>
+    {% endif %}
     <td class="num crit">{{ row.summary.critical }}</td>
     <td class="num high">{{ row.summary.high }}</td>
     <td class="num med">{{ row.summary.medium }}</td>
     <td class="num low">{{ row.summary.low }}</td>
     <td class="num info">{{ row.summary.info }}</td>
     <td class="num">{{ row.duration_ms }} ms</td>
-    <td><a href="{{ row.html_filename }}" target="_blank">open ↗</a></td>
+    <td><a href="{{ row.html_filename }}" target="_blank" rel="noopener noreferrer">open ↗</a></td>
   </tr>
 {% endfor %}
 </tbody>
 </table>
 </main>
+{% if agency and brand and brand.footer_text %}
+<footer>{{ brand.footer_text }}</footer>
+{% endif %}
 </body>
 </html>
