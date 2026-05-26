@@ -38,6 +38,75 @@ USER_ROW_RE    = re.compile(r'<td[^>]+data-colname=["\']Username["\'][^>]*>(.*?)
 USER_ROLE_RE   = re.compile(r'<td[^>]+data-colname=["\']Role["\'][^>]*>(.*?)</td>',     re.IGNORECASE | re.DOTALL)
 TOTP_PROMPT_RE = re.compile(r'(name=["\']wfls_two_factor_code["\']|two-factor|totp|authenticator code|verification code)', re.IGNORECASE)
 
+# #3 — CAPTCHA / Turnstile / hCaptcha markers. When the login form contains
+# any of these, posting credentials is futile; abort with a clear error.
+CAPTCHA_RE = re.compile(
+    r'g-recaptcha|grecaptcha\.|recaptcha/api\.js'
+    r'|h-captcha|hcaptcha\.|hcaptcha/api'
+    r'|cf-turnstile|turnstile\.|challenges\.cloudflare\.com',
+    re.IGNORECASE,
+)
+
+# #4 — Login-failure-mode fingerprints. Used to give the user a precise
+# error instead of a generic "auth failed".
+LOGIN_ERROR_BLOCK_RE = re.compile(
+    r'<div\s+id=["\']login_error["\'][^>]*>(.*?)</div>',
+    re.IGNORECASE | re.DOTALL,
+)
+WRONG_USERNAME_RE = re.compile(
+    r"(?:unknown username|invalid username|the username[^<]{0,40}is incorrect)",
+    re.IGNORECASE,
+)
+WRONG_PASSWORD_RE = re.compile(
+    r"(?:incorrect password|the password you entered[^<]{0,40}is incorrect)",
+    re.IGNORECASE,
+)
+LOCKED_OUT_RE = re.compile(
+    r"(?:locked out|too many failed|temporarily disabled|please try again later"
+    r"|access denied|blocked by|ip[- ]banned|you have been blocked)",
+    re.IGNORECASE,
+)
+
+
+def classify_login_failure(status: int, body: str) -> tuple[str, str]:
+    """Return (category, explanation). Categories:
+       wrong-password / wrong-username / locked-out / captcha-required /
+       ip-banned / unknown.
+    """
+    body_lc = (body or "").lower()
+    # 4xx + body indicators
+    if status in (403, 406, 418, 429):
+        return ("locked-out",
+                f"Server returned HTTP {status}, indicating WAF / fail2ban / "
+                "Wordfence has temporarily blocked this IP from logging in.")
+    if CAPTCHA_RE.search(body or ""):
+        return ("captcha-required",
+                "The login page requires a human CAPTCHA challenge "
+                "(reCAPTCHA / hCaptcha / Cloudflare Turnstile). Headless "
+                "scanners can't solve these — disable the challenge for the "
+                "scanner's source IP or use --auth-app-password instead.")
+    err = LOGIN_ERROR_BLOCK_RE.search(body or "")
+    err_text = err.group(1) if err else ""
+    if LOCKED_OUT_RE.search(body_lc):
+        return ("locked-out",
+                "Login form body contains a lock-out marker ('too many "
+                "attempts' / 'blocked' / 'please try again later'). "
+                "Wait the lockout window or whitelist this IP.")
+    if WRONG_USERNAME_RE.search(body_lc):
+        return ("wrong-username",
+                "Login form reported 'unknown username'. The user account "
+                "doesn't exist on this site.")
+    if WRONG_PASSWORD_RE.search(body_lc):
+        return ("wrong-password",
+                "Login form reported 'incorrect password' for this user.")
+    if err_text:
+        return ("rejected",
+                f"Login form returned an error: {re.sub(r'<[^>]+>', '', err_text)[:200]}")
+    return ("unknown",
+            f"Login didn't land at /wp-admin/ (status={status}) but no "
+            "specific failure marker was detected. Try WPSECSCAN_AUTH_DEBUG=1 "
+            "to see each step.")
+
 # #1: extract the _wpnonce field from a wp-login.php GET. Modern WP + every
 # major security plugin requires it on the POST.
 NONCE_RE = re.compile(
@@ -104,6 +173,18 @@ def _auth_debug(host: str, step: str, response: httpx.Response | None = None,
         pass  # debug log must never break the scan
 
 
+# Per-call mutable holder for the LAST failure reason so the caller can
+# surface it. Threaded via the module-level _LAST_FAILURE dict because the
+# function signature was already 4 args and callers don't want a tuple.
+_LAST_FAILURE: dict[str, tuple[str, str]] = {}
+
+
+def last_failure_for(target: str) -> tuple[str, str] | None:
+    """Read the last classify_login_failure() output for a given target host."""
+    parsed = urlparse(target)
+    return _LAST_FAILURE.get(parsed.hostname or "")
+
+
 async def _login_cookie(target: str, user: str, password: str,
                           totp: str | None = None) -> httpx.AsyncClient | None:
     """Log into WP via the wp-login.php form. Supports common 2FA prompts
@@ -142,8 +223,21 @@ async def _login_cookie(target: str, user: str, password: str,
         return None
     _auth_debug(host, "GET wp-login.php", r)
     if r.status_code != 200 or not LOGIN_FORM_RE.search(r.text or ""):
+        _LAST_FAILURE[host] = classify_login_failure(r.status_code, r.text or "")
         _auth_debug(host, "wp-login.php form not found", None,
-                     f"status={r.status_code}")
+                     f"status={r.status_code}; reason={_LAST_FAILURE[host][0]}")
+        await c.aclose()
+        return None
+
+    # #3: abort early if the login form requires a CAPTCHA — posting
+    # credentials would be futile and likely trigger a lockout.
+    if CAPTCHA_RE.search(r.text or ""):
+        _LAST_FAILURE[host] = ("captcha-required",
+            "wp-login.php form requires a CAPTCHA challenge "
+            "(reCAPTCHA / hCaptcha / Cloudflare Turnstile). Use "
+            "--auth-app-password instead, or disable the challenge for the "
+            "scanner's source IP.")
+        _auth_debug(host, "CAPTCHA detected on login form — aborting")
         await c.aclose()
         return None
 
@@ -200,12 +294,16 @@ async def _login_cookie(target: str, user: str, password: str,
 
     if ADMIN_BAR_RE.search(r.text or "") or "/wp-admin" in str(r.url):
         _auth_debug(host, "auth success via admin-bar / wp-admin redirect")
+        _LAST_FAILURE.pop(host, None)
         return c
     if any(c_name.startswith("wordpress_logged_in_") for c_name in jar.keys()):
         _auth_debug(host, "auth success via wordpress_logged_in_* cookie")
+        _LAST_FAILURE.pop(host, None)
         return c
+    # #4: classify the failure so the caller can surface a precise reason.
+    _LAST_FAILURE[host] = classify_login_failure(r.status_code, r.text or "")
     _auth_debug(host, "auth failed — no admin marker", None,
-                  f"final url={r.url}")
+                  f"final url={r.url}; reason={_LAST_FAILURE[host][0]}")
     await c.aclose()
     return None
 
@@ -331,15 +429,32 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
             auth_method = "cookie (wp-login.php)"
 
     if auth is None:
-        findings.append(Finding(
-            severity="medium",
-            title="Authentication failed — credentials rejected or 2FA prompt unhandled",
-            evidence=("Neither App Password nor cookie login succeeded. "
-                       "If the site uses 2FA, supply --auth-totp <code>. If it uses "
-                       "a custom login URL (WPS Hide Login), the cookie flow can't find it."),
-            remediation="Verify credentials. For 2FA, generate an Application Password instead.",
-            url=ctx["target"],
-        ))
+        # #4: surface the specific failure reason when we know it.
+        last = last_failure_for(ctx["target"])
+        if last is not None:
+            cat, explanation = last
+            findings.append(Finding(
+                severity="medium",
+                title=f"Authentication failed — {cat}",
+                evidence=explanation,
+                remediation=(
+                    "Set WPSECSCAN_AUTH_DEBUG=1 and re-run to see a step-by-step "
+                    "log at ~/.wpsecscan/auth-debug/{host}.log. For 2FA, generate "
+                    "an Application Password and use --auth-app-password instead "
+                    "of --auth-pass."
+                ),
+                url=ctx["target"],
+            ))
+        else:
+            findings.append(Finding(
+                severity="medium",
+                title="Authentication failed — credentials rejected or 2FA prompt unhandled",
+                evidence=("Neither App Password nor cookie login succeeded. "
+                           "If the site uses 2FA, supply --auth-totp <code>. If it uses "
+                           "a custom login URL (WPS Hide Login), the cookie flow can't find it."),
+                remediation="Verify credentials. For 2FA, generate an Application Password instead.",
+                url=ctx["target"],
+            ))
         return findings
 
     findings.append(Finding(
