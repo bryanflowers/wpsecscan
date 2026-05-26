@@ -343,6 +343,21 @@ async def _scan_one(target: str, args, console: Console):
         if not args.no_console:
             console.print(f"[green]✓[/green] Board 1-pager: [bold]{bp_p}[/bold]")
 
+    # #61 — live SIEM forwarders (Splunk HEC / Datadog Logs / Loki / Beats)
+    if (getattr(args, "siem_splunk", None) or getattr(args, "siem_datadog", None)
+            or getattr(args, "siem_loki", None) or getattr(args, "siem_beats", None)
+            or os.environ.get("WPSECSCAN_SPLUNK_HEC")
+            or os.environ.get("WPSECSCAN_DATADOG_API_KEY")
+            or os.environ.get("WPSECSCAN_LOKI_URL")
+            or os.environ.get("WPSECSCAN_BEATS_URL")):
+        try:
+            from . import siem as _siem
+            for msg in _siem.forward_all(report, args):
+                if not args.no_console:
+                    console.print(f"[cyan]SIEM[/cyan] {msg}")
+        except Exception as e:  # noqa: BLE001
+            console.print(f"[yellow]SIEM forward failed: {e}[/yellow]")
+
     # #54 — user-supplied Jinja2 template
     if getattr(args, "report_template", None):
         try:
@@ -912,6 +927,19 @@ def main() -> None:
                    help="#54: render a user-supplied Jinja2 template (lets agencies fully "
                         "white-label the output). Receives `report`, `summary`, `findings`, "
                         "`results`, `target`, `scanned_at`, `risk_score`, `worst`, `now`.")
+    # #61 — live SIEM forwarders
+    p.add_argument("--siem-splunk", default=None, metavar="HEC_URL",
+                   help="#61: Splunk HEC URL (e.g. https://splunk.example.com:8088). "
+                        "Pair with --siem-splunk-token; or set WPSECSCAN_SPLUNK_HEC + "
+                        "WPSECSCAN_SPLUNK_TOKEN.")
+    p.add_argument("--siem-splunk-token", default=None, metavar="TOKEN",
+                   help="#61: HEC token for --siem-splunk (or WPSECSCAN_SPLUNK_TOKEN).")
+    p.add_argument("--siem-datadog", default=None, metavar="API_KEY",
+                   help="#61: Datadog API key for Logs HTTP intake (or WPSECSCAN_DATADOG_API_KEY).")
+    p.add_argument("--siem-loki", default=None, metavar="PUSH_URL",
+                   help="#61: Grafana Loki /loki/api/v1/push URL (or WPSECSCAN_LOKI_URL).")
+    p.add_argument("--siem-beats", default=None, metavar="HTTP_INPUT_URL",
+                   help="#61: Logstash HTTP input URL (or WPSECSCAN_BEATS_URL).")
     p.add_argument("--redact-evidence", action="store_true",
                    help="#61: mask JWTs / session cookies / bearer tokens / PII in finding evidence before any reporter writes. Recommended when sharing reports externally.")
     p.add_argument("--diff-html", nargs=2, metavar=("OLD.json", "NEW.json"),
