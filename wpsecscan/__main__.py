@@ -399,6 +399,20 @@ def main() -> None:
             "WPSecScan — defensive WordPress security scanner. "
             "Use only on sites you own or have written permission to test."
         ),
+        epilog=(
+            "Subcommands (use as: wpsecscan <subcommand> <args>):\n"
+            "  sites          manage a list of sites (add | list | scan | remove)\n"
+            "  schedule       install/uninstall scheduled scans (Windows Task Scheduler etc.)\n"
+            "  digest         configure SMTP / webhook digest of new findings\n"
+            "  ai-cost        print AI-triage cost summary\n"
+            "  ai-options     read/set Advanced AI-triage toggles\n"
+            "  analytics      manage opt-in usage analytics\n"
+            "  db             vuln DB management (status | update | signatures | source-stats | subscribe | alert-check)\n"
+            "  compare URL    diff the two most-recent saved snapshots of URL\n"
+            "  badge URL      emit a shields.io-style status-badge SVG\n"
+            "\nRun  wpsecscan <subcommand> --help  for per-subcommand usage.\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("target", nargs="?", help="URL to scan (e.g. https://example.com)")
     p.add_argument("--file", help="File containing URLs, one per line (# comments OK)")
@@ -802,6 +816,9 @@ def _cmd_ai_options(args: list[str]) -> None:
         wpsecscan ai-options get <field>
         wpsecscan ai-options set <field> <value>
     """
+    if args and args[0] in ("-h", "--help"):
+        print("usage: wpsecscan ai-options {list | get <field> | set <field> <value>}")
+        return
     from . import ai_triage_ui
     if not args or args[0] == "list":
         print(ai_triage_ui.cli_list())
@@ -827,6 +844,9 @@ def _cmd_analytics(args: list[str]) -> None:
         wpsecscan analytics export <path>
         wpsecscan analytics forget
     """
+    if args and args[0] in ("-h", "--help"):
+        print("usage: wpsecscan analytics {status | enable | disable | show | export <path> | forget}")
+        return
     from . import analytics
     if not args or args[0] == "status":
         st = analytics.status()
@@ -952,8 +972,9 @@ def _cmd_sites(args: list[str]) -> None:
 
 def _cmd_schedule(args: list[str]) -> None:
     from . import sites as sites_mod
-    if not args:
-        print("usage: wpsecscan schedule {install|uninstall|pause|resume|status}"); return
+    if not args or args[0] in ("-h", "--help", "help"):
+        print("usage: wpsecscan schedule {install [--time HH:MM] [--weekly]|uninstall|pause|resume|status}")
+        return
     action = args[0]
     if action == "install":
         time_hhmm = "03:00"
@@ -977,8 +998,9 @@ def _cmd_schedule(args: list[str]) -> None:
 
 def _cmd_digest(args: list[str]) -> None:
     from . import sites as sites_mod
-    if not args:
-        print("usage: wpsecscan digest {configure|test|send}"); return
+    if not args or args[0] in ("-h", "--help", "help"):
+        print("usage: wpsecscan digest {configure --to ADDR [--smtp HOST] [--slack-webhook URL] | test | send}")
+        return
     if args[0] == "configure":
         kv: dict[str, str] = {"to": "", "smtp": "", "smtp_user": "", "smtp_pass": "",
                                  "from_addr": "", "slack_webhook": ""}
@@ -1010,6 +1032,9 @@ def _cmd_digest(args: list[str]) -> None:
 
 
 def _cmd_ai_cost(args: list[str]) -> None:
+    if args and args[0] in ("-h", "--help"):
+        print("usage: wpsecscan ai-cost  (prints AI-triage cost summary; no arguments)")
+        return
     from . import ai_safety
     summary = ai_safety.cost_summary()
     if not summary:
