@@ -365,8 +365,62 @@ def test_all_new_checks_registered():
     ids = [c[0] for c in ALL_CHECKS]
     for required in ("rest_api", "cors", "js_libraries", "secret_leak",
                       "referenced_buckets", "cloudflare_origin_leak",
-                      "crlf_location_injection", "host_header_validation"):
+                      "crlf_location_injection", "host_header_validation",
+                      "woocommerce_storefront"):
         assert required in ids, f"check {required!r} not registered in ALL_CHECKS"
+
+
+# ============================== items 15 + 16 — WC storefront ==============================
+
+def test_wc_storefront_skips_when_no_wc_detected():
+    import asyncio as _asyncio
+    from wpsecscan.checks.woocommerce_storefront import check
+    client = FakeClient(responses={
+        "/": FakeResponse(text="<html>not a WP site</html>"),
+        "/wp-json/wc/store/v1/cart": FakeResponse(status_code=404),
+    })
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any("not detected" in f.title for f in findings)
+
+
+def test_wc_storefront_flags_fragments_cacheable():
+    """If the fragments endpoint returns Cache-Control: public, max-age=...
+    the check fires high."""
+    import asyncio as _asyncio
+    from wpsecscan.checks.woocommerce_storefront import check
+    cart = FakeResponse(status_code=200, text='{"items":[]}')
+    apply = FakeResponse(status_code=200, text='{"fragments":{}}')
+    frag = FakeResponse(
+        status_code=200,
+        text='{"fragments":{}}',
+        headers={"cache-control": "public, max-age=3600"},
+    )
+    client = FakeClient(responses={
+        "/wp-json/wc/store/v1/cart": cart,
+        "/?wc-ajax=apply_coupon": apply,
+        "/?wc-ajax=get_refreshed_fragments": frag,
+    })
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any("fragments endpoint is cacheable" in f.title for f in findings)
+
+
+def test_wc_storefront_flags_coupon_enumeration():
+    import asyncio as _asyncio
+    from wpsecscan.checks.woocommerce_storefront import check
+    cart = FakeResponse(status_code=200, text='{"items":[]}')
+    apply = FakeResponse(status_code=200, text='{"error":"invalid"}')
+    frag = FakeResponse(status_code=200, text='{"fragments":{}}',
+                          headers={"cache-control": "no-store, private"})
+    client = FakeClient(responses={
+        "/wp-json/wc/store/v1/cart": cart,
+        "/?wc-ajax=apply_coupon": apply,
+        "/?wc-ajax=get_refreshed_fragments": frag,
+    })
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any("unthrottled enumeration" in f.title for f in findings)
 
 
 # ============================== item 7 — Host-header validation ==============================
