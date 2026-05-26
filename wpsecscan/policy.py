@@ -83,6 +83,80 @@ def apply_severity_overrides(report, policy: dict) -> int:
     return n
 
 
+def _rule_matches(rule_if: dict, check_id: str, finding, target: str) -> bool:
+    """Item #57 — evaluate a single severity_rules.if{} block. Every key in the
+    block must match (AND). Supported keys:
+      check, check_id            — exact match against check_id
+      title_contains             — substring (case-insensitive) match in title
+      title_regex                — regex match in title
+      target_startswith          — target URL startswith match
+      target_contains            — substring in target
+      severity_eq                — current finding severity equals
+    """
+    cid_match = rule_if.get("check") or rule_if.get("check_id")
+    if cid_match and cid_match != check_id:
+        return False
+    tc = rule_if.get("title_contains")
+    if tc and tc.lower() not in (finding.title or "").lower():
+        return False
+    tr = rule_if.get("title_regex")
+    if tr:
+        try:
+            if not re.search(tr, finding.title or "", re.IGNORECASE):
+                return False
+        except re.error:
+            return False
+    ts = rule_if.get("target_startswith")
+    if ts and not (target or "").startswith(ts):
+        return False
+    tcn = rule_if.get("target_contains")
+    if tcn and tcn not in (target or ""):
+        return False
+    se = rule_if.get("severity_eq")
+    if se and se != finding.severity:
+        return False
+    return True
+
+
+def apply_severity_rules(report, policy: dict) -> int:
+    """Item #57 — boolean rule engine. Rules schema:
+
+        severity_rules:
+          - if:
+              check: headers
+              title_contains: "Content-Security-Policy"
+              target_startswith: "https://prod"
+            then:
+              severity: critical
+          - if:
+              check_id: js_libraries
+              title_regex: "jQuery 1\\."
+            then:
+              severity: low
+
+    Rules are evaluated in declaration order; the first match wins per finding.
+    Returns the count of mutations.
+    """
+    rules = (policy or {}).get("severity_rules") or []
+    if not rules:
+        return 0
+    n = 0
+    for r in report.results:
+        for f in r.findings:
+            for rule in rules:
+                cond = (rule or {}).get("if") or {}
+                action = (rule or {}).get("then") or {}
+                new_sev = action.get("severity")
+                if not new_sev:
+                    continue
+                if _rule_matches(cond, r.check_id, f, report.target):
+                    if new_sev != f.severity:
+                        f.severity = new_sev
+                        n += 1
+                    break  # first match wins
+    return n
+
+
 def apply_suppressions(report, policy: dict) -> int:
     """Drop findings that match any rule under `suppress[<target>]`.
     Returns the count of suppressed findings."""

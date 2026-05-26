@@ -54,21 +54,42 @@ def _data_dir() -> Path:
 _CACHE: dict | None = None
 
 
+def _user_playbook_path() -> Path:
+    import os
+    home = os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan")
+    return Path(home) / "playbook.json"
+
+
 def _load() -> dict:
-    """Read and cache the playbook JSON. Returns {} on any I/O or parse error."""
+    """Read and cache the playbook JSON. Returns {} on any I/O or parse error.
+
+    Item #59 — User-supplied entries at ~/.wpsecscan/playbook.json are
+    merged on top of the bundled defaults, so the operator can override
+    or extend playbooks without forking the project.
+    """
     global _CACHE
     if _CACHE is not None:
         return _CACHE
+    out: dict = {}
     f = _data_dir() / "exploit_playbook.json"
-    if not f.exists():
-        _CACHE = {}
-        return _CACHE
-    try:
-        data = json.loads(f.read_text(encoding="utf-8"))
-        # Drop the _meta and _schema documentation entries.
-        _CACHE = {k: v for k, v in data.items() if not k.startswith("_") and isinstance(v, dict)}
-    except (OSError, json.JSONDecodeError):
-        _CACHE = {}
+    if f.exists():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            out = {k: v for k, v in data.items()
+                    if not k.startswith("_") and isinstance(v, dict)}
+        except (OSError, json.JSONDecodeError):
+            out = {}
+    user_f = _user_playbook_path()
+    if user_f.exists():
+        try:
+            user_data = json.loads(user_f.read_text(encoding="utf-8")) or {}
+            for cid, entry in user_data.items():
+                if cid.startswith("_") or not isinstance(entry, dict):
+                    continue
+                out[cid] = entry  # user entries replace bundled ones
+        except (OSError, json.JSONDecodeError):
+            pass
+    _CACHE = out
     return _CACHE
 
 

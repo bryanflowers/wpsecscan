@@ -205,11 +205,13 @@ async def _scan_one(target: str, args, console: Console):
         pol = _policy.load()
         if pol and not pol.get("_error"):
             n_overrides = _policy.apply_severity_overrides(report, pol)
+            n_rules = _policy.apply_severity_rules(report, pol)
             n_suppressed = _policy.apply_suppressions(report, pol)
-            if (n_overrides or n_suppressed) and not args.no_console:
+            if (n_overrides or n_rules or n_suppressed) and not args.no_console:
                 console.print(
                     f"[yellow]Policy applied: "
                     f"{n_overrides} severity override(s), "
+                    f"{n_rules} boolean-rule mutation(s), "
                     f"{n_suppressed} finding(s) suppressed.[/yellow]"
                 )
         elif pol.get("_error") and not args.no_console:
@@ -1321,6 +1323,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_doctor(args)
     elif cmd == "diff-agency":
         _cmd_diff_agency(args)
+    elif cmd == "playbook":
+        _cmd_playbook(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -2165,6 +2169,128 @@ def _cmd_doctor(args: list[str]) -> None:
     else:
         print("All optional components detected.")
     sys.exit(0)
+
+
+def _cmd_playbook(args: list[str]) -> None:
+    """Item #59 — playbook authoring CLI.
+
+      wpsecscan playbook add CHECK_ID --how "<prose>" \\
+                           [--curl "<cmd>" ...] [--sqlmap "<cmd>"] \\
+                           [--nuclei-tag "<tag>"] [--wpscan "<cmd>"] \\
+                           [--reference "<URL>" ...]
+      wpsecscan playbook show CHECK_ID
+      wpsecscan playbook rm   CHECK_ID
+      wpsecscan playbook list
+
+    Writes to ~/.wpsecscan/playbook.json; merged on top of the bundled
+    defaults at scan time (see playbook.py).
+    """
+    import json
+    if not args or args[0] in ("-h", "--help"):
+        print("usage: wpsecscan playbook {add|show|rm|list} CHECK_ID [opts]")
+        return
+    home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+    home.mkdir(parents=True, exist_ok=True)
+    user_path = home / "playbook.json"
+    try:
+        user_data = json.loads(user_path.read_text(encoding="utf-8")) if user_path.exists() else {}
+    except (OSError, json.JSONDecodeError):
+        user_data = {}
+
+    sub = args[0]
+    if sub == "list":
+        from . import playbook as _pb
+        merged = _pb._load()
+        bundled_ids = set()
+        try:
+            import wpsecscan
+            bundled_path = Path(wpsecscan.__file__).parent / "data" / "exploit_playbook.json"
+            if bundled_path.exists():
+                bundled = json.loads(bundled_path.read_text(encoding="utf-8"))
+                bundled_ids = {k for k in bundled if not k.startswith("_")}
+        except Exception:  # noqa: BLE001
+            pass
+        print(f"{len(merged)} playbook entries (bundled + user):")
+        for cid in sorted(merged):
+            tag = "user" if cid in user_data else "bundled" if cid in bundled_ids else "?"
+            print(f"  [{tag:8s}]  {cid}")
+        return
+
+    if len(args) < 2:
+        print("usage: wpsecscan playbook {add|show|rm} CHECK_ID [opts]", file=sys.stderr)
+        sys.exit(64)
+    check_id = args[1].strip()
+
+    if sub == "show":
+        entry = user_data.get(check_id)
+        if entry:
+            print(f"(user) {check_id}:")
+            print(json.dumps(entry, indent=2))
+        else:
+            from . import playbook as _pb
+            entry = _pb.get_playbook(check_id)
+            if entry:
+                print(f"(bundled) {check_id}:")
+                print(json.dumps(entry, indent=2))
+            else:
+                print(f"no playbook for check_id {check_id!r}", file=sys.stderr)
+                sys.exit(2)
+        return
+
+    if sub == "rm":
+        if check_id not in user_data:
+            print(f"no user playbook for {check_id!r}", file=sys.stderr); sys.exit(2)
+        del user_data[check_id]
+        user_path.write_text(json.dumps(user_data, indent=2), encoding="utf-8")
+        print(f"removed {check_id} from {user_path}")
+        return
+
+    if sub == "add":
+        entry: dict[str, object] = dict(user_data.get(check_id) or {})
+        i = 2
+        # Multi-value buckets get appended; single-value buckets replace.
+        list_buckets = {
+            "--curl": "manual_curl_pocs",
+            "--sqlmap": "sqlmap",
+            "--metasploit": "metasploit",
+            "--nuclei": "nuclei",
+            "--wpscan": "wpscan",
+            "--ffuf": "ffuf_gobuster",
+            "--reference": "references",
+        }
+        while i < len(args):
+            flag = args[i]
+            if flag == "--how" and i + 1 < len(args):
+                entry["how_an_attacker_uses_this"] = args[i + 1]
+                i += 2
+                continue
+            if flag == "--nuclei-tag" and i + 1 < len(args):
+                tags = entry.setdefault("nuclei_tags", [])
+                if isinstance(tags, list):
+                    tags.append(args[i + 1])
+                i += 2
+                continue
+            if flag in list_buckets and i + 1 < len(args):
+                bucket = list_buckets[flag]
+                cur = entry.setdefault(bucket, [])
+                if isinstance(cur, list):
+                    cur.append(args[i + 1])
+                i += 2
+                continue
+            print(f"unknown flag: {flag}", file=sys.stderr); sys.exit(64)
+        user_data[check_id] = entry
+        user_path.write_text(json.dumps(user_data, indent=2), encoding="utf-8")
+        print(f"saved playbook for {check_id} → {user_path}")
+        # Invalidate the in-process cache so a subsequent scan picks it up.
+        try:
+            from . import playbook as _pb
+            _pb.reset_cache()
+        except ImportError:
+            pass
+        return
+
+    print(f"unknown playbook subcommand: {sub}", file=sys.stderr)
+    sys.exit(64)
 
 
 def _cmd_diff_agency(args: list[str]) -> None:
