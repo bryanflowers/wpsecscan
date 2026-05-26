@@ -311,7 +311,14 @@ def _install_windows(time_hhmm: str) -> dict:
     try:
         r = subprocess.run(args, capture_output=True, text=True, timeout=15)
         if r.returncode == 0:
-            return {"ok": True, "method": "schtasks", "detail": f"scheduled MON {time_hhmm}"}
+            return {
+                "ok": True,
+                "method": "schtasks",
+                "detail": (
+                    f"scheduled MON {time_hhmm} as task 'WPSecScanWeekly'. "
+                    "Remove with:  schtasks /Delete /TN WPSecScanWeekly /F"
+                ),
+            }
         return {"ok": False, "method": "schtasks", "detail": (r.stderr or r.stdout)[:200]}
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
         return {"ok": False, "method": "schtasks", "detail": str(e)}

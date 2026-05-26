@@ -297,6 +297,8 @@ async def _amain(args) -> int:
             return 64
         if not args.aggressive:
             console.print("[red]--prove requires --aggressive (proof needs a confirmed finding to act on).[/red]")
+            target_hint = args.target or "<URL>"
+            console.print(f"[yellow]Hint: try  wpsecscan {target_hint} --aggressive --prove[/yellow]")
             return 64
 
     targets: list[str] = []
@@ -365,6 +367,8 @@ async def _amain(args) -> int:
             console.print(f"\n[bold cyan]--- QUERY '{args.query}' ({len(results)} match) ---[/bold cyan]")
             for r in results[:100]:
                 console.print(f"  [{r.get('severity','?').upper()}] {r.get('check_id','?')}: {r.get('title','?')[:100]}")
+            if len(results) > 100:
+                console.print(f"  [dim]... and {len(results) - 100} more match(es)[/dim]")
         except (ValueError, Exception) as e:  # noqa: BLE001
             console.print(f"[red]--query failed: {e}[/red]")
 
@@ -468,9 +472,14 @@ def main() -> None:
                         "(useful for Slack/Discord's 4000-char message limit).")
     p.add_argument("--xlsx", action="store_true", help="Also write an Excel workbook with per-OWASP-category sheets")
     p.add_argument("--har", default=None, metavar="HAR_FILE", help="Record every HTTP request/response into a HAR file for debugging or replay")
-    p.add_argument("--parallel-groups", action="store_true", help="Run within-group checks concurrently (~30%% faster on typical scans; default sequential)")
+    p.add_argument("--parallel-groups", action="store_true",
+                   help="Run within-group checks concurrently (~30%% faster on typical scans; default sequential). "
+                        "Warning: concurrent same-host requests may trigger WAF rate-limits on strict hosts.")
     p.add_argument("--checkpoint", action="store_true", help="Save progress to ~/.wpsecscan/checkpoints/ so a Ctrl+C scan can resume on next run")
-    p.add_argument("--fail-on", default=None, metavar="SEVERITY", help="Exit with code 2 if ANY finding is at or above this severity (critical/high/medium/low). Overrides the default exit-code logic.")
+    p.add_argument("--fail-on", default=None, metavar="LEVEL[,LEVEL]",
+                   help="Exit with code 2 if any finding is at or above this severity. "
+                        "Accepts a single value (critical|high|medium|low) or comma-separated list, "
+                        "e.g. `critical,high`. Overrides the default exit-code logic.")
     p.add_argument("--abuseipdb-token", default=os.environ.get("WPSECSCAN_ABUSEIPDB_TOKEN"),
                    help="AbuseIPDB API token (env: WPSECSCAN_ABUSEIPDB_TOKEN). Free tier: 1000/day.")
     p.add_argument("--vt-token", default=os.environ.get("WPSECSCAN_VT_TOKEN"),
@@ -533,6 +542,15 @@ def main() -> None:
     if args.timeout < 5 and not args.no_console:
         print(f"[warn] --timeout {args.timeout:.1f}s is very short; "
               "expect false-positive timeout findings on real sites.",
+              file=sys.stderr)
+
+    # Validate --since at startup so a typo doesn't silently disable
+    # incremental mode and leave the user wondering why their scan ran
+    # every check. (_parse_since() returns None on invalid input; we
+    # now distinguish "not provided" from "provided but unparseable".)
+    if getattr(args, "since", None) and _parse_since(args.since) is None:
+        print(f"[warn] --since {args.since!r} could not be parsed as YYYY-MM-DD "
+              "or ISO 8601 — incremental mode is OFF for this scan.",
               file=sys.stderr)
 
     log_path = logmod.configure(args.debug)
@@ -1013,6 +1031,20 @@ def _cmd_digest(args: list[str]) -> None:
                 i += 1
         if not kv["to"]:
             print("usage: wpsecscan digest configure --to ops@example.com [--smtp host:port --smtp-user U --smtp-pass P --from-addr F]"); sys.exit(2)
+        # Either SMTP host or a webhook (notify module reads SLACK_WEBHOOK
+        # etc. from env) must be reachable; otherwise the digest silently
+        # never sends. Warn at configure time, not at send time.
+        import os as _os
+        has_webhook = any(_os.environ.get(k) for k in
+                          ("WPSECSCAN_SLACK_WEBHOOK", "WPSECSCAN_DISCORD_WEBHOOK",
+                           "WPSECSCAN_TEAMS_WEBHOOK", "WPSECSCAN_WEBHOOK_URL"))
+        if not kv.get("smtp") and not has_webhook:
+            print(
+                "[warn] no --smtp host given and no WPSECSCAN_*_WEBHOOK env var set. "
+                "Digest will be configured but `digest send` will silently no-op until "
+                "you set one. Continue? (Ctrl+C to abort)",
+                file=sys.stderr,
+            )
         sites_mod.configure_digest(**kv)
         print("digest configured")
     elif args[0] in ("send", "test"):
@@ -1070,6 +1102,9 @@ def _cmd_db(args: list[str]) -> None:
         print(f"  entries:       {s['entry_count']:,}")
         print(f"  age:           {age_days} days" if age_days >= 0 else "  age:           n/a (embedded only)")
         print(f"  stale:         {s['stale']}  (threshold {s['stale_after_seconds'] // 86400} days)")
+        if s.get("stale"):
+            print()
+            print("  → Run  `wpsecscan db update`  to refresh.")
         return
 
     if action == "update":
@@ -1130,10 +1165,15 @@ def _cmd_db(args: list[str]) -> None:
     if action == "alert-check":
         from . import watchers
         out = watchers.cve_alert_check()
-        print(f"checked {out['checked_sites']} site(s), {len(out['new_alerts'])} new alert(s)")
+        total = len(out["new_alerts"])
+        shown = min(20, total)
+        print(f"checked {out['checked_sites']} site(s), {total} new alert(s)"
+              + (f" (showing first {shown})" if total > 20 else ""))
         for a in out["new_alerts"][:20]:
             print(f"  - {a['site_url']}: {a['plugin_slug']} {a['installed_version'] or '?'} "
                   f"[{a['severity']}] {a['cve']} {a['title']}")
+        if total > 20:
+            print(f"  ... and {total - 20} more")
         return
 
     if action == "source-stats":
