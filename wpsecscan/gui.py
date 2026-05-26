@@ -116,7 +116,32 @@ class App:
     def __init__(self, root: Tk) -> None:
         self.root = root
         self.root.title(f"{APP_NAME}  v{__version__}")
-        self.root.geometry("1200x780")
+        # UX-034: DPI-aware sizing. Without this, on a 4K 27" display the
+        # whole UI shrinks to the size of a postage stamp because Tk
+        # assumes 96 DPI. We:
+        #   1. Mark the process per-monitor DPI-aware (Windows-only API)
+        #   2. Compute the effective scale factor from Tk's own DPI probe
+        #   3. Tell Tk to scale all point-based fonts and geometry by it
+        # All fonts in this file use point sizes (positive int), so Tk
+        # scaling correctly enlarges them.
+        try:
+            import ctypes as _ct
+            try:
+                _ct.windll.shcore.SetProcessDpiAwareness(1)  # PER_MONITOR_DPI_AWARE
+            except (AttributeError, OSError):
+                _ct.windll.user32.SetProcessDPIAware()
+        except (AttributeError, OSError):
+            pass  # not Windows, or already set
+        try:
+            self._dpi_scale = max(1.0, min(3.0, float(self.root.winfo_fpixels("1i")) / 72.0))
+            self.root.tk.call("tk", "scaling", self._dpi_scale)
+        except (_tk_mod.TclError, ValueError, ZeroDivisionError):
+            self._dpi_scale = 1.0
+        # Scale the initial window proportionally so the layout fits.
+        base_w, base_h = 1200, 780
+        sw = int(base_w * (self._dpi_scale / 1.333))  # 1.333 = 96 DPI baseline
+        sh = int(base_h * (self._dpi_scale / 1.333))
+        self.root.geometry(f"{max(960, sw)}x{max(600, sh)}")
         self.root.minsize(960, 600)
         self.root.configure(bg=BG)
 
