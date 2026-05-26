@@ -1,0 +1,24 @@
+PackageIdentifier: bryanflowers.wpsecscan
+PackageVersion: X.Y.Z
+PackageLocale: en-US
+Publisher: bryanflowers
+PublisherUrl: https://github.com/bryanflowers
+PublisherSupportUrl: https://github.com/bryanflowers/wpsecscan/issues
+PackageName: WPSecScan
+PackageUrl: https://github.com/bryanflowers/wpsecscan
+License: MIT
+LicenseUrl: https://github.com/bryanflowers/wpsecscan/blob/main/LICENSE
+ShortDescription: Defensive WordPress security scanner.
+Description: |-
+  WPSecScan is a defensive security scanner for WordPress sites you own
+  or have written permission to test. It probes 200+ vulnerability
+  classes, cross-references against the public CVE feed, and produces
+  HTML, JSON, SARIF, CSV, and PDF reports.
+Tags:
+  - wordpress
+  - security
+  - vulnerability-scanner
+  - cve
+  - sast
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

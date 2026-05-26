@@ -1,0 +1,24 @@
+# Item #65 — winget installer manifest.
+#
+# winget needs three companion files in a versioned subfolder under
+# the official microsoft/winget-pkgs repo:
+#   manifests/b/bryanflowers/wpsecscan/X.Y.Z/
+#       wpsecscan.installer.yaml   (this file)
+#       wpsecscan.locale.en-US.yaml
+#       wpsecscan.yaml             (top-level pointer)
+#
+# Submit via a PR to microsoft/winget-pkgs. wingetcreate.exe automates
+# the SHA256 + URL parts.
+
+PackageIdentifier: bryanflowers.wpsecscan
+PackageVersion: X.Y.Z
+InstallerType: portable
+Commands:
+  - wpsecscan
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/bryanflowers/wpsecscan/releases/download/vX.Y.Z/wpsecscan.exe
+    InstallerSha256: REPLACE_ON_EACH_RELEASE_WITH_THE_EXE_SHA256
+    InstallerType: portable
+ManifestType: installer
+ManifestVersion: 1.6.0

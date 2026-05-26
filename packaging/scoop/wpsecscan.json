@@ -1,0 +1,30 @@
+{
+  "_comment": "Item #65 — Scoop manifest. Install: `scoop bucket add wpsecscan https://github.com/bryanflowers/wpsecscan-scoop && scoop install wpsecscan`. Update version + hash on each release; CI workflow .github/workflows/scoop-bump.yml automates this.",
+  "version": "X.Y.Z",
+  "description": "Defensive WordPress security scanner. Authorized testing only.",
+  "homepage": "https://github.com/bryanflowers/wpsecscan",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/bryanflowers/wpsecscan/releases/download/vX.Y.Z/wpsecscan.exe",
+      "hash": "REPLACE_ON_EACH_RELEASE_WITH_THE_EXE_SHA256"
+    }
+  },
+  "bin": "wpsecscan.exe",
+  "shortcuts": [
+    ["wpsecscan.exe", "WPSecScan"]
+  ],
+  "checkver": {
+    "github": "https://github.com/bryanflowers/wpsecscan"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/bryanflowers/wpsecscan/releases/download/v$version/wpsecscan.exe"
+      }
+    },
+    "hash": {
+      "url": "$baseurl/wpsecscan.exe.sha256"
+    }
+  }
+}
