@@ -171,6 +171,22 @@ async def _scan_one(target: str, args, console: Console):
     if not args.no_console:
         console_reporter.render(report, console)
 
+    # FEAT-010: --ai-explain-for {client,dev,exec} attaches plain-English
+    # rewrites to high+critical findings before any reporter renders.
+    if getattr(args, "ai_explain_for", None):
+        try:
+            from . import ai_assist as _ai
+            n = _ai.client_summarize_report(report, audience=args.ai_explain_for)
+            if not args.no_console:
+                if n:
+                    console.print(f"[green]✓[/green] AI explainer ({args.ai_explain_for}): "
+                                   f"rewrote {n} finding(s) into plain English")
+                else:
+                    console.print("[yellow]Note: --ai-explain-for produced no summaries "
+                                   "(no LLM backend configured, or no high-severity findings).[/yellow]")
+        except Exception:  # noqa: BLE001 — AI is opt-in, must never break a scan
+            pass
+
     out_dir = _outdir(args.out)
     stem = _stem(target, args.out)
     html_path: str | None = None
@@ -625,6 +641,13 @@ def main() -> None:
                    help="FEAT-015: write an agency-style dashboard with per-site risk-score sparklines + "
                         "Δ-vs-prior + brand.json header. Designed to be printed to PDF and handed to a "
                         "non-technical client as a monthly posture summary. Implies --dashboard.")
+    p.add_argument("--ai-explain-for", default=None, choices=["client", "dev", "exec"],
+                   metavar="AUDIENCE",
+                   help="FEAT-010: after the scan, ask the configured LLM (OpenAI/Anthropic/Ollama) "
+                        "to rewrite each high+critical finding into plain-English text for the given "
+                        "audience and store it under finding.extra.client_summary. Costs ~25 LLM "
+                        "calls per scan. Requires WPSECSCAN_OPENAI_API_KEY / ANTHROPIC_API_KEY / "
+                        "WPSECSCAN_OLLAMA_URL.")
     format_group = p.add_mutually_exclusive_group()
     format_group.add_argument("--json-only", action="store_true", help="Write JSON only (no HTML)")
     format_group.add_argument("--html-only", action="store_true", help="Write HTML only (no JSON)")

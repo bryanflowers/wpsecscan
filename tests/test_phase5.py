@@ -312,6 +312,81 @@ def test_notion_curl_commands_use_bearer_token():
     assert "Notion-Version" in cmds[0]
 
 
+# ============================== FEAT-010 --ai-explain-for ======================
+
+def test_client_summarize_report_attaches_extra(monkeypatch):
+    """client_summarize_report attaches extra['client_summary'] to high+critical
+    findings only, calls LLM the right number of times, ignores low/medium."""
+    from wpsecscan import ai_assist
+    from wpsecscan.models import Finding, CheckResult, ScanReport
+    monkeypatch.setattr(ai_assist, "is_configured", lambda: True)
+    calls = []
+    def fake_llm(prompt, *, system="", max_tokens=600):
+        calls.append((prompt[:30], system[:20]))
+        return "Plain-English explanation."
+    monkeypatch.setattr(ai_assist, "llm", fake_llm)
+    r = ScanReport(
+        target="https://x.com", scanned_at="2026-01-01", duration_ms=1,
+        results=[CheckResult(check_id="x", check_name="x", findings=[
+            Finding(severity="critical", title="C1", evidence="e", remediation="r"),
+            Finding(severity="high",     title="H1", evidence="e", remediation="r"),
+            Finding(severity="medium",   title="M1", evidence="e", remediation="r"),
+            Finding(severity="low",      title="L1", evidence="e"),
+        ])],
+    )
+    n = ai_assist.client_summarize_report(r, audience="client")
+    assert n == 2
+    assert len(calls) == 2
+    titles = {f.title: f.extra.get("client_summary") for r2 in r.results for f in r2.findings}
+    assert titles["C1"] == "Plain-English explanation."
+    assert titles["H1"] == "Plain-English explanation."
+    assert titles.get("M1") is None
+    assert titles.get("L1") is None
+
+
+def test_client_summarize_report_no_llm_returns_zero(monkeypatch):
+    from wpsecscan import ai_assist
+    from wpsecscan.models import Finding, CheckResult, ScanReport
+    monkeypatch.setattr(ai_assist, "is_configured", lambda: False)
+    r = ScanReport(
+        target="https://x.com", scanned_at="2026-01-01", duration_ms=1,
+        results=[CheckResult(check_id="x", check_name="x",
+                             findings=[Finding(severity="critical", title="C", evidence="e")])],
+    )
+    assert ai_assist.client_summarize_report(r, audience="client") == 0
+
+
+def test_csv_reporter_adds_client_summary_column_when_present():
+    """csv_out adds a client_summary column only when at least one finding has one."""
+    from wpsecscan.reporters import csv_out
+    from wpsecscan.models import Finding, CheckResult, ScanReport
+    base = ScanReport(
+        target="https://x.com", scanned_at="2026-01-01", duration_ms=1,
+        results=[CheckResult(check_id="x", check_name="x",
+                             findings=[Finding(severity="high", title="t")])],
+    )
+    text_no = csv_out.render(base)
+    assert "client_summary" not in text_no.splitlines()[0]
+    base.results[0].findings[0].extra["client_summary"] = "Plain words for the client."
+    text_yes = csv_out.render(base)
+    header = text_yes.splitlines()[0]
+    assert "client_summary" in header
+    assert "Plain words for the client." in text_yes
+
+
+def test_markdown_reporter_renders_client_summary():
+    from wpsecscan.reporters import markdown as md
+    from wpsecscan.models import Finding, CheckResult, ScanReport
+    f = Finding(severity="critical", title="t", evidence="e", remediation="r")
+    f.extra["client_summary"] = "Your checkout could be down for hours."
+    f.extra["client_summary_audience"] = "client"
+    r = ScanReport(target="x", scanned_at="2026-01-01", duration_ms=1,
+                    results=[CheckResult(check_id="x", check_name="x", findings=[f])])
+    text = md.render(r)
+    assert "**Plain-English (client)**" in text
+    assert "> Your checkout could be down for hours." in text
+
+
 # ============================== _parse_rdap_expiry ==============================
 
 def test_parse_rdap_expiry_high_severity_under_30d():

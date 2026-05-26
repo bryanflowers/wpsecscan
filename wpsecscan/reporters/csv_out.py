@@ -28,11 +28,18 @@ def render(report: ScanReport) -> str:
     )
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\n")
-    w.writerow(["target", "scanned_at", "check_id", "check_name", "severity", "confidence",
-                "title", "url", "evidence", "remediation", "cve"])
+    has_client_summary = any(
+        (f.extra or {}).get("client_summary")
+        for r in report.results for f in r.findings
+    )
+    header = ["target", "scanned_at", "check_id", "check_name", "severity", "confidence",
+              "title", "url", "evidence", "remediation", "cve"]
+    if has_client_summary:
+        header.append("client_summary")
+    w.writerow(header)
     for r in report.results:
         for f in r.findings:
-            w.writerow([
+            row = [
                 _safe_cell(report.target),
                 _safe_cell(report.scanned_at),
                 _safe_cell(r.check_id),
@@ -44,7 +51,10 @@ def render(report: ScanReport) -> str:
                 _safe_cell((f.evidence or "").replace("\r", " ").replace("\n", " | ")[:1000]),
                 _safe_cell((f.remediation or "").replace("\r", " ").replace("\n", " | ")[:1000]),
                 _safe_cell((f.extra or {}).get("cve", "")),
-            ])
+            ]
+            if has_client_summary:
+                row.append(_safe_cell((f.extra or {}).get("client_summary", "")))
+            w.writerow(row)
     return buf.getvalue()
 
 

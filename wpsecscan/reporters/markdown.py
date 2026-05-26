@@ -80,6 +80,13 @@ def render(report: ScanReport, top_n: int | None = None) -> str:
             lines.append("")
             if f.url:
                 lines.append(f"- URL: {f.url}")
+            client_summary = (f.extra or {}).get("client_summary")
+            if client_summary:
+                audience = (f.extra or {}).get("client_summary_audience", "client")
+                lines.append("")
+                lines.append(f"**Plain-English ({audience})**")
+                lines.append("")
+                lines.append(f"> {client_summary}")
             if f.evidence:
                 lines.append("")
                 lines.append("**Evidence**")

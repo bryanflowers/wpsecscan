@@ -210,6 +210,74 @@ def fix_pr_body(finding) -> str:
                 system=sys_msg, max_tokens=500)
 
 
+_CLIENT_SUMMARY_AUDIENCES = {
+    "client": (
+        "You are explaining a WordPress security finding to a non-technical client "
+        "(the site owner — a restaurant, charity, e-commerce shop). Write ONE plain-"
+        "English sentence describing the risk in their terms — no acronyms, no "
+        "jargon, no code. Then a second sentence on why it matters to their "
+        "business (lost trust, downtime, blocked checkout, data fine). 35 words max."
+    ),
+    "dev": (
+        "You are explaining a WordPress security finding to a mid-level developer. "
+        "Two sentences. Sentence 1: the technical defect. Sentence 2: the fix, "
+        "named precisely (file/header/setting). Keep terse — no marketing language."
+    ),
+    "exec": (
+        "You are explaining a WordPress security finding to a non-technical "
+        "executive. ONE sentence on business risk in dollars / regulatory / "
+        "reputational terms. ONE sentence on the time-to-fix. 30 words max."
+    ),
+}
+
+
+def client_summarize_finding(finding, *, audience: str = "client") -> str:
+    """FEAT-010 — rewrite a single finding into plain-English text for the
+    given audience. Returns "" if no LLM backend or AI disabled.
+
+    Caller is expected to attach the result to ``finding.extra['client_summary']``.
+    Only call this on the high-signal findings (critical/high) — running it on
+    every info-level entry burns tokens without value.
+    """
+    import os as _os
+    if _os.environ.get("WPSECSCAN_NO_AI") or not is_configured():
+        return ""
+    sys_msg = _CLIENT_SUMMARY_AUDIENCES.get(audience) or _CLIENT_SUMMARY_AUDIENCES["client"]
+    prompt = (
+        f"Title: {finding.title}\n"
+        f"Severity: {finding.severity}\n"
+        f"Evidence: {(finding.evidence or '')[:300]}\n"
+        f"Remediation: {(finding.remediation or '')[:300]}\n"
+    )
+    return llm(prompt, system=sys_msg, max_tokens=120)
+
+
+def client_summarize_report(report, *, audience: str = "client",
+                              min_severity: str = "high",
+                              max_findings: int = 25) -> int:
+    """FEAT-010 — attach ``extra['client_summary']`` to every finding at or
+    above ``min_severity`` (default "high"). Caps total LLM calls at
+    ``max_findings`` to bound cost. Returns count of summaries actually
+    generated."""
+    if audience not in _CLIENT_SUMMARY_AUDIENCES:
+        return 0
+    from .models import SEVERITY_RANK
+    floor = SEVERITY_RANK.get(min_severity, SEVERITY_RANK["high"])
+    candidates = [
+        f for r in report.results for f in r.findings
+        if SEVERITY_RANK.get(f.severity, 0) >= floor
+    ]
+    candidates.sort(key=lambda f: -SEVERITY_RANK.get(f.severity, 0))
+    written = 0
+    for f in candidates[:max_findings]:
+        text = client_summarize_finding(f, audience=audience)
+        if text:
+            f.extra["client_summary"] = text
+            f.extra["client_summary_audience"] = audience
+            written += 1
+    return written
+
+
 def chain_explanation(findings: list) -> str:
     """#69 — narrate how to chain multiple findings into one exploit."""
     if not is_configured() or not findings:
