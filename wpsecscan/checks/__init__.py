@@ -157,6 +157,14 @@ from .plugin_cves import check as plugin_cves
 from .plugin_cemetery import check as plugin_cemetery
 from .theme_cves import check as theme_cves
 
+# Audit-extras-v1 (FEAT-001/021/032/035/037/040) — six small detection wins
+from .php_eol import check as php_eol
+from .permissions_policy import check as permissions_policy
+from .heartbeat_frontend import check as heartbeat_frontend
+from .users_me_capability_leak import check as users_me_capability_leak
+from .rest_link_header import check as rest_link_header
+from .csp_report_endpoint import check as csp_report_endpoint
+
 # Aggressive (active payloads) — opt-in
 from .sqli import check as sqli
 from .xss_reflected import check as xss_reflected
@@ -289,6 +297,13 @@ ALL_CHECKS = [
     ("plugin_cves",        "Plugin CVE matching",        plugin_cves,        False),
     ("plugin_cemetery",    "Abandoned-plugin detector (wp.org last_updated)", plugin_cemetery, False),
     ("theme_cves",         "Theme CVE matching",         theme_cves,         False),
+    # ---- Audit-extras-v1 (FEAT-001/021/032/035/037/040) ----
+    ("php_eol",                    "PHP end-of-life audit",                       php_eol,                    False),
+    ("permissions_policy",         "Permissions-Policy header audit",             permissions_policy,         False),
+    ("heartbeat_frontend",         "Heartbeat API on front-end",                  heartbeat_frontend,         False),
+    ("users_me_capability_leak",   "REST /users/me unauthenticated capabilities", users_me_capability_leak,   False),
+    ("rest_link_header",           "Link: header leaks internal URLs",            rest_link_header,           False),
+    ("csp_report_endpoint",        "CSP report-uri/report-to endpoint health",    csp_report_endpoint,        False),
     # ---- Aggressive ----
     ("sqli",               "SQL injection probes",       sqli,               True),
     ("xss_reflected",      "Reflected XSS probes",       xss_reflected,      True),

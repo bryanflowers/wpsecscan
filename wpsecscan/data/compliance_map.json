@@ -250,6 +250,12 @@
     "nist_800_53": "SI-2",
     "iso_27001": "A.8.8"
   },
+  "php_eol":                  {"pci_dss": "6.3.3", "nist_800_53": "SI-2",   "iso_27001": "A.8.8"},
+  "permissions_policy":       {"pci_dss": "6.4.3", "nist_800_53": "SC-18",  "iso_27001": "A.8.23"},
+  "heartbeat_frontend":       {"pci_dss": "6.4.3", "nist_800_53": "SC-5",   "iso_27001": "A.8.6"},
+  "users_me_capability_leak": {"pci_dss": "7.2.1", "nist_800_53": "AC-3",   "iso_27001": "A.8.3"},
+  "rest_link_header":         {"pci_dss": "6.4.3", "nist_800_53": "SC-18",  "iso_27001": "A.8.23"},
+  "csp_report_endpoint":      {"pci_dss": "10.2.1","nist_800_53": "AU-12",  "iso_27001": "A.8.15"},
   "theme_cves": {
     "pci_dss": "6.3.3",
     "nist_800_53": "SI-2",
