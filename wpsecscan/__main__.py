@@ -316,6 +316,23 @@ async def _scan_one(target: str, args, console: Console):
         if not args.no_console:
             console.print(f"[green]✓[/green] Word-compatible report: [bold]{actual}[/bold]")
 
+    # #50 — auditor PDF with full evidence chains
+    if getattr(args, "auditor_pdf", False):
+        from .reporters import auditor_pdf as _ap
+        ap_p = out_dir / f"{stem}-auditor.pdf"
+        _ap.write(report, ap_p)
+        actual = ap_p if ap_p.exists() else ap_p.with_suffix(".html")
+        if not args.no_console:
+            console.print(f"[green]✓[/green] Auditor report (full evidence): [bold]{actual}[/bold]")
+
+    # #51 — SOC2 / ISO compliance-attestation matrix
+    if getattr(args, "soc2_attestation", False):
+        from .reporters import compliance_attestation as _ca
+        ca_p = out_dir / f"{stem}-compliance-attestation.html"
+        _ca.write(report, ca_p)
+        if not args.no_console:
+            console.print(f"[green]✓[/green] Compliance attestation matrix: [bold]{ca_p}[/bold]")
+
     # N40 attestation
     if getattr(args, "attestation", None):
         from .reporters import attestation as _att
@@ -853,6 +870,15 @@ def main() -> None:
     p.add_argument("--burp-export", action="store_true", help="Also write a Burp Suite scope XML for handoff to manual deep-testing")
     p.add_argument("--exec-pdf", action="store_true", help="Also write a one-page executive summary PDF (uses reportlab if installed; otherwise an HTML print-to-PDF fallback)")
     p.add_argument("--docx", action="store_true", help="#48: also write a Word-compatible report. Uses python-docx when installed; falls back to .rtf otherwise.")
+    # #50 + #51 — full-evidence auditor PDF + SOC2/ISO attestation matrix
+    p.add_argument("--auditor-pdf", action="store_true",
+                   help="#50: also write a verbose 'auditor' PDF with every finding's "
+                        "raw evidence + remediation + extra fields. Useful as legal/contractual "
+                        "evidence. Uses reportlab when installed; HTML fallback otherwise.")
+    p.add_argument("--soc2-attestation", action="store_true",
+                   help="#51: write a printable compliance-attestation matrix mapping every "
+                        "check that ran to its controls across 8 frameworks (PCI/NIST/ISO/NIST-CSF/"
+                        "CIS/HITRUST/CMMC).")
     p.add_argument("--redact-evidence", action="store_true",
                    help="#61: mask JWTs / session cookies / bearer tokens / PII in finding evidence before any reporter writes. Recommended when sharing reports externally.")
     p.add_argument("--diff-html", nargs=2, metavar=("OLD.json", "NEW.json"),
