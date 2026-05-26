@@ -70,6 +70,7 @@ from .jwt_audit import check as jwt_audit
 from .ssti import check as ssti
 from .nosql_injection import check as nosql_injection
 from .s3_bucket_discovery import check as s3_bucket_discovery
+from .referenced_buckets import check as referenced_buckets
 from .github_leak_search import check as github_leak_search
 from .path_bypass import check as path_bypass
 from .race_condition import check as race_condition
@@ -317,6 +318,7 @@ ALL_CHECKS = [
     ("oauth_oidc",         "OAuth2 / OIDC discovery audit", oauth_oidc,           False),
     ("saml_xsw",           "SAML / XSW endpoint discovery", saml_xsw,             False),
     ("s3_bucket_discovery","S3 bucket discovery + public-ACL", s3_bucket_discovery, False),
+    ("referenced_buckets", "Referenced-bucket open-listing probe (S3/GCS/R2/Spaces)", referenced_buckets, False),
     ("github_leak_search", "GitHub leaked-token search (opt-in)", github_leak_search, False),
     ("jwt_audit",          "JWT audit (alg=none + weak HS256)", jwt_audit,        False),
     # ---- CVE matching ----

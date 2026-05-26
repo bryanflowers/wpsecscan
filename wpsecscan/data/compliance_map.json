@@ -474,6 +474,11 @@
     "nist_800_53": "AC-3",
     "iso_27001": "A.8.3"
   },
+  "referenced_buckets": {
+    "pci_dss": "3.4.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.3"
+  },
   "github_leak_search": {
     "pci_dss": "8.2.1",
     "nist_800_53": "IA-5",

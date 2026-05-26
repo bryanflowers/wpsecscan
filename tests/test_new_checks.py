@@ -276,12 +276,75 @@ def test_secret_leak_flags_new_relic_browser_key():
     assert any("New Relic" in f.title for f in findings)
 
 
+# ============================== item 6 — referenced_buckets ==============================
+
+def test_referenced_buckets_extracts_s3_url():
+    from wpsecscan.checks.referenced_buckets import _BUCKET_PATTERNS
+    body = '<img src="https://my-prod-uploads.s3.us-east-1.amazonaws.com/photo.jpg">'
+    for provider, pat in _BUCKET_PATTERNS:
+        if provider == "s3":
+            m = pat.search(body)
+            assert m, "expected S3 regex to match"
+            assert m.group(1) == "my-prod-uploads"
+            break
+
+
+def test_referenced_buckets_extracts_gcs_url():
+    from wpsecscan.checks.referenced_buckets import _BUCKET_PATTERNS
+    body = '<script src="https://storage.googleapis.com/my-static-site/app.js"></script>'
+    for provider, pat in _BUCKET_PATTERNS:
+        if provider == "gcs":
+            m = pat.search(body)
+            assert m and m.group(1) == "my-static-site"
+            break
+
+
+def test_referenced_buckets_extracts_r2_dev_url():
+    from wpsecscan.checks.referenced_buckets import _BUCKET_PATTERNS
+    body = '<img src="https://my-images.r2.dev/cat.png">'
+    for provider, pat in _BUCKET_PATTERNS:
+        if provider == "r2":
+            m = pat.search(body)
+            assert m and m.group(1) == "my-images"
+            break
+
+
+def test_referenced_buckets_extracts_do_spaces_url():
+    from wpsecscan.checks.referenced_buckets import _BUCKET_PATTERNS
+    body = 'background-image: url("https://my-cdn.nyc3.cdn.digitaloceanspaces.com/hero.jpg");'
+    for provider, pat in _BUCKET_PATTERNS:
+        if provider == "spaces":
+            m = pat.search(body)
+            assert m and m.group(1) == "my-cdn"
+            break
+
+
+def test_referenced_buckets_listing_detector_recognises_s3_xml():
+    from wpsecscan.checks.referenced_buckets import _is_listing_response
+    body = b'<?xml version="1.0" encoding="UTF-8"?>\n<ListBucketResult><Contents>...'
+    assert _is_listing_response("s3", 200, body) is True
+    assert _is_listing_response("s3", 403, body) is False
+    assert _is_listing_response("s3", 200, b"<html>not a bucket</html>") is False
+
+
+def test_referenced_buckets_clean_when_no_buckets_referenced():
+    """Item 6: with no bucket URLs in the page, the check emits one info finding
+    instead of crashing or returning empty."""
+    import asyncio as _asyncio
+    from wpsecscan.checks.referenced_buckets import check
+    client = FakeClient(responses={"/": FakeResponse(text="<html>plain page</html>")})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert findings, "expected at least one info finding even when no buckets are referenced"
+    assert any("No cloud-bucket URLs" in f.title for f in findings)
+
+
 # ============================== check registry ==============================
 
 def test_all_new_checks_registered():
     from wpsecscan.checks import ALL_CHECKS
     ids = [c[0] for c in ALL_CHECKS]
-    for required in ("rest_api", "cors", "js_libraries", "secret_leak"):
+    for required in ("rest_api", "cors", "js_libraries", "secret_leak", "referenced_buckets"):
         assert required in ids, f"check {required!r} not registered in ALL_CHECKS"
 
 

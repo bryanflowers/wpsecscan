@@ -128,6 +128,7 @@
   "oauth_oidc":            {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1078.004", "attack_label": "Valid Accounts: Cloud Accounts", "cwe": "CWE-345", "d3fend": "D3-MFA"},
   "saml_xsw":              {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1078.004", "attack_label": "Valid Accounts: Cloud Accounts", "cwe": "CWE-347", "d3fend": "D3-MFA"},
   "s3_bucket_discovery":   {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1530", "attack_label": "Data from Cloud Storage", "cwe": "CWE-732", "d3fend": "D3-RAC"},
+  "referenced_buckets":    {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1530", "attack_label": "Data from Cloud Storage", "cwe": "CWE-732", "d3fend": "D3-RAC"},
   "github_leak_search":    {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552.001", "attack_label": "Credentials in Files", "cwe": "CWE-798", "d3fend": "D3-CR"},
   "jwt_audit":             {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552.001", "attack_label": "Credentials in Files", "cwe": "CWE-347", "d3fend": "D3-CH"},
   "ssti":                  {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-1336", "d3fend": "D3-IVA"},
