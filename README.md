@@ -6,9 +6,9 @@
 [![release](https://img.shields.io/github/v/release/bryanflowers/wpsecscan)](https://github.com/bryanflowers/wpsecscan/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/bryanflowers/wpsecscan/total)](https://github.com/bryanflowers/wpsecscan/releases)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![checks](https://img.shields.io/badge/checks-189-brightgreen)](FEATURES.md)
+[![checks](https://img.shields.io/badge/checks-187-brightgreen)](FEATURES.md)
 [![CVE sources](https://img.shields.io/badge/CVE%20sources-8-blue)](docs/data-sources.md)
-[![tests passing](https://img.shields.io/badge/tests-665%20passing-brightgreen)](tests/)
+[![tests passing](https://img.shields.io/badge/tests-598%20passing-brightgreen)](tests/)
 [![SLSA Level 3](https://img.shields.io/badge/SLSA-Level%203-success)](docs/verify-release.md)
 [![Sigstore signed](https://img.shields.io/badge/Sigstore-signed-blueviolet)](docs/verify-release.md)
 [![threat-intel](https://img.shields.io/badge/threat--intel-10%20providers-orange)](FEATURES.md)
@@ -25,7 +25,7 @@
 
 **The most thoroughly-sourced WordPress vulnerability scanner — open source, AGPLv3, runs locally.**
 
-189 checks across 18 categories. **8-source nightly CVE aggregator**
+187 checks across 18 categories. **8-source nightly CVE aggregator**
 (NVD + GHSA + Mitre + OSV + Wordfence + WPVulnerability + CIRCL +
 Patchstack). **SLSA L3 + Sigstore-signed releases**. **10-provider
 threat-intel federation** (CISA KEV, EPSS, Exploit-DB, Metasploit,
@@ -43,7 +43,7 @@ telemetry, no per-site licensing, no data leaves your box.
 
 Ships as two standalone Windows binaries — no Python required on the machine you run them on.
 
-- **`wpsecscan.exe`** — command-line scanner. Output: console + HTML + JSON + CSV + SARIF + Markdown + PDF + PowerPoint + Word + SBOM (CycloneDX + VEX).
+- **`wpsecscan.exe`** — command-line scanner. Output: console + HTML + JSON + CSV + SARIF + Markdown + Excel (XLSX) + executive PDF + Burp scope XML + CycloneDX SBOM + shields.io status badge SVG.
 - **`wpsecscan-gui.exe`** — full GUI with live progress tree, finding details, risk score,
   scan profiles, multi-target queue, scheduled scans, webhook alerts, exploit playbooks, and more.
 - **`wpsecscan-companion.zip`** — WordPress plugin that exposes a read-only, token-gated
@@ -66,9 +66,9 @@ Ships as two standalone Windows binaries — no Python required on the machine y
   ATT&CK + CWE + D3FEND + PCI-DSS 4.0 + NIST 800-53 + ISO 27001 + HIPAA +
   FERPA + SOC 2 + FedRAMP + GDPR + HITRUST CSF v11.4 + CMMC 2.0 +
   NIST CSF 2.0 + CIS Critical Controls v8 + ISO 27001:2022 Annex A.
-- **12 report formats** including PowerPoint executive deck, Word docx,
-  CycloneDX SBOM + VEX, Grafana dashboard JSON, Datadog dashboard,
-  Splunk HEC / Elastic / Loki NDJSON, quarterly trend PDF.
+- **11 report formats**: HTML, JSON, CSV, SARIF 2.1.0, Markdown, Excel
+  (XLSX with per-OWASP-category sheets), executive PDF, CycloneDX SBOM,
+  Burp Suite scope XML, attestation PDF, shields.io status-badge SVG.
 - **10 third-party integrations** including Burp Suite project XML,
   OWASP ZAP findings import, Nuclei template auto-pull, JIRA / Linear /
   GitHub Issues bulk-create, Wordfence Cloud sync, Sucuri SiteCheck,
@@ -119,7 +119,7 @@ python -m venv .venv
 pip install -r requirements.txt
 python run.py https://example.com         # CLI
 python run_gui.py                          # GUI
-pytest                                     # 607+ tests
+pytest                                     # 598 tests
 ```
 
 ---
@@ -164,7 +164,7 @@ wpsecscan.exe https://your-wp-site.com --wpscan-token <KEY>
 
 ---
 
-## What it checks (189 checks)
+## What it checks (187 checks)
 
 Passive checks always run; aggressive checks need `--aggressive`.
 
@@ -274,7 +274,8 @@ Output:
   --html-only                  Suppress JSON
   --csv                        Also write CSV
   --sarif                      Also write SARIF 2.1.0
-  --no-console                 Suppress the colored console table
+  --quiet, -q                  Suppress the colored console table (alias: --no-console)
+  -v / -vv                     Increase console verbosity (per-check / HTTP-level)
 
 Modes:
   --aggressive                 Enable active payload checks (SQLi, XSS, SSRF, etc.)
@@ -283,8 +284,8 @@ Modes:
   --deep-throttle              Run the deep login-throttle mapper
   --deep-throttle-attempts N   (10-500, default 120)
   --deep-throttle-pacing S     (5-60 seconds, default 10)
-  --auth-user USER             Admin username for authenticated scan
-  --auth-pass PASS             Admin password
+  --auth-user USER             Admin username for authenticated scan (env: WPSECSCAN_AUTH_USER)
+  --auth-pass PASS             Admin password (env: WPSECSCAN_AUTH_PASS; use `-` to read from stdin)
   --ssh-audit user@host        Connect via SSH and run a read-only wp-cli audit
   --password-audit FILE        Offline: convert wp_users dump to a hashcat-ready file (NO network)
 
@@ -298,9 +299,23 @@ Tuning:
 
 Maintenance:
   --update-db                  Refresh the Wordfence vulnerability database
+                               (exits 75 on remote-fetch failure for CI detection)
   --diff OLD.json NEW.json     Diff two saved JSON reports
-  --debug                      Verbose internal logging
+  --baseline BASELINE.json     Diff scan-in-progress against a saved baseline (alias: --diff-against)
+  --debug                      Verbose internal logging to ~/.wpsecscan/logs/
+  --completion {bash,zsh,powershell}   Print shell-completion script and exit
   --version
+
+Subcommands (run `wpsecscan <subcommand> --help` for details):
+  sites          Manage a list of sites (add/list/scan/remove)
+  schedule       Install/uninstall a Windows-Scheduler / launchd / systemd cron
+  digest         Configure SMTP / webhook digests of new findings
+  ai-cost        Print AI-triage cost summary
+  ai-options     Read/set Advanced AI-triage toggles
+  analytics      Manage opt-in analytics
+  db             vuln DB management (status / update / signatures / source-stats / subscribe / alert-check)
+  compare URL    Diff the two most-recent saved snapshots of a URL
+  badge URL      Emit a shields.io-style SVG of the latest scan grade
 ```
 
 ---
@@ -309,15 +324,53 @@ Maintenance:
 
 Everything is stored in `~/.wpsecscan/` (i.e. `C:\Users\<you>\.wpsecscan\`):
 
-| File                       | Purpose                                                |
-|----------------------------|--------------------------------------------------------|
-| `history.json`             | Last 20 scanned URLs (for the GUI dropdown)            |
-| `profiles.json`            | Named scan profiles (toggles + deep-throttle settings) |
-| `annotations.json`         | Per-finding annotations (accepted-risk / false-positive)|
-| `reports/<host>.json`      | Snapshot of the most recent scan per URL (for diff)    |
-| `wordfence.json` (cache)   | Local cache of the Wordfence vulnerability DB          |
+| Path                                         | Purpose                                                  |
+|----------------------------------------------|----------------------------------------------------------|
+| `history.json`                               | Last 20 scanned URLs (GUI dropdown)                      |
+| `profiles.json`                              | Named scan profiles (toggles + deep-throttle settings)   |
+| `settings.json`                              | Tokens saved via the GUI onboarding wizard               |
+| `sites.json`                                 | Managed-sites list for `wpsecscan sites` + scheduling    |
+| `schedule_state.json`                        | Cron-style state for `wpsecscan schedule`                |
+| `digest.json`                                | Configured SMTP / webhook digest destinations            |
+| `annotations.json`                           | Per-finding annotations (accepted-risk / FP)             |
+| `comments.json`                              | Per-finding free-text comments                           |
+| `stars.json`                                 | Starred findings (GUI sidebar)                           |
+| `disabled_checks.json`                       | Persistently disabled check IDs                          |
+| `reports/{host}.json`                        | Latest-scan snapshot per URL (canonical)                 |
+| `reports/{host}-{YYYYmmdd-HHMMSS}.json`      | Timestamped snapshot history (for `compare`, trend)      |
+| `cache/wporg/{slug}.json`                    | 24h-cached wp.org plugin metadata (plugin_cemetery)      |
+| `checkpoints/`                               | `--checkpoint` resumable scan state                      |
+| `logs/`                                      | `--debug` log files                                      |
+| `demo/`                                      | `--demo` synthetic-scan artifacts                        |
+| `analytics/events.jsonl`                     | Opt-in analytics (off by default; `wpsecscan analytics`) |
+| `wordfence.json`                             | Local cache of the aggregated CVE database               |
 
 Override the base dir with the `WPSECSCAN_HOME` environment variable.
+
+### Shell completions
+
+```powershell
+# bash
+wpsecscan --completion bash > /etc/bash_completion.d/wpsecscan
+
+# zsh
+wpsecscan --completion zsh > "${fpath[1]}/_wpsecscan"
+
+# PowerShell
+wpsecscan --completion powershell | Out-File -Append $PROFILE
+```
+
+Restart the shell to activate.
+
+### Secrets via env vars
+
+Every sensitive flag — `--auth-pass`, `--auth-app-password`,
+`--companion-token`, `--proxy-auth`, `--wpscan-token`,
+`--patchstack-token`, `--hibp-token`, `--vt-token`, `--abuseipdb-token`,
+`--github-search-token` — reads from a matching `WPSECSCAN_<UPPER>`
+environment variable when not passed on the CLI. Use `--auth-pass -`
+to read the password from stdin via `getpass` (stops it leaking into
+`ps aux` / shell history).
 
 ---
 
@@ -394,12 +447,12 @@ to see errors).
 
 | Category                  | Count |
 |---------------------------|-------|
-| Checks                    | **58** |
+| Checks                    | **187** |
 | Payloads                  | **224** |
 | Exploit signatures        | **307** |
-| Plugin CVE database       | ~7,000 (Wordfence) |
+| Plugin CVE database       | ~7,000 (Wordfence) + 7 other sources via the nightly aggregator |
 | Exploit-playbook entries  | **25** |
-| Tests                     | **215** |
+| Tests                     | **598** |
 
 ---
 
