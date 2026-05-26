@@ -1,0 +1,107 @@
+{
+  "name": "wpsecscan-vscode",
+  "displayName": "WPSecScan Report Viewer",
+  "description": "Open a wpsecscan JSON report and navigate findings inline in the VS Code editor.",
+  "version": "0.1.0",
+  "publisher": "wpsecscan",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Linters"
+  ],
+  "keywords": [
+    "wordpress",
+    "security",
+    "wpsecscan",
+    "vulnerability",
+    "sast"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:json",
+    "onCommand:wpsecscan.openReport",
+    "onCommand:wpsecscan.scanCurrentSite",
+    "onView:wpsecscanFindings"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "wpsecscan.openReport",
+        "title": "WPSecScan: Open Report (JSON)",
+        "category": "WPSecScan"
+      },
+      {
+        "command": "wpsecscan.scanCurrentSite",
+        "title": "WPSecScan: Scan current site",
+        "category": "WPSecScan"
+      },
+      {
+        "command": "wpsecscan.refreshFindings",
+        "title": "Refresh findings",
+        "icon": "$(refresh)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "wpsecscan",
+          "title": "WPSecScan",
+          "icon": "$(shield)"
+        }
+      ]
+    },
+    "views": {
+      "wpsecscan": [
+        {
+          "id": "wpsecscanFindings",
+          "name": "Findings",
+          "icon": "$(shield)"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "wpsecscan.refreshFindings",
+          "when": "view == wpsecscanFindings",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "WPSecScan",
+      "properties": {
+        "wpsecscan.cliPath": {
+          "type": "string",
+          "default": "wpsecscan",
+          "description": "Path to the wpsecscan CLI (default: discover on PATH)."
+        },
+        "wpsecscan.defaultSite": {
+          "type": "string",
+          "default": "",
+          "description": "Default site URL used by `WPSecScan: Scan current site` when no folder-level workspace setting is present."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bryanflowers/wpsecscan"
+  },
+  "bugs": {
+    "url": "https://github.com/bryanflowers/wpsecscan/issues"
+  }
+}
