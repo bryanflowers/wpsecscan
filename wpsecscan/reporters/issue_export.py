@@ -144,6 +144,83 @@ def github_curl_commands(report: ScanReport, repo: str, min_sev: str = "medium")
     return cmds
 
 
+# ---------------- Notion ----------------
+
+# Notion's database properties depend on the user's schema, so we keep the
+# payload minimal: title (the only universally-required property type) plus
+# a "children" block list containing the finding's markdown body. The
+# database is expected to have a title column called "Name" (Notion's
+# default). Users with richer schemas can replace this property dict with
+# their own keys via the WPSECSCAN_NOTION_PROPS env var (a JSON dict of
+# additional Notion property objects merged into every page payload).
+
+_NOTION_VERSION = "2022-06-28"  # API stability tier; bumped by Notion when breaking
+
+
+def notion_payloads(report: ScanReport, database_id: str,
+                    title_property: str = "Name",
+                    min_sev: str = "medium",
+                    extra_props: dict | None = None) -> list[dict]:
+    """Build Notion `pages.create` payloads (one per finding above the threshold).
+
+    Args:
+        database_id: the destination Notion database ID (32-hex with dashes).
+        title_property: name of the title column in the database (Notion's
+            default is "Name"; some users rename it to "Title" or "Finding").
+        min_sev: cap findings at this severity.
+        extra_props: optional dict of additional Notion property objects
+            (e.g. select / multi-select / status) merged into every payload.
+    """
+    out: list[dict] = []
+    for cid, f in _top_findings(report, min_sev):
+        title_text = f"[{f.severity.upper()}] {f.title[:200]}"
+        body_md = _markdown_body(cid, f)
+        # Notion text blocks have a 2000-char limit per rich-text element;
+        # split the markdown body across multiple paragraph blocks to stay
+        # under the limit.
+        chunks = [body_md[i:i + 1800] for i in range(0, len(body_md), 1800)] or [""]
+        page_props: dict = {
+            title_property: {
+                "title": [{"type": "text", "text": {"content": title_text[:2000]}}]
+            },
+        }
+        if extra_props:
+            page_props.update(extra_props)
+        payload = {
+            "parent": {"database_id": database_id},
+            "properties": page_props,
+            "children": [
+                {
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {
+                        "rich_text": [{"type": "text", "text": {"content": chunk}}]
+                    },
+                }
+                for chunk in chunks
+            ],
+        }
+        out.append(payload)
+    return out
+
+
+def notion_curl_commands(report: ScanReport, database_id: str,
+                         title_property: str = "Name",
+                         min_sev: str = "medium") -> list[str]:
+    """Return one `curl` command per finding. Token reads from $NOTION_TOKEN."""
+    cmds: list[str] = []
+    for payload in notion_payloads(report, database_id, title_property, min_sev):
+        body = json.dumps(payload).replace("'", "'\"'\"'")
+        cmds.append(
+            f"curl -sS -H 'Authorization: Bearer $NOTION_TOKEN' "
+            f"-H 'Notion-Version: {_NOTION_VERSION}' "
+            f"-H 'Content-Type: application/json' "
+            f"-X POST 'https://api.notion.com/v1/pages' "
+            f"-d '{body}'"
+        )
+    return cmds
+
+
 # ---------------- Combined writer ----------------
 
 def write(report: ScanReport, path: Path, *,
@@ -152,6 +229,8 @@ def write(report: ScanReport, path: Path, *,
           jira_base: str | None = None,
           linear_team: str | None = None,
           github_repo: str | None = None,
+          notion_db: str | None = None,
+          notion_title_prop: str = "Name",
           min_sev: str = "medium") -> None:
     """Write a single shell script that contains curl commands for every
     configured tracker, with a sourced env-var preamble."""
@@ -162,7 +241,7 @@ def write(report: ScanReport, path: Path, *,
         f"# Target:    {report.target}",
         "#",
         "# Required env vars (set before running):",
-        "#   JIRA_API_TOKEN, LINEAR_API_KEY, GITHUB_TOKEN",
+        "#   JIRA_API_TOKEN, LINEAR_API_KEY, GITHUB_TOKEN, NOTION_TOKEN",
         "#",
         "set -euo pipefail",
         "",
@@ -178,5 +257,9 @@ def write(report: ScanReport, path: Path, *,
     if github_repo:
         parts.append("# GitHub issues")
         parts.extend(github_curl_commands(report, github_repo, min_sev))
+        parts.append("")
+    if notion_db:
+        parts.append("# Notion pages (DB ID: " + notion_db + ")")
+        parts.extend(notion_curl_commands(report, notion_db, notion_title_prop, min_sev))
         parts.append("")
     path.write_text("\n".join(parts), encoding="utf-8")

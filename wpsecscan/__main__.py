@@ -262,6 +262,30 @@ async def _scan_one(target: str, args, console: Console):
         if not args.no_console:
             console.print(f"[green]✓[/green] Auto-PR script (review before running): [bold]{pr_p}[/bold]")
 
+    # FEAT-003: --notion-database emits a Notion-API curl script
+    if getattr(args, "notion_database", None):
+        from .reporters import issue_export as _ix
+        notion_p = out_dir / f"{stem}-notion.sh"
+        notion_p.write_text(
+            "#!/usr/bin/env bash\n"
+            f"# WPSecScan → Notion DB ({args.notion_database}). Review before running.\n"
+            f"# Required env: NOTION_TOKEN (from notion.so/my-integrations)\n"
+            "#\n"
+            "# The Notion database must have a title property; default name is 'Name'.\n"
+            "# Override with --notion-title-prop if your DB uses a different title column.\n"
+            "set -euo pipefail\n\n"
+            + "\n\n".join(_ix.notion_curl_commands(
+                report,
+                args.notion_database,
+                title_property=getattr(args, "notion_title_prop", "Name"),
+                min_sev=getattr(args, "notion_min_sev", "medium"),
+            ))
+            + "\n",
+            encoding="utf-8",
+        )
+        if not args.no_console:
+            console.print(f"[green]✓[/green] Notion export script (review before running): [bold]{notion_p}[/bold]")
+
     return console_reporter.exit_code(report, fail_on=args.fail_on), report, html_path
 
 
@@ -574,6 +598,14 @@ def main() -> None:
     p.add_argument("--attestation-customer", default=None, help="Customer name in the attestation header.")
     p.add_argument("--auto-pr", action="store_true", help="N41: after scan, write a shell script of `gh pr create` commands with conservative fixes.")
     p.add_argument("--auto-pr-repo", default=None, metavar="OWNER/NAME", help="Target repo for --auto-pr commands.")
+    # FEAT-003: Notion export
+    p.add_argument("--notion-database", default=None, metavar="DATABASE_ID",
+                   help="FEAT-003: also write a Notion-API curl script that creates one page per "
+                        "above-threshold finding in the given Notion database. Token via $NOTION_TOKEN.")
+    p.add_argument("--notion-title-prop", default="Name", metavar="NAME",
+                   help="Title column name in the Notion DB (default: 'Name'; Notion's default).")
+    p.add_argument("--notion-min-sev", default="medium", metavar="SEV",
+                   help="Lowest severity to export to Notion (default: medium).")
     p.add_argument("--query", default=None, metavar="EXPR", help="L30: after scan, print only findings matching the GraphQL-style filter expression.")
     p.add_argument("--since", default=None, metavar="YYYY-MM-DD", help="K26: incremental mode; skip low-churn checks for targets whose snapshot is newer than this date.")
     p.add_argument("--completion", default=None, choices=["bash", "zsh", "powershell"], help="O47: print a shell completion script and exit.")

@@ -272,6 +272,46 @@ def test_auth_pass_stdin_aborts_on_eof(monkeypatch, capsys):
     assert "aborted" in capsys.readouterr().err.lower()
 
 
+# ============================== Notion export (FEAT-003) =========================
+
+def test_notion_payloads_shape():
+    """notion_payloads emits Notion-API page-create dicts with a title in the
+    configured title property + per-finding markdown body."""
+    from wpsecscan.reporters.issue_export import notion_payloads
+    from wpsecscan.models import Finding, CheckResult, ScanReport
+    r = ScanReport(
+        target="https://x.com", scanned_at="2026-01-01T00:00:00Z", duration_ms=1,
+        results=[CheckResult(check_id="sqli", check_name="SQLi", findings=[
+            Finding(severity="critical", title="Crit One", evidence="ev1", remediation="fix1"),
+            Finding(severity="high",     title="High One", evidence="ev2", remediation="fix2"),
+            Finding(severity="low",      title="Low One",  evidence="ev3"),  # below threshold
+        ])],
+    )
+    payloads = notion_payloads(r, "abc123-database-id", title_property="Finding", min_sev="medium")
+    assert len(payloads) == 2
+    assert payloads[0]["parent"] == {"database_id": "abc123-database-id"}
+    assert "Finding" in payloads[0]["properties"]
+    title_text = payloads[0]["properties"]["Finding"]["title"][0]["text"]["content"]
+    assert "CRITICAL" in title_text and "Crit One" in title_text
+    assert payloads[0]["children"][0]["type"] == "paragraph"
+
+
+def test_notion_curl_commands_use_bearer_token():
+    """Token must come from $NOTION_TOKEN, never embedded literally."""
+    from wpsecscan.reporters.issue_export import notion_curl_commands
+    from wpsecscan.models import Finding, CheckResult, ScanReport
+    r = ScanReport(
+        target="https://x.com", scanned_at="2026-01-01", duration_ms=1,
+        results=[CheckResult(check_id="x", check_name="x",
+                             findings=[Finding(severity="high", title="t", evidence="e")])],
+    )
+    cmds = notion_curl_commands(r, "db-id")
+    assert len(cmds) == 1
+    assert "Bearer $NOTION_TOKEN" in cmds[0]
+    assert "api.notion.com/v1/pages" in cmds[0]
+    assert "Notion-Version" in cmds[0]
+
+
 # ============================== _parse_rdap_expiry ==============================
 
 def test_parse_rdap_expiry_high_severity_under_30d():
