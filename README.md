@@ -6,9 +6,10 @@
 [![release](https://img.shields.io/github/v/release/bryanflowers/wpsecscan)](https://github.com/bryanflowers/wpsecscan/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/bryanflowers/wpsecscan/total)](https://github.com/bryanflowers/wpsecscan/releases)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![checks](https://img.shields.io/badge/checks-200%2B-brightgreen)](FEATURES.md)
+[![checks](https://img.shields.io/badge/checks-226-brightgreen)](FEATURES.md)
 [![CVE sources](https://img.shields.io/badge/CVE%20sources-8-blue)](docs/data-sources.md)
-[![tests passing](https://img.shields.io/badge/tests-664%20passing-brightgreen)](tests/)
+[![tests passing](https://img.shields.io/badge/tests-667%20passing-brightgreen)](tests/)
+[![PyPI](https://img.shields.io/pypi/v/wpsecscan)](https://pypi.org/project/wpsecscan/)
 [![SLSA Level 3](https://img.shields.io/badge/SLSA-Level%203-success)](docs/verify-release.md)
 [![Sigstore signed](https://img.shields.io/badge/Sigstore-signed-blueviolet)](docs/verify-release.md)
 [![threat-intel](https://img.shields.io/badge/threat--intel-10%20providers-orange)](FEATURES.md)
@@ -25,7 +26,7 @@
 
 **The most thoroughly-sourced WordPress vulnerability scanner — open source, AGPLv3, runs locally.**
 
-187 checks across 18 categories. **8-source nightly CVE aggregator**
+226 checks across 18 categories. **8-source nightly CVE aggregator**
 (NVD + GHSA + Mitre + OSV + Wordfence + WPVulnerability + CIRCL +
 Patchstack). **SLSA L3 + Sigstore-signed releases**. **10-provider
 threat-intel federation** (CISA KEV, EPSS, Exploit-DB, Metasploit,
@@ -83,7 +84,31 @@ Ships as two standalone Windows binaries — no Python required on the machine y
 
 ## Quick install
 
-### Option A — use the pre-built binaries (recommended)
+### Option A — `pip install wpsecscan` (any platform)
+
+The simplest path on Linux, macOS, or Windows-with-Python:
+
+```bash
+pip install wpsecscan
+wpsecscan --version
+wpsecscan https://example.com --json-only
+```
+
+PyPI: <https://pypi.org/project/wpsecscan/>
+
+For the optional GUI minimize-to-tray feature, install with the
+`[ui]` extra (pulls in Pillow + pystray):
+
+```bash
+pip install "wpsecscan[ui]"
+```
+
+Other optional extras: `[pdf]` (reportlab for true PDF exec reports),
+`[browser]` (playwright for headless DOM-XSS), `[yaml]` (pyyaml for
+daemon config), `[ops]` (redis + bcrypt for enterprise mode), or
+`[all]` to install everything.
+
+### Option B — pre-built Windows binaries
 
 1. Open `dist\` in this folder.
 2. Copy `wpsecscan.exe` and `wpsecscan-gui.exe` somewhere on your PATH
@@ -93,7 +118,7 @@ Ships as two standalone Windows binaries — no Python required on the machine y
 The first time you run them, Windows SmartScreen may warn that the publisher is unknown
 (the binaries aren't code-signed). Click **More info → Run anyway**.
 
-### Option B — build from source
+### Option C — build from source
 
 Requires Python 3.10+ and PyInstaller. Open PowerShell in the project root:
 
@@ -111,12 +136,12 @@ dist\wpsecscan-gui.exe       # GUI (~17 MB)
 
 Both are single-file executables — copy them anywhere and they run on their own.
 
-### Option C — run from source directly (development)
+### Option D — run from source directly (development)
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install .
 python run.py https://example.com         # CLI
 python run_gui.py                          # GUI
 pytest                                     # 598 tests
@@ -164,7 +189,7 @@ wpsecscan.exe https://your-wp-site.com --wpscan-token <KEY>
 
 ---
 
-## What it checks (187 checks)
+## What it checks (226 checks)
 
 Passive checks always run; aggressive checks need `--aggressive`.
 
