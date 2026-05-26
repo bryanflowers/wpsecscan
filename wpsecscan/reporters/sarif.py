@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .. import __version__ as _scanner_version
 from ..models import ScanReport
 
 SARIF_LEVEL = {
@@ -60,8 +61,8 @@ def render(report: ScanReport) -> str:
             "tool": {
                 "driver": {
                     "name": "WPSecScan",
-                    "version": "1.0.0",
-                    "informationUri": "https://github.com/wpsecscan",
+                    "version": _scanner_version,
+                    "informationUri": "https://github.com/bryanflowers/wpsecscan",
                     "rules": list(rules.values()),
                 }
             },

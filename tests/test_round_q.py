@@ -82,8 +82,10 @@ def test_markdown_reporter_render():
     text = md.render(r)
     assert "# WPSecScan" in text
     assert "Risk score" in text
-    # 4-backtick fence handles embedded ``` safely
-    assert "````" in text
+    # Triple-backtick fence; embedded ``` is sanitized with a zero-width space
+    # so it can't terminate the fence early.
+    assert "```" in text
+    assert "`​``" in text  # zero-width-space-broken sequence
 
 
 def test_markdown_reporter_top_n_keeps_highest_severities():

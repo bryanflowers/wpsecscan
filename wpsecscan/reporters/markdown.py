@@ -84,11 +84,15 @@ def render(report: ScanReport, top_n: int | None = None) -> str:
                 lines.append("")
                 lines.append("**Evidence**")
                 lines.append("")
-                # 4-backtick fence — user-supplied content can contain ``` safely.
-                lines.append("````")
+                # Standard 3-backtick fences — Slack and most chat clients
+                # only render triple-backtick blocks. We sanitize embedded
+                # triple-backticks by inserting a zero-width space so they
+                # can't terminate the fence early.
                 evidence = f.evidence if len(f.evidence) <= 4000 else f.evidence[:4000] + "\n... [truncated]"
+                evidence = evidence.replace("```", "`​``")
+                lines.append("```")
                 lines.append(evidence)
-                lines.append("````")
+                lines.append("```")
             if f.remediation:
                 lines.append("")
                 lines.append("**Remediation**")

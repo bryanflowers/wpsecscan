@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
+from .. import __version__ as _scanner_version
 from .. import confidence as _confidence
 from .. import tags as _tags
 from ..models import ScanReport
+
+# Bump when a breaking field rename / removal lands. Additive changes
+# don't require a bump.
+JSON_SCHEMA_VERSION = 1
 
 
 def _collect_cves(report: ScanReport) -> list[str]:
@@ -34,6 +40,13 @@ def _enrich(report: ScanReport) -> dict:
         for f in r.findings
     )
     d = report.to_dict()
+    # Stamp schema + scanner version so downstream consumers can branch
+    # on the JSON shape across releases.
+    d["_meta"] = {
+        "schema_version": JSON_SCHEMA_VERSION,
+        "scanner_version": _scanner_version,
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
     from ..risk import risk_grade
     d["risk_grade"] = risk_grade(d.get("risk_score", 0))
     # C1+C2: enrich every CVE with KEV-actively-exploited badge + EPSS percentile.

@@ -200,6 +200,35 @@
     </div>
   </details>
   {% endif %}
+  {# Table of contents — every check with findings, in the same order
+     as the body. Lets users jump straight to a finding instead of
+     scrolling through 100+ <details>. Browsers' Ctrl+F doesn't find
+     text inside collapsed <details>, so a clickable TOC is essential. #}
+  {% set tocable = report.results | selectattr('findings') | list %}
+  {% if tocable %}
+  <nav aria-label="Findings table of contents" style="margin:14px 0 0 0;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 14px">
+    <details open>
+      <summary style="cursor:pointer;font-weight:600;padding:6px 0">Contents ({{ tocable | length }} checks with findings)</summary>
+      <ul style="columns:2;column-gap:24px;margin:8px 0 4px;padding-left:18px">
+        {% for r in tocable %}
+          {% set worst_for_toc = (r.findings | map(attribute='severity') | list) %}
+          {% set toc_sev = 'info' %}
+          {% if 'critical' in worst_for_toc %}{% set toc_sev = 'critical' %}
+          {% elif 'high' in worst_for_toc %}{% set toc_sev = 'high' %}
+          {% elif 'medium' in worst_for_toc %}{% set toc_sev = 'medium' %}
+          {% elif 'low' in worst_for_toc %}{% set toc_sev = 'low' %}
+          {% endif %}
+          {% set toc_short = 'crit' if toc_sev == 'critical' else ('med' if toc_sev == 'medium' else toc_sev) %}
+          <li><a href="#check-{{ r.check_id }}"><span class="badge {{ toc_short }}">{{ toc_sev }}</span> {{ r.check_name }}</a> <span style="opacity:.65">({{ r.findings | length }})</span></li>
+        {% endfor %}
+      </ul>
+      <div style="padding:4px 0 4px">
+        <button aria-label="Expand all check sections" onclick="document.querySelectorAll('main details').forEach(d=>d.open=true)">Expand all</button>
+        <button aria-label="Collapse all check sections" onclick="document.querySelectorAll('main details').forEach(d=>d.open=false)">Collapse all</button>
+      </div>
+    </details>
+  </nav>
+  {% endif %}
 </header>
 <main>
 {% for r in report.results %}
@@ -212,7 +241,7 @@
   {% endif %}
   {% set short = sev[:4] if sev != 'critical' else 'crit' %}
   {% set short = 'crit' if sev == 'critical' else ('med' if sev == 'medium' else sev) %}
-  <details {% if sev in ('critical','high','medium') %}open{% endif %}>
+  <details id="check-{{ r.check_id }}" {% if sev in ('critical','high','medium') %}open{% endif %}>
     <summary>
       <span class="title">
         {{ r.check_name }}
