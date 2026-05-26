@@ -142,7 +142,7 @@ def _parse_wordfence_entry(uuid: str, entry: dict) -> list[Vuln]:
         for vr in version_ranges:
             if not isinstance(vr, dict):
                 continue
-            fixed_in = sw.get("patched_versions", [""])[0] if isinstance(sw.get("patched_versions"), list) else ""
+            fixed_in = (sw.get("patched_versions") or [""])[0] if isinstance(sw.get("patched_versions"), list) else ""
             to_v = vr.get("to_version") or ""
             to_inc = bool(vr.get("to_inclusive", False))
             from_v = vr.get("from_version") or ""

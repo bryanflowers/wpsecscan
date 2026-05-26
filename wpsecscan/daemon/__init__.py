@@ -7,4 +7,5 @@ from ._legacy import (  # noqa: F401
     _parse_cron_field,
     _cron_matches,
     _load_config,
+    run_daemon,
 )

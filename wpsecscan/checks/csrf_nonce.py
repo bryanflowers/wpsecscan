@@ -51,8 +51,10 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
             has_token = any(p.search(form_html) for p in NONCE_PATTERNS)
             if has_token:
                 continue
-            # Extract the form action attribute for clarity
-            action_m = re.search(r'<form[^>]*action=["\']([^"\']+)', r.text, re.IGNORECASE)
+            # Extract the form action attribute for clarity. Search inside the
+            # matched form HTML so we attribute the action to the right form
+            # (was searching whole page → first form's action shown for all).
+            action_m = re.search(r'<form[^>]*action=["\']([^"\']+)', form_html, re.IGNORECASE)
             action = action_m.group(1) if action_m else "(no action attr)"
             unprotected_forms.append((path, action[:120]))
 
