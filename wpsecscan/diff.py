@@ -17,6 +17,26 @@ def _flatten(report: dict) -> dict[tuple, dict]:
     return out
 
 
+def diff_dicts(old: dict, new: dict) -> dict:
+    """Same as `diff()` but takes already-parsed report dicts. Use when
+    one side of the comparison is the in-memory current scan instead of
+    a file on disk (avoids serializing-then-reparsing JSON)."""
+    flat_old = _flatten(old)
+    flat_new = _flatten(new)
+    new_findings = [f for k, f in flat_new.items() if k not in flat_old]
+    resolved = [f for k, f in flat_old.items() if k not in flat_new]
+    unchanged = sum(1 for k in flat_new if k in flat_old)
+    return {
+        "old_target": old.get("target"),
+        "new_target": new.get("target"),
+        "old_scanned_at": old.get("scanned_at"),
+        "new_scanned_at": new.get("scanned_at"),
+        "new": sorted(new_findings, key=lambda f: ("critical high medium low info".split().index(f.get("severity", "info")) if f.get("severity") in "critical high medium low info".split() else 99, f.get("title", ""))),
+        "resolved": sorted(resolved, key=lambda f: f.get("title", "")),
+        "unchanged": unchanged,
+    }
+
+
 def diff(old_path: Path, new_path: Path) -> dict:
     """Return {new: [...], resolved: [...], unchanged: int}."""
     old = json.loads(Path(old_path).read_text(encoding="utf-8"))

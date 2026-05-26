@@ -164,6 +164,16 @@ async def _scan_one(target: str, args, console: Console):
         if not args.no_console:
             console.print(f"[green]✓[/green] JSON report: [bold]{json_p}[/bold]")
 
+    # Persist a timestamped snapshot under ~/.wpsecscan/reports/ so
+    # `wpsecscan compare URL` and the GUI trend window can find prior scans.
+    # Previously only the GUI called this — CLI users found `compare` always
+    # reported "0 saved snapshots".
+    try:
+        from . import history as _history_mod
+        _history_mod.save_report_snapshot(target, json_reporter.render(report))
+    except Exception:  # noqa: BLE001  — snapshot persistence must never break the scan
+        pass
+
     if args.csv:
         csv_p = out_dir / f"{stem}.csv"
         csv_reporter.write(report, csv_p)
@@ -300,18 +310,22 @@ async def _amain(args) -> int:
     if args.diff_against and all_reports:
         try:
             import json as _j
-            from .diff import diff as _diff_fn
+            from .diff import diff_dicts as _diff_dicts
             baseline = _j.loads(Path(args.diff_against).read_text(encoding="utf-8"))
             current = json_reporter._enrich(all_reports[-1][0])
-            delta = _diff_fn(baseline, current)
+            delta = _diff_dicts(baseline, current)
             console.print("\n[bold cyan]--- DIFF vs baseline ---[/bold cyan]")
             console.print(f"[red]NEW    ({len(delta['new'])}):[/red]")
             for f in delta["new"][:30]:
                 console.print(f"  + [{f.get('severity','?').upper()}] {f.get('title','?')[:100]}")
+            if len(delta["new"]) > 30:
+                console.print(f"  [dim]... and {len(delta['new']) - 30} more[/dim]")
             console.print(f"[green]RESOLVED ({len(delta['resolved'])}):[/green]")
             for f in delta["resolved"][:30]:
                 console.print(f"  - [{f.get('severity','?').upper()}] {f.get('title','?')[:100]}")
-        except (OSError, ValueError) as e:
+            if len(delta["resolved"]) > 30:
+                console.print(f"  [dim]... and {len(delta['resolved']) - 30} more[/dim]")
+        except (OSError, ValueError, TypeError) as e:
             console.print(f"[red]--diff-against failed: {e}[/red]")
 
     # L30: --query — print findings matching the filter expression
@@ -684,12 +698,17 @@ def _cmd_compare(args: list[str]) -> None:
         print("usage: wpsecscan compare <URL>", file=sys.stderr)
         sys.exit(64)
     url = args[0]
+    # Normalise scheme-less URLs (`example.com` → `https://example.com`) so the
+    # snapshot lookup uses a real hostname instead of falling back to "site"
+    # which would match every scheme-less scan.
+    if "://" not in url:
+        url = "https://" + url
     from . import history as _h
     snaps = _h.snapshot_history(url)
     if len(snaps) < 2:
         msg = ("Need at least 2 saved snapshots to compare; "
                f"found {len(snaps)} for {url}. "
-               "Run `wpsecscan {URL}` a couple of times first.")
+               f"Run `wpsecscan {url}` a couple of times first.")
         print(msg, file=sys.stderr)
         sys.exit(64)
     old, new = snaps[-2], snaps[-1]
