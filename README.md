@@ -472,12 +472,12 @@ to see errors).
 
 | Category                  | Count |
 |---------------------------|-------|
-| Checks                    | **187** |
+| Checks                    | **226** |
 | Payloads                  | **224** |
 | Exploit signatures        | **307** |
 | Plugin CVE database       | ~7,000 (Wordfence) + 7 other sources via the nightly aggregator |
 | Exploit-playbook entries  | **25** |
-| Tests                     | **598** |
+| Tests                     | **667** |
 
 ---
 
