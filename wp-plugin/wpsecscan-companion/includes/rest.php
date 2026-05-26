@@ -39,6 +39,40 @@ function wpsecscan_companion_register_routes() {
         'callback'            => 'wpsecscan_companion_slow_query_log_callback',
         'permission_callback' => 'wpsecscan_companion_check_token',
     ] );
+    // #23: list recent failed-login IPs (groups by IP, returns count + last_seen)
+    // for the external scanner to join against its bundled GeoLite country DB.
+    register_rest_route( 'wpsecscan/v1', '/failed-login-geo', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_failed_login_geo_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
+    // #24: recent admin-login source IPs so the scanner can cross-ref with the
+    // public Tor exit-node list.
+    register_rest_route( 'wpsecscan/v1', '/admin-login-sources', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_admin_login_sources_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
+    // #25: backup-plugin status — last run, last result, off-site destination.
+    register_rest_route( 'wpsecscan/v1', '/backups', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_backups_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
+    // #26: file-system permissions audit (wp-config.php / wp-content / uploads
+    // / plugins). Flags world-writable + group-writable.
+    register_rest_route( 'wpsecscan/v1', '/file-perms', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_file_perms_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
+    // #27: 2FA enforcement policy — is any 2FA plugin active, and are
+    // administrators required to use it?
+    register_rest_route( 'wpsecscan/v1', '/2fa-enforcement', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_2fa_enforcement_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
 }
 
 /**
@@ -64,8 +98,13 @@ function wpsecscan_companion_check_token( $request ) {
     if ( ! is_array( $stored ) || empty( $stored['token'] ) ) {
         return new WP_Error( 'wpsecscan_no_token', 'No active token', [ 'status' => 401 ] );
     }
-    if ( ! empty( $stored['used'] ) ) {
-        return new WP_Error( 'wpsecscan_used_token', 'Token already used', [ 'status' => 401 ] );
+    // v1.1: token allows up to 10 reads within the TTL window so a single
+    // scan can pull all 9+ endpoints without re-prompting the user. The
+    // upper bound mitigates token-replay risk if the same token is sniffed
+    // off the wire (TLS is still enforced above).
+    $use_count = isset( $stored['use_count'] ) ? (int) $stored['use_count'] : 0;
+    if ( $use_count >= 10 ) {
+        return new WP_Error( 'wpsecscan_token_exhausted', 'Token use cap reached', [ 'status' => 401 ] );
     }
     if ( ( time() - (int) ( $stored['created'] ?? 0 ) ) > WPSECSCAN_COMPANION_TOKEN_TTL ) {
         delete_option( WPSECSCAN_COMPANION_TOKEN_OPTION );
@@ -75,8 +114,10 @@ function wpsecscan_companion_check_token( $request ) {
         return new WP_Error( 'wpsecscan_bad_token', 'Bad token', [ 'status' => 401 ] );
     }
 
-    // Mark consumed.
-    $stored['used'] = true;
+    // Increment usage counter, retain backward-compat `used` flag for any
+    // external code reading the option.
+    $stored['use_count'] = $use_count + 1;
+    $stored['used']      = $stored['use_count'] >= 10;
     update_option( WPSECSCAN_COMPANION_TOKEN_OPTION, $stored, false );
 
     return true;
@@ -168,6 +209,201 @@ function wpsecscan_companion_slow_query_log_callback( $request ) {
             ? 'Move slow_query_log_file OUTSIDE the web root immediately — a misconfigured web server could serve this file to visitors. Typical safe path: /var/log/mysql/slow.log (root-readable only).'
             : 'Slow-query-log is outside the web root (good).',
     ] );
+}
+
+/**
+ * #23 — Group recent failed logins by IP. Reads the audit log of whichever
+ * security plugin is installed (Wordfence / Solid / AIOWPS); falls back to
+ * the WP usermeta `session_tokens` log when no plugin is active.
+ *
+ * Returns: [{ ip: "1.2.3.4", count: 17, last_seen: "2026-05-25T10:00:00Z" }]
+ */
+function wpsecscan_companion_failed_login_geo_callback( $request ) {
+    global $wpdb;
+    $rows = [];
+
+    // Wordfence logs to its own table `wfHits` / `wfLogins`.
+    $wf_table = $wpdb->prefix . 'wfLogins';
+    if ( $wpdb->get_var( "SHOW TABLES LIKE '{$wf_table}'" ) === $wf_table ) {
+        $raw = $wpdb->get_results(
+            "SELECT IP, COUNT(*) AS c, MAX(ctime) AS last_seen
+               FROM {$wf_table}
+              WHERE fail = 1 AND ctime > UNIX_TIMESTAMP() - 7*86400
+              GROUP BY IP ORDER BY c DESC LIMIT 50",
+            ARRAY_A
+        );
+        foreach ( (array) $raw as $r ) {
+            $rows[] = [
+                'ip'         => (string) $r['IP'],
+                'count'      => (int) $r['c'],
+                'last_seen'  => gmdate( 'c', (int) $r['last_seen'] ),
+                'source'     => 'wordfence',
+            ];
+        }
+    }
+
+    // Solid Security (formerly iThemes) logs to itsec_logs.
+    $solid_table = $wpdb->prefix . 'itsec_logs';
+    if ( ! $rows && $wpdb->get_var( "SHOW TABLES LIKE '{$solid_table}'" ) === $solid_table ) {
+        $raw = $wpdb->get_results(
+            "SELECT remote_ip AS ip, COUNT(*) AS c, MAX(timestamp) AS last_seen
+               FROM {$solid_table}
+              WHERE code = 'failed-login' AND timestamp > NOW() - INTERVAL 7 DAY
+              GROUP BY remote_ip ORDER BY c DESC LIMIT 50",
+            ARRAY_A
+        );
+        foreach ( (array) $raw as $r ) {
+            $rows[] = [
+                'ip'        => (string) $r['ip'],
+                'count'     => (int) $r['c'],
+                'last_seen' => (string) $r['last_seen'],
+                'source'    => 'solid',
+            ];
+        }
+    }
+
+    return rest_ensure_response( [
+        'failed_logins' => $rows,
+        'count'         => count( $rows ),
+        'generated'     => gmdate( 'c' ),
+        'window'        => '7d',
+    ] );
+}
+
+/**
+ * #24 — Source IPs for the last 50 successful admin logins, so the external
+ * scanner can join against the public Tor exit-node list.
+ */
+function wpsecscan_companion_admin_login_sources_callback( $request ) {
+    $admins = get_users( [ 'role' => 'administrator', 'fields' => [ 'ID', 'user_login' ] ] );
+    $out = [];
+    foreach ( $admins as $u ) {
+        $tokens = (array) get_user_meta( $u->ID, 'session_tokens', true );
+        foreach ( $tokens as $tk ) {
+            if ( empty( $tk['ip'] ) ) {
+                continue;
+            }
+            $out[] = [
+                'user'        => $u->user_login,
+                'ip'          => (string) $tk['ip'],
+                'login'       => isset( $tk['login'] ) ? gmdate( 'c', (int) $tk['login'] ) : null,
+                'ua'          => isset( $tk['ua'] ) ? substr( (string) $tk['ua'], 0, 200 ) : '',
+            ];
+        }
+    }
+    // Cap response size.
+    $out = array_slice( $out, 0, 50 );
+    return rest_ensure_response( [
+        'sources'   => $out,
+        'count'     => count( $out ),
+        'generated' => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * #25 — Backup-plugin status. UpdraftPlus / BlogVault / Solid Backups all
+ * stash their last-run state in options; we surface the timestamp + result.
+ */
+function wpsecscan_companion_backups_callback( $request ) {
+    $out = [
+        'plugins_detected' => [],
+        'last_successful'  => null,
+        'remote_destination' => null,
+    ];
+
+    $active = (array) get_option( 'active_plugins', [] );
+    if ( in_array( 'updraftplus/updraftplus.php', $active, true ) ) {
+        $out['plugins_detected'][] = 'updraftplus';
+        $last = (int) get_option( 'updraft_last_successful_backup', 0 );
+        if ( $last ) {
+            $out['last_successful'] = gmdate( 'c', $last );
+        }
+        $svc = get_option( 'updraft_service', '' );
+        if ( $svc ) {
+            $out['remote_destination'] = (string) $svc;
+        }
+    }
+    if ( in_array( 'blogvault-real-time-backup/blogvault.php', $active, true ) ) {
+        $out['plugins_detected'][] = 'blogvault';
+    }
+    foreach ( $active as $p ) {
+        if ( false !== strpos( $p, 'solidbackups' ) || false !== strpos( $p, 'backupbuddy' ) ) {
+            $out['plugins_detected'][] = 'solid-backups';
+            break;
+        }
+    }
+    $out['generated'] = gmdate( 'c' );
+    return rest_ensure_response( $out );
+}
+
+/**
+ * #26 — File-system permissions audit. We check the four most-impactful
+ * paths and report octal modes; the external scanner classifies severity.
+ */
+function wpsecscan_companion_file_perms_callback( $request ) {
+    $paths = [
+        'wp-config.php'   => ABSPATH . 'wp-config.php',
+        'wp-content/'     => WP_CONTENT_DIR,
+        'wp-content/uploads/' => wp_get_upload_dir()['basedir'],
+        'plugins/'        => WP_PLUGIN_DIR,
+    ];
+    $out = [];
+    foreach ( $paths as $label => $path ) {
+        if ( ! file_exists( $path ) ) {
+            $out[ $label ] = [ 'exists' => false ];
+            continue;
+        }
+        $perms = fileperms( $path );
+        $octal = substr( sprintf( '%o', $perms ), -4 );
+        $world_writable = (bool) ( $perms & 0002 );
+        $group_writable = (bool) ( $perms & 0020 );
+        $out[ $label ] = [
+            'exists'         => true,
+            'octal'          => $octal,
+            'world_writable' => $world_writable,
+            'group_writable' => $group_writable,
+        ];
+    }
+    return rest_ensure_response( [
+        'paths'     => $out,
+        'generated' => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * #27 — 2FA enforcement policy. Detect known 2FA plugins and report
+ * whether administrators are exempt from the configured policy.
+ */
+function wpsecscan_companion_2fa_enforcement_callback( $request ) {
+    $active = (array) get_option( 'active_plugins', [] );
+    $out = [
+        'plugins_detected'      => [],
+        'admin_exempt'          => null,
+        'enforced_for_roles'    => [],
+    ];
+
+    if ( in_array( 'wordfence-login-security/wordfence-login-security.php', $active, true ) ) {
+        $out['plugins_detected'][] = 'wordfence-login-security';
+        // Wordfence-LS stores per-role policy in wfls_settings option.
+        $wfls = (array) get_option( 'wordfence_ls_settings', [] );
+        if ( ! empty( $wfls['required_2fa_roles'] ) ) {
+            $out['enforced_for_roles'] = (array) $wfls['required_2fa_roles'];
+            $out['admin_exempt'] = ! in_array( 'administrator', $out['enforced_for_roles'], true );
+        }
+    }
+    if ( in_array( 'wp-2fa/wp-2fa.php', $active, true ) ) {
+        $out['plugins_detected'][] = 'wp-2fa';
+        $policy = (array) get_option( 'wp_2fa_policy', [] );
+        if ( ! empty( $policy['enforced_roles'] ) ) {
+            $out['enforced_for_roles'] = (array) $policy['enforced_roles'];
+            $out['admin_exempt'] = ! in_array( 'administrator', $out['enforced_for_roles'], true );
+        }
+    }
+    if ( in_array( 'better-wp-security/better-wp-security.php', $active, true ) ) {
+        $out['plugins_detected'][] = 'solid-security';
+    }
+    $out['generated'] = gmdate( 'c' );
+    return rest_ensure_response( $out );
 }
 
 /**

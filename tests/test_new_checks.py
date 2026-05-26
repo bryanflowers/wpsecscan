@@ -367,8 +367,34 @@ def test_all_new_checks_registered():
                       "referenced_buckets", "cloudflare_origin_leak",
                       "crlf_location_injection", "host_header_validation",
                       "woocommerce_storefront", "page_builder_cve",
-                      "wp_fork_detection", "tls_modern"):
+                      "wp_fork_detection", "tls_modern", "companion_advanced"):
         assert required in ids, f"check {required!r} not registered in ALL_CHECKS"
+
+
+# ============================== items 23-27 — companion_advanced ==============================
+
+def test_companion_advanced_skips_without_token():
+    import asyncio as _asyncio
+    from wpsecscan.checks.companion_advanced import check
+    client = FakeClient(responses={})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any("no --companion-token" in f.title for f in findings)
+
+
+def test_tor_list_parser():
+    from wpsecscan.checks.companion_advanced import _parse_tor_list
+    sample = (
+        "ExitNode ABCDEF1234567890\n"
+        "Published 2026-05-26 10:00:00\n"
+        "LastStatus 2026-05-26 11:00:00\n"
+        "ExitAddress 185.220.101.1 2026-05-26 11:30:00\n"
+        "\n"
+        "ExitNode FEDCBA0987654321\n"
+        "ExitAddress 23.129.64.1 2026-05-26 11:35:00\n"
+    )
+    out = _parse_tor_list(sample)
+    assert out == {"185.220.101.1", "23.129.64.1"}
 
 
 # ============================== items 21 + 22 — tls_modern ==============================
