@@ -509,6 +509,11 @@
     "nist_800_53": "CM-8",
     "iso_27001": "A.8.9"
   },
+  "tls_modern": {
+    "pci_dss": "4.2.1",
+    "nist_800_53": "SC-8",
+    "iso_27001": "A.8.24"
+  },
   "github_leak_search": {
     "pci_dss": "8.2.1",
     "nist_800_53": "IA-5",

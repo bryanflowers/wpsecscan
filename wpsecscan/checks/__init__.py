@@ -77,6 +77,7 @@ from .host_header_validation import check as host_header_validation
 from .woocommerce_storefront import check as woocommerce_storefront
 from .page_builder_cve import check as page_builder_cve
 from .wp_fork_detection import check as wp_fork_detection
+from .tls_modern import check as tls_modern
 from .github_leak_search import check as github_leak_search
 from .path_bypass import check as path_bypass
 from .race_condition import check as race_condition
@@ -331,6 +332,7 @@ ALL_CHECKS = [
     ("woocommerce_storefront", "WC coupon-enum throttle + fragments cache-poisoning", woocommerce_storefront, False),
     ("page_builder_cve", "Page-builder fingerprint + known-CVE family hint", page_builder_cve, False),
     ("wp_fork_detection", "WP fork detection (ClassicPress / Bedrock / headless)", wp_fork_detection, False),
+    ("tls_modern", "TLS modern features: 0-RTT replay-risk + OCSP stapling + must-staple", tls_modern, False),
     ("github_leak_search", "GitHub leaked-token search (opt-in)", github_leak_search, False),
     ("jwt_audit",          "JWT audit (alg=none + weak HS256)", jwt_audit,        False),
     # ---- CVE matching ----

@@ -367,8 +367,19 @@ def test_all_new_checks_registered():
                       "referenced_buckets", "cloudflare_origin_leak",
                       "crlf_location_injection", "host_header_validation",
                       "woocommerce_storefront", "page_builder_cve",
-                      "wp_fork_detection"):
+                      "wp_fork_detection", "tls_modern"):
         assert required in ids, f"check {required!r} not registered in ALL_CHECKS"
+
+
+# ============================== items 21 + 22 — tls_modern ==============================
+
+def test_tls_modern_skips_non_https():
+    import asyncio as _asyncio
+    from wpsecscan.checks.tls_modern import check
+    client = FakeClient(responses={})
+    ctx = {"target": "http://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any("non-HTTPS" in f.title for f in findings)
 
 
 # ============================== items 19 + 20 — fork detection ==============================
