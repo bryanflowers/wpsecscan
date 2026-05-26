@@ -47,6 +47,21 @@ def _outdir(arg: str | None) -> Path:
     # Canonicalize so `--out ../../foo` shows up resolved in output messages
     # and prevents subtle directory-confusion bugs downstream.
     p = Path(arg).expanduser()
+    resolved = p.resolve() if not p.suffix else p.parent.resolve()
+    # Safety: refuse to mkdir outside cwd / home (defence against
+    # `--out ../../etc/cron.d/...` and similar misuse, esp. when a caller
+    # builds the --out value from config or another scan). Honour an
+    # explicit opt-out via WPSECSCAN_ALLOW_ANY_OUT=1 for the rare
+    # legitimate case (e.g. /var/log/wpsecscan/).
+    allow_any = os.environ.get("WPSECSCAN_ALLOW_ANY_OUT") == "1"
+    if not allow_any:
+        cwd = Path.cwd().resolve()
+        home = Path.home().resolve()
+        if not (str(resolved).startswith(str(cwd)) or str(resolved).startswith(str(home))):
+            raise SystemExit(
+                f"--out {arg} resolves outside cwd ({cwd}) and home ({home}). "
+                "Set WPSECSCAN_ALLOW_ANY_OUT=1 to override."
+            )
     if p.suffix:
         # Filename-shaped arg: ensure parent directory exists before writes.
         parent = p.parent if str(p.parent) else Path.cwd()
@@ -378,26 +393,33 @@ def main() -> None:
     p.add_argument("--concurrency", type=int, default=10, help="Concurrent requests per host (default 10)")
     p.add_argument("--user-agent", default=f"WPSecScan/{__version__} (+defensive-recon)", help="HTTP User-Agent")
 
-    p.add_argument("--wpscan-token", default=None, help="WPScan API token (optional)")
-    p.add_argument("--patchstack-token", default=None, help="Patchstack API token (optional) — merges Patchstack CVE data into the vuln DB on --update-db")
-    p.add_argument("--hibp-token", default=None, help="HaveIBeenPwned API key for automated breach lookups (otherwise we just emit manual-check links)")
+    p.add_argument("--wpscan-token", default=os.environ.get("WPSECSCAN_WPSCAN_TOKEN"),
+                   help="WPScan API token (env: WPSECSCAN_WPSCAN_TOKEN)")
+    p.add_argument("--patchstack-token", default=os.environ.get("WPSECSCAN_PATCHSTACK_TOKEN"),
+                   help="Patchstack API token (env: WPSECSCAN_PATCHSTACK_TOKEN) — merges Patchstack CVE data into the vuln DB on --update-db")
+    p.add_argument("--hibp-token", default=os.environ.get("WPSECSCAN_HIBP_TOKEN"),
+                   help="HaveIBeenPwned API key (env: WPSECSCAN_HIBP_TOKEN). Otherwise we emit manual-check links.")
     p.add_argument("--deep-throttle", action="store_true", help="Run the deep throttle mapping (N wrong-password attempts for a synthetic non-existent user). Reports the actual rate-limit threshold.")
     p.add_argument("--deep-throttle-attempts", type=int, default=120, metavar="N", help="How many wrong-login attempts the deep throttle test sends (10-500, default 120). Multiply by --deep-throttle-pacing for total runtime.")
     p.add_argument("--deep-throttle-pacing", type=float, default=10.0, metavar="SECONDS", help="Seconds between deep-throttle attempts (5-60, default 10). Below 5s tends to trip network-layer fail2ban before HTTP-layer throttling shows.")
     p.add_argument("--aggressive", action="store_true", help="Enable active checks: SQLi, XSS, SSRF, path traversal, open redirect, upload probes, default-credentials probe (≤10 attempts).")
     p.add_argument("--prove", action="store_true", help="For each confirmed aggressive finding, run a read-only proof helper (single-target only; requires --aggressive). Never writes to the target.")
-    p.add_argument("--auth-user", default=None, help="Admin username for authenticated scanning")
-    p.add_argument("--auth-pass", default=None, help="Admin password for authenticated scanning (cookie/wp-login.php flow)")
-    p.add_argument("--auth-app-password", default=None,
-                    help="WP Application Password (WP 5.6+, preferred over --auth-pass). Spaces are stripped.")
-    p.add_argument("--auth-totp", default=None,
-                    help="6-digit TOTP code if the admin account requires 2FA (Two-Factor / Wordfence / iThemes).")
-    p.add_argument("--companion-token", default=None,
-                    help="One-time token from the WPSecScan companion plugin (richest data, single round-trip).")
+    # Sensitive flags read from env vars when not given on the command line —
+    # use env to avoid leaking secrets via `ps aux` / shell history.
+    p.add_argument("--auth-user", default=os.environ.get("WPSECSCAN_AUTH_USER"),
+                    help="Admin username (env: WPSECSCAN_AUTH_USER)")
+    p.add_argument("--auth-pass", default=os.environ.get("WPSECSCAN_AUTH_PASS"),
+                    help="Admin password (env: WPSECSCAN_AUTH_PASS). Use `-` to read from stdin via getpass.")
+    p.add_argument("--auth-app-password", default=os.environ.get("WPSECSCAN_AUTH_APP_PASSWORD"),
+                    help="WP Application Password (env: WPSECSCAN_AUTH_APP_PASSWORD). Spaces are stripped.")
+    p.add_argument("--auth-totp", default=os.environ.get("WPSECSCAN_AUTH_TOTP"),
+                    help="6-digit TOTP code (env: WPSECSCAN_AUTH_TOTP).")
+    p.add_argument("--companion-token", default=os.environ.get("WPSECSCAN_COMPANION_TOKEN"),
+                    help="One-time companion plugin token (env: WPSECSCAN_COMPANION_TOKEN).")
     p.add_argument("--proxy", default=None,
                     help="Proxy URL — http://, https://, or socks5:// (also reads WPSECSCAN_PROXY_URL / HTTP_PROXY env vars).")
-    p.add_argument("--proxy-auth", default=None,
-                    help="Optional 'user:pass' for the proxy. Injected into the URL; password is URL-encoded.")
+    p.add_argument("--proxy-auth", default=os.environ.get("WPSECSCAN_PROXY_AUTH"),
+                    help="Optional 'user:pass' for the proxy (env: WPSECSCAN_PROXY_AUTH). Injected into the URL; password is URL-encoded.")
     p.add_argument("--ssh-audit", default=None, metavar="user@host", help="Connect via ssh and run a read-only wp-cli audit (uses system ssh client, BatchMode=yes).")
     p.add_argument("--password-audit", default=None, metavar="WP_USERS.csv", help="Offline: read a CSV or SQL dump of wp_users and emit a hashcat-ready file. NO network calls.")
 
@@ -421,9 +443,12 @@ def main() -> None:
     p.add_argument("--parallel-groups", action="store_true", help="Run within-group checks concurrently (~30%% faster on typical scans; default sequential)")
     p.add_argument("--checkpoint", action="store_true", help="Save progress to ~/.wpsecscan/checkpoints/ so a Ctrl+C scan can resume on next run")
     p.add_argument("--fail-on", default=None, metavar="SEVERITY", help="Exit with code 2 if ANY finding is at or above this severity (critical/high/medium/low). Overrides the default exit-code logic.")
-    p.add_argument("--abuseipdb-token", default=None, help="AbuseIPDB API token for IP-reputation lookup (free tier: 1000/day at abuseipdb.com)")
-    p.add_argument("--vt-token", default=None, help="VirusTotal API key (free tier: 4 req/min)")
-    p.add_argument("--github-search-token", default=None, help="GitHub PAT (public_repo scope) for the leaked-token search check (--diff-against alternative)")
+    p.add_argument("--abuseipdb-token", default=os.environ.get("WPSECSCAN_ABUSEIPDB_TOKEN"),
+                   help="AbuseIPDB API token (env: WPSECSCAN_ABUSEIPDB_TOKEN). Free tier: 1000/day.")
+    p.add_argument("--vt-token", default=os.environ.get("WPSECSCAN_VT_TOKEN"),
+                   help="VirusTotal API key (env: WPSECSCAN_VT_TOKEN). Free tier: 4 req/min.")
+    p.add_argument("--github-search-token", default=os.environ.get("WPSECSCAN_GITHUB_SEARCH_TOKEN"),
+                   help="GitHub PAT (env: WPSECSCAN_GITHUB_SEARCH_TOKEN, public_repo scope) for the leaked-token search check")
     # --baseline is the clearer name; --diff-against kept for back-compat
     # (and to distinguish from --diff which compares two arbitrary files).
     p.add_argument("--baseline", "--diff-against", dest="diff_against", default=None, metavar="BASELINE.json",
@@ -877,30 +902,35 @@ def _cmd_sites(args: list[str]) -> None:
         for s in sites_to_scan:
             url = s["url"]
             print(f"  -> {url}")
-            # Shell out to a fresh wpsecscan invocation per site so a crash in
-            # one doesn't kill the batch. Pass through per-site proxy / auth.
+            # Shell out to a fresh wpsecscan invocation per site so a crash
+            # in one doesn't kill the batch. Pass per-site secrets via env
+            # vars rather than CLI args so they don't appear in `ps aux` or
+            # shell history; the child process picks them up via argparse
+            # defaults (see argparse setup above).
             cmd = [sys.executable, "-m", "wpsecscan", url, "--out", "wpsecscan-reports"]
+            child_env = dict(os.environ)
             if s.get("auth_user"):
-                cmd.extend(["--auth-user", s["auth_user"]])
-            # Unseal proxy + auth + app password if present
+                child_env["WPSECSCAN_AUTH_USER"] = s["auth_user"]
             if s.get("proxy_url"):
-                cmd.extend(["--proxy", s["proxy_url"]])
-            if s.get("proxy_auth_sealed"):
-                try:
-                    cmd.extend(["--proxy-auth", sites_mod._unseal(s["proxy_auth_sealed"])])
-                except Exception:  # noqa: BLE001
-                    pass
-            if s.get("auth_app_password_sealed"):
-                try:
-                    cmd.extend(["--auth-app-password", sites_mod._unseal(s["auth_app_password_sealed"])])
-                except Exception:  # noqa: BLE001
-                    pass
-            if s.get("companion_token_sealed"):
-                try:
-                    cmd.extend(["--companion-token", sites_mod._unseal(s["companion_token_sealed"])])
-                except Exception:  # noqa: BLE001
-                    pass
-            __import__("subprocess").run(cmd, check=False)
+                cmd.extend(["--proxy", s["proxy_url"]])  # not secret
+            for sealed_key, env_name in (
+                ("proxy_auth_sealed", "WPSECSCAN_PROXY_AUTH"),
+                ("auth_app_password_sealed", "WPSECSCAN_AUTH_APP_PASSWORD"),
+                ("companion_token_sealed", "WPSECSCAN_COMPANION_TOKEN"),
+            ):
+                if s.get(sealed_key):
+                    try:
+                        child_env[env_name] = sites_mod._unseal(s[sealed_key])
+                    except Exception:  # noqa: BLE001
+                        pass
+            # Forward enrichment tokens too (UX-030), again via env not argv.
+            for env_name in ("WPSECSCAN_WPSCAN_TOKEN", "WPSECSCAN_PATCHSTACK_TOKEN",
+                             "WPSECSCAN_HIBP_TOKEN", "WPSECSCAN_VT_TOKEN",
+                             "WPSECSCAN_ABUSEIPDB_TOKEN", "WPSECSCAN_GITHUB_SEARCH_TOKEN"):
+                v = os.environ.get(env_name)
+                if v:
+                    child_env[env_name] = v
+            __import__("subprocess").run(cmd, env=child_env, check=False)
         return
     print(f"unknown sites action: {action}", file=sys.stderr); sys.exit(2)
 

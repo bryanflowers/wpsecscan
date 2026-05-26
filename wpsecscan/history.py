@@ -149,8 +149,13 @@ def snapshot_history(url: str) -> list[Path]:
     """Return all timestamped snapshots for a URL, sorted oldest-to-newest.
     Excludes the canonical `{safe}.json` (the "latest" alias). Used by
     `wpsecscan compare URL` to diff consecutive scans."""
+    import glob as _glob
     safe = _safe_filename(url)
-    return sorted(_reports_dir().glob(f"{safe}-*.json"))
+    # glob.escape() prevents `.` from being treated as a wildcard, so a
+    # rogue file like `example.com-evil.com-...json` can't be matched as a
+    # snapshot of `example.com`.
+    pattern = f"{_glob.escape(safe)}-*.json"
+    return sorted(_reports_dir().glob(pattern))
 
 
 # --------------- Finding annotations (#3) ---------------
