@@ -339,12 +339,32 @@ def test_referenced_buckets_clean_when_no_buckets_referenced():
     assert any("No cloud-bucket URLs" in f.title for f in findings)
 
 
+# ============================== item 2 — cloudflare_origin_leak helpers ==============================
+
+def test_cf_origin_leak_recognises_cf_ip():
+    from wpsecscan.checks.cloudflare_origin_leak import _ip_in_cf
+    assert _ip_in_cf("104.16.0.1") is True       # in 104.16.0.0/13
+    assert _ip_in_cf("172.64.32.99") is True     # in 172.64.0.0/13
+    assert _ip_in_cf("1.2.3.4") is False
+    assert _ip_in_cf("8.8.8.8") is False
+    assert _ip_in_cf("not-an-ip") is False
+
+
+def test_cf_origin_leak_apex_trim():
+    from wpsecscan.checks.cloudflare_origin_leak import _apex
+    assert _apex("foo.com") == "foo.com"
+    assert _apex("www.foo.com") == "foo.com"
+    assert _apex("blog.staging.foo.co.uk") == "foo.co.uk"
+    assert _apex("api.bar.com.au") == "bar.com.au"
+
+
 # ============================== check registry ==============================
 
 def test_all_new_checks_registered():
     from wpsecscan.checks import ALL_CHECKS
     ids = [c[0] for c in ALL_CHECKS]
-    for required in ("rest_api", "cors", "js_libraries", "secret_leak", "referenced_buckets"):
+    for required in ("rest_api", "cors", "js_libraries", "secret_leak",
+                      "referenced_buckets", "cloudflare_origin_leak"):
         assert required in ids, f"check {required!r} not registered in ALL_CHECKS"
 
 

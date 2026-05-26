@@ -479,6 +479,11 @@
     "nist_800_53": "AC-3",
     "iso_27001": "A.8.3"
   },
+  "cloudflare_origin_leak": {
+    "pci_dss": "1.3.2",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.20"
+  },
   "github_leak_search": {
     "pci_dss": "8.2.1",
     "nist_800_53": "IA-5",

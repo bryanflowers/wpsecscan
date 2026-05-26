@@ -71,6 +71,7 @@ from .ssti import check as ssti
 from .nosql_injection import check as nosql_injection
 from .s3_bucket_discovery import check as s3_bucket_discovery
 from .referenced_buckets import check as referenced_buckets
+from .cloudflare_origin_leak import check as cloudflare_origin_leak
 from .github_leak_search import check as github_leak_search
 from .path_bypass import check as path_bypass
 from .race_condition import check as race_condition
@@ -319,6 +320,7 @@ ALL_CHECKS = [
     ("saml_xsw",           "SAML / XSW endpoint discovery", saml_xsw,             False),
     ("s3_bucket_discovery","S3 bucket discovery + public-ACL", s3_bucket_discovery, False),
     ("referenced_buckets", "Referenced-bucket open-listing probe (S3/GCS/R2/Spaces)", referenced_buckets, False),
+    ("cloudflare_origin_leak", "Cloudflare origin-IP leak via crt.sh + DNS history", cloudflare_origin_leak, False),
     ("github_leak_search", "GitHub leaked-token search (opt-in)", github_leak_search, False),
     ("jwt_audit",          "JWT audit (alg=none + weak HS256)", jwt_audit,        False),
     # ---- CVE matching ----
