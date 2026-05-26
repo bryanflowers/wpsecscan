@@ -37,6 +37,40 @@ def test_users_no_indicators(ctx):
     assert any("No user enumeration" in f.title for f in findings)
 
 
+def test_users_rest_embed_author_leak(ctx):
+    """_embed pulls author objects into /posts even when /users is locked down.
+    This is the standard WordPress REST API behaviour."""
+    from wpsecscan.checks.users import check
+    import json as _json
+    posts_body = _json.dumps([
+        {"id": 1, "title": {"rendered": "Hello"},
+         "_embedded": {"author": [{"id": 1, "slug": "admin", "name": "Site Admin"}]}},
+        {"id": 2, "title": {"rendered": "Second"},
+         "_embedded": {"author": [{"id": 2, "slug": "editor"}]}},
+    ])
+    client = FakeClient(responses={
+        "/wp-json/wp/v2/posts?per_page=20&_embed=1": FakeResponse(
+            text=posts_body, headers={"content-type": "application/json"}),
+    })
+    findings = run(check(client, ctx))
+    assert any("_embed" in f.title and "user" in f.title for f in findings), \
+        f"expected _embed author-leak finding, got: {[f.title for f in findings]}"
+
+
+def test_users_rest_users_endpoint_with_only_null_entries_skips(ctx):
+    """A REST route that returns [null] or [{}] must NOT fire a user-disclosure
+    finding — that was a false-positive on plugins overriding the route."""
+    from wpsecscan.checks.users import check
+    import json as _json
+    junk_body = _json.dumps([None, {}])
+    client = FakeClient(responses={
+        "/wp-json/wp/v2/users": FakeResponse(text=junk_body, headers={"content-type": "application/json"}),
+    })
+    findings = run(check(client, ctx))
+    assert not any("REST /wp-json/wp/v2/users exposes" in f.title for f in findings), \
+        f"expected no FP, got: {[f.title for f in findings]}"
+
+
 def test_open_redirect_detected(ctx):
     from wpsecscan.checks.open_redirect import check
     client = FakeClient(responses={
@@ -153,6 +187,25 @@ def test_db_find_for_unknown_version_returns_empty():
     assert has_any_for(vulns, "plugin", "bar") is False
     # Known version still works normally
     assert len(find_for(vulns, "plugin", "foo", "2.3")) == 1
+
+
+def test_rdap_expiry_parser_critical_when_expired():
+    from wpsecscan.checks.dns_security import _parse_rdap_expiry
+    payload = {"events": [
+        {"eventAction": "registration", "eventDate": "2010-01-01T00:00:00Z"},
+        {"eventAction": "expiration",   "eventDate": "2024-01-01T00:00:00Z"},
+    ]}
+    raw, days = _parse_rdap_expiry(payload)
+    assert raw == "2024-01-01T00:00:00Z"
+    assert days is not None and days < 0
+
+
+def test_rdap_expiry_parser_returns_none_when_no_expiry_event():
+    from wpsecscan.checks.dns_security import _parse_rdap_expiry
+    assert _parse_rdap_expiry({"events": [{"eventAction": "registration",
+                                           "eventDate": "2024-01-01T00:00:00Z"}]}) == (None, None)
+    assert _parse_rdap_expiry({}) == (None, None)
+    assert _parse_rdap_expiry({"events": []}) == (None, None)
 
 
 def test_db_aggregated_feed_defaults_inclusive_only_when_no_fixed():

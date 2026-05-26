@@ -1,20 +1,95 @@
-"""DNS-level security audit: SPF / DMARC / DKIM presence + strictness.
+"""DNS-level security audit: SPF / DMARC / DKIM + WHOIS/RDAP domain expiry.
 
 Uses the stdlib `socket` resolver via `asyncio.to_thread` so we don't pull
 in `dnspython`. We send no real DNS packets through our HTTP client — these
 are direct system DNS queries.
 
-Only TXT records are inspected. For DKIM we test the common 'default' selector
-(only confidence indicator, not authoritative — proper DKIM verification needs
-the publishing selector, which we can't enumerate from outside).
+WHOIS/expiry uses RDAP (RFC 9083) via rdap.org — no extra dependency. Some
+TLDs (notably .uk, some ccTLDs) don't expose expiry over public RDAP; in
+that case the check returns info and moves on.
 """
 from __future__ import annotations
 
 import asyncio
+import os
+from datetime import datetime, timezone
 from urllib.parse import urlparse
+
+import httpx
 
 from ..http import Client
 from ..models import Finding
+
+
+def _parse_rdap_expiry(payload: dict) -> tuple[str | None, int | None]:
+    """Return (eventDate, days_until_expiry) from an RDAP domain payload."""
+    for ev in payload.get("events", []) or []:
+        if (ev.get("eventAction") or "").lower() == "expiration":
+            raw = ev.get("eventDate") or ""
+            if not raw:
+                continue
+            # RDAP eventDate is ISO 8601 (RFC 3339). Strip trailing Z if present.
+            iso = raw.replace("Z", "+00:00")
+            try:
+                dt = datetime.fromisoformat(iso)
+            except ValueError:
+                continue
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            days = (dt - datetime.now(timezone.utc)).days
+            return raw, days
+    return None, None
+
+
+async def _whois_expiry_finding(apex: str) -> Finding | None:
+    """RDAP lookup via rdap.org. Returns a Finding when expiry is within 60 days,
+    otherwise returns None (no news is good news — keeps reports quiet)."""
+    if os.environ.get("WPSECSCAN_NO_NETWORK"):
+        return None
+    url = f"https://rdap.org/domain/{apex}"
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=10.0,
+                                     headers={"User-Agent": "WPSecScan/dns"}) as c:
+            r = await c.get(url)
+    except (httpx.HTTPError, OSError):
+        return None
+    if r.status_code != 200:
+        return None
+    try:
+        data = r.json()
+    except ValueError:
+        return None
+    event_date, days = _parse_rdap_expiry(data)
+    if days is None:
+        return None
+    if days < 0:
+        return Finding(
+            severity="critical",
+            title=f"Domain {apex} EXPIRED {abs(days)} days ago",
+            evidence=f"RDAP expiration: {event_date}",
+            remediation="Renew the domain immediately and verify auto-renew is enabled with the registrar.",
+            url=url,
+            extra={"days_until_expiry": days, "rdap_url": url},
+        )
+    if days < 30:
+        return Finding(
+            severity="high",
+            title=f"Domain {apex} expires in {days} day(s)",
+            evidence=f"RDAP expiration: {event_date}",
+            remediation="Renew NOW. A lapsed domain takes the site offline and risks loss-to-third-party registration.",
+            url=url,
+            extra={"days_until_expiry": days, "rdap_url": url},
+        )
+    if days < 60:
+        return Finding(
+            severity="medium",
+            title=f"Domain {apex} expires in {days} day(s)",
+            evidence=f"RDAP expiration: {event_date}",
+            remediation="Verify auto-renew with the registrar. Set a calendar reminder if unsure.",
+            url=url,
+            extra={"days_until_expiry": days, "rdap_url": url},
+        )
+    return None
 
 
 def _resolve_txt(name: str) -> list[str]:
@@ -184,5 +259,13 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
                 url=f"https://mxtoolbox.com/SuperTool.aspx?action=dkim%3a{apex}",
             )
         )
+
+    # WHOIS/RDAP-based domain expiry. Lapsing domains take the site offline
+    # and risk loss-to-third-party registration — a high-impact, easy-to-miss
+    # finding most scanners ignore.
+    step(f"checking RDAP domain expiry for {apex}...")
+    whois_finding = await _whois_expiry_finding(apex)
+    if whois_finding is not None:
+        findings.append(whois_finding)
 
     return findings

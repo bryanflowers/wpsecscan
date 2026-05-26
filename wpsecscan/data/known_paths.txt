@@ -4,6 +4,9 @@ wp-config.php~|critical|wp-config backup
 wp-config.php.old|critical|wp-config backup
 wp-config.php.save|critical|wp-config backup
 wp-config.php.swp|critical|vim swap of wp-config
+wp-config.php.swo|critical|vim swap-of-swap of wp-config
+#wp-config.php#|critical|emacs lockfile for wp-config
+wp-config.php.orig|critical|wp-config conflict-merge backup
 wp-config.txt|critical|wp-config as txt
 wp-config-sample.php.bak|high|wp-config sample backup
 .env|critical|env file

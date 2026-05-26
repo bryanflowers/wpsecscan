@@ -78,6 +78,56 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         except ValueError:
             pass
 
+    # 2b. /wp-json/wp/v2/posts?_embed leaks the author object even when the
+    # /users endpoint is locked down. The _embedded.author array contains
+    # the same slug/name fields. WP's REST API enables _embed by default.
+    step("probing /wp-json/wp/v2/posts?_embed for author leak...")
+    posts = await client.get("/wp-json/wp/v2/posts?per_page=20&_embed=1")
+    if posts is not None and posts.status_code == 200:
+        try:
+            data = posts.json()
+            if isinstance(data, list) and data:
+                embed_users: set[str] = set()
+                for post in data:
+                    if not isinstance(post, dict):
+                        continue
+                    embedded = post.get("_embedded") or {}
+                    authors = embedded.get("author") or []
+                    if not isinstance(authors, list):
+                        continue
+                    for a in authors:
+                        if isinstance(a, dict):
+                            slug = a.get("slug") or a.get("name")
+                            if slug and isinstance(slug, str):
+                                embed_users.add(slug)
+                if embed_users:
+                    for n in embed_users:
+                        shared["users"].add(n)
+                    lines = "\n".join(f"  - {n}" for n in sorted(embed_users))
+                    findings.append(
+                        Finding(
+                            severity="medium",
+                            title=f"REST author leak via ?_embed exposes {len(embed_users)} user(s)",
+                            evidence=(
+                                f"GET /wp-json/wp/v2/posts?_embed=1 -> 200\n"
+                                "The _embedded.author array carries author slugs even when the\n"
+                                "/wp/v2/users endpoint is locked down. WP enables _embed by default.\n"
+                                f"Disclosed:\n{lines}"
+                            ),
+                            remediation=(
+                                "Strip embedded author data from /posts. In functions.php:\n"
+                                "  add_filter('rest_prepare_post', function($r) {\n"
+                                "      if (isset($r->data['_links']['author'])) unset($r->data['_links']['author']);\n"
+                                "      return $r;\n"
+                                "  });\n"
+                                "Or, more aggressively, override the author embed in rest_prepare_user."
+                            ),
+                            url=client.url("/wp-json/wp/v2/posts?_embed=1"),
+                        )
+                    )
+        except ValueError:
+            pass
+
     # 3. /?rest_route=/wp/v2/users (fallback)
     rest2 = await client.get("/?rest_route=/wp/v2/users")
     if rest2 is not None and rest2.status_code == 200:
