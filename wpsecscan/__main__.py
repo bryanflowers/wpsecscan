@@ -315,20 +315,42 @@ async def _amain(args) -> int:
 
     worst = 0
     all_reports: list = []  # list of (report, html_filename)
-    for t in targets:
-        if len(targets) > 1:
-            console.rule(f"[bold cyan]{t}")
-        # C2: clear J20/J21 per-scan state so a check auto-disabled on
-        # target N doesn't stay disabled for target N+1 in a batch.
-        try:
-            from . import check_health as _ch
-            _ch.reset_run()
-        except ImportError:
-            pass
-        code, report, html_filename = await _scan_one(t, args, console)
-        worst = max(worst, code)
-        if report and html_filename:
-            all_reports.append((report, html_filename))
+    site_concurrency = max(1, int(getattr(args, "site_concurrency", 1) or 1))
+    if len(targets) > 1 and site_concurrency > 1:
+        # Parallel batch mode. Use a Semaphore so we don't accidentally
+        # DDoS a CDN by scanning dozens of sites at once.
+        import asyncio as _asyncio
+        sem = _asyncio.Semaphore(site_concurrency)
+        async def _run_one(tgt: str):
+            async with sem:
+                try:
+                    from . import check_health as _ch
+                    _ch.reset_run()
+                except ImportError:
+                    pass
+                return await _scan_one(tgt, args, console)
+        if not args.no_console:
+            console.print(f"[dim]Batch mode: scanning {len(targets)} sites with concurrency {site_concurrency}[/dim]")
+        results = await _asyncio.gather(*[_run_one(t) for t in targets])
+        for code, report, html_filename in results:
+            worst = max(worst, code)
+            if report and html_filename:
+                all_reports.append((report, html_filename))
+    else:
+        for t in targets:
+            if len(targets) > 1:
+                console.rule(f"[bold cyan]{t}")
+            # C2: clear J20/J21 per-scan state so a check auto-disabled on
+            # target N doesn't stay disabled for target N+1 in a batch.
+            try:
+                from . import check_health as _ch
+                _ch.reset_run()
+            except ImportError:
+                pass
+            code, report, html_filename = await _scan_one(t, args, console)
+            worst = max(worst, code)
+            if report and html_filename:
+                all_reports.append((report, html_filename))
 
     if args.dashboard and all_reports:
         out_dir = _outdir(args.out)
@@ -475,6 +497,9 @@ def main() -> None:
     p.add_argument("--parallel-groups", action="store_true",
                    help="Run within-group checks concurrently (~30%% faster on typical scans; default sequential). "
                         "Warning: concurrent same-host requests may trigger WAF rate-limits on strict hosts.")
+    p.add_argument("--site-concurrency", type=int, default=1, metavar="N",
+                   help="When scanning multiple sites via --file, run up to N in parallel (default 1 = serial). "
+                        "Each site still uses --concurrency per-host. Trade off throughput against being a polite neighbour.")
     p.add_argument("--checkpoint", action="store_true", help="Save progress to ~/.wpsecscan/checkpoints/ so a Ctrl+C scan can resume on next run")
     p.add_argument("--fail-on", default=None, metavar="LEVEL[,LEVEL]",
                    help="Exit with code 2 if any finding is at or above this severity. "
