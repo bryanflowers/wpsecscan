@@ -312,6 +312,19 @@ def test_notion_curl_commands_use_bearer_token():
     assert "Notion-Version" in cmds[0]
 
 
+# ============================== #28 `wpsecscan watch` ==========================
+
+def test_cmd_watch_help_exits_zero(capsys):
+    """`wpsecscan watch --help` prints usage and exits 0."""
+    from wpsecscan.__main__ import _cmd_watch
+    import pytest
+    with pytest.raises(SystemExit) as ei:
+        _cmd_watch(["--help"])
+    assert ei.value.code == 0
+    out = capsys.readouterr().out
+    assert "watch URL" in out
+
+
 # ============================== FEAT-010 --ai-explain-for ======================
 
 def test_client_summarize_report_attaches_extra(monkeypatch):

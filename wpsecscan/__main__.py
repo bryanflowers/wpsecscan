@@ -496,7 +496,7 @@ def main() -> None:
     if len(sys.argv) >= 2 and sys.argv[1] in (
         "sites", "schedule", "digest", "ai-cost", "db", "ai-options", "analytics",
         "compare", "badge", "paths", "report", "annotate", "check", "config",
-        "verify-release",
+        "verify-release", "watch",
     ):
         _dispatch_subcommand(sys.argv[1], sys.argv[2:])
         return
@@ -964,6 +964,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_config(args)
     elif cmd == "verify-release":
         _cmd_verify_release(args)
+    elif cmd == "watch":
+        _cmd_watch(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -1265,6 +1267,129 @@ def _cmd_verify_release(args: list[str]) -> None:
         file=sys.stderr,
     )
     sys.exit(2)
+
+
+def _cmd_watch(args: list[str]) -> None:
+    """`wpsecscan watch URL [--interval N] [--webhook URL] [--exit-on-new]`
+
+    Polling daemon that re-scans URL every N seconds (default 1800 = 30 min),
+    diffs against the previous run's saved snapshot, and posts ONLY on
+    finding-deltas. Quiet by default — no per-run noise. POST a Slack-shaped
+    JSON payload when --webhook is set.
+
+    Use --exit-on-new to break the loop the first time a new finding appears
+    (useful from CI as a tripwire).
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_watch.__doc__.strip())
+        sys.exit(0)
+
+    target = args[0]
+    if not target.startswith(("http://", "https://")):
+        target = "https://" + target
+
+    interval = 1800
+    webhook: str | None = None
+    exit_on_new = False
+    skip = {0}
+    for i, a in enumerate(args):
+        if i in skip:
+            continue
+        if a == "--interval" and i + 1 < len(args):
+            try:
+                interval = max(60, int(args[i + 1]))
+            except ValueError:
+                pass
+            skip.add(i + 1)
+        elif a == "--webhook" and i + 1 < len(args):
+            webhook = args[i + 1]
+            skip.add(i + 1)
+        elif a == "--exit-on-new":
+            exit_on_new = True
+
+    from . import history as _h
+    from . import json_io as _ji  # type: ignore[unused-import]  # may be json_out
+    import asyncio as _asyncio
+    import json as _json
+    import time as _time
+    import urllib.request as _ur
+    from datetime import datetime, timezone
+
+    console = Console(no_color=False, legacy_windows=False)
+    console.print(f"[bold]wpsecscan watch[/bold] {target} every {interval}s "
+                   f"(webhook={'set' if webhook else 'none'}, "
+                   f"exit-on-new={exit_on_new})")
+
+    async def _one_pass() -> tuple[set[str], set[str], int, int]:
+        # Run a passive scan, return (new_titles, fixed_titles, total, score)
+        from .scanner import scan
+        from .reporters import json_out as _jo
+        report = await scan(target, timeout=15.0, aggressive=False, sequential=True)
+        # Persist
+        _h.save_report_snapshot(target, _jo.render(report))
+        # Compare with prior
+        snaps = _h.snapshot_history(target)
+        prev_titles: set[str] = set()
+        if len(snaps) >= 2:
+            try:
+                prev = _json.loads(Path(snaps[-2]).read_text(encoding="utf-8"))
+                for r in prev.get("results", []):
+                    for f in r.get("findings", []):
+                        if f.get("severity") in ("critical", "high", "medium"):
+                            prev_titles.add(f.get("title", ""))
+            except (OSError, ValueError):
+                prev_titles = set()
+        cur_titles: set[str] = set()
+        for r in report.results:
+            for f in r.findings:
+                if f.severity in ("critical", "high", "medium"):
+                    cur_titles.add(f.title)
+        return (cur_titles - prev_titles), (prev_titles - cur_titles), len(cur_titles), report.risk_score
+
+    def _post(text: str) -> None:
+        if not webhook:
+            return
+        try:
+            body = _json.dumps({"text": text}).encode("utf-8")
+            req = _ur.Request(webhook, data=body, method="POST",
+                                headers={"Content-Type": "application/json",
+                                          "User-Agent": "WPSecScan/watch"})
+            _ur.urlopen(req, timeout=10.0).close()
+        except Exception as e:  # noqa: BLE001 — webhook must never break the loop
+            console.print(f"[yellow]webhook post failed:[/yellow] {e}")
+
+    while True:
+        ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        try:
+            new, fixed, total, score = _asyncio.run(_one_pass())
+        except Exception as e:  # noqa: BLE001
+            console.print(f"[{ts}] scan failed: {e}")
+            _time.sleep(interval)
+            continue
+        if new or fixed:
+            console.print(
+                f"[{ts}] {target} — [red]+{len(new)} new[/red] "
+                f"[green]-{len(fixed)} fixed[/green] "
+                f"(total {total}, score {score}/100)"
+            )
+            for title in sorted(new)[:10]:
+                console.print(f"  [red]+[/red] {title}")
+            for title in sorted(fixed)[:10]:
+                console.print(f"  [green]-[/green] {title}")
+            if webhook:
+                lines = [f"*WPSecScan watch*: {target}",
+                          f"+{len(new)} new, -{len(fixed)} fixed, total {total}, score {score}/100"]
+                for title in sorted(new)[:5]:
+                    lines.append(f"• NEW: {title}")
+                for title in sorted(fixed)[:5]:
+                    lines.append(f"• FIXED: {title}")
+                _post("\n".join(lines))
+            if exit_on_new and new:
+                console.print(f"[red]exit-on-new tripwire fired[/red] — exiting")
+                sys.exit(3)
+        else:
+            console.print(f"[{ts}] {target}: no change (total {total}, score {score}/100)")
+        _time.sleep(interval)
 
 
 def _cmd_config(args: list[str]) -> None:
