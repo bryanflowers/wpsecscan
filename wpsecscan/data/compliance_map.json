@@ -262,6 +262,9 @@
   "rest_namespace_leak":      {"pci_dss": "6.4.3", "nist_800_53": "SC-7",   "iso_27001": "A.8.20"},
   "gtm_inventory":            {"pci_dss": "12.8.1","nist_800_53": "SA-12",  "iso_27001": "A.5.19"},
   "uploads_year_listing":     {"pci_dss": "6.4.3", "nist_800_53": "AC-3",   "iso_27001": "A.5.10"},
+  "wp_cron_cpu":              {"pci_dss": "6.4.2", "nist_800_53": "SC-5",   "iso_27001": "A.8.6"},
+  "rum_beacons":              {"pci_dss": "12.8.1","nist_800_53": "SA-12",  "iso_27001": "A.5.19"},
+  "email_obfuscation_audit":  {"pci_dss": "12.5.3","nist_800_53": "PL-4",   "iso_27001": "A.5.10"},
   "theme_cves": {
     "pci_dss": "6.3.3",
     "nist_800_53": "SI-2",

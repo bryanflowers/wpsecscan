@@ -171,6 +171,10 @@ from .woocommerce_order_idor import check as woocommerce_order_idor
 from .rest_namespace_leak import check as rest_namespace_leak
 from .gtm_inventory import check as gtm_inventory
 from .uploads_year_listing import check as uploads_year_listing
+# Audit-extras-v3 (FEAT-031/047/049)
+from .wp_cron_cpu import check as wp_cron_cpu
+from .rum_beacons import check as rum_beacons
+from .email_obfuscation_audit import check as email_obfuscation_audit
 
 # Aggressive (active payloads) — opt-in
 from .sqli import check as sqli
@@ -318,6 +322,10 @@ ALL_CHECKS = [
     ("rest_namespace_leak",        "REST namespace internal-name leak",           rest_namespace_leak,        False),
     ("gtm_inventory",              "Google Tag Manager container inventory",       gtm_inventory,              False),
     ("uploads_year_listing",       "/wp-content/uploads/YYYY/ directory listing",  uploads_year_listing,       False),
+    # ---- Audit-extras-v3 (FEAT-031/047/049) ----
+    ("wp_cron_cpu",                "wp-cron.php response-time amplification",     wp_cron_cpu,                False),
+    ("rum_beacons",                "RUM beacon library detection",                rum_beacons,                False),
+    ("email_obfuscation_audit",    "Email obfuscation + raw-address leak audit",  email_obfuscation_audit,    False),
     # ---- Aggressive ----
     ("sqli",               "SQL injection probes",       sqli,               True),
     ("xss_reflected",      "Reflected XSS probes",       xss_reflected,      True),
