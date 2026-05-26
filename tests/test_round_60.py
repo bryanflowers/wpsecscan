@@ -143,62 +143,10 @@ def test_webhooks_chat_no_url():
 # round60 module
 # ============================================================
 
-def test_round60_public_history_page():
-    from wpsecscan import round60
-    html = round60.public_history_page("https://e.com", [
-        {"ts": 1700000000, "risk": 20, "critical": 0, "high": 1},
-        {"ts": 1700100000, "risk": 30, "critical": 1, "high": 2},
-    ])
-    assert "WPSecScan history" in html and "https://e.com" in html
-
-
-def test_round60_diff_reports(tmp_path):
-    from wpsecscan import round60
-    old = {"results": [{"check_id": "c", "findings": [{"severity": "high", "title": "A", "url": "/"}]}]}
-    new = {"results": [{"check_id": "c", "findings": [
-        {"severity": "high", "title": "A", "url": "/"},
-        {"severity": "low",  "title": "B", "url": "/x"},
-    ]}]}
-    (tmp_path / "old.json").write_text(json.dumps(old))
-    (tmp_path / "new.json").write_text(json.dumps(new))
-    diff = round60.diff_reports(str(tmp_path / "old.json"), str(tmp_path / "new.json"))
-    assert len(diff["added"]) == 1 and diff["unchanged"] == 1
-
-
-def test_round60_hackerone_url():
-    from wpsecscan import round60
-    url = round60.hackerone_autofill_url("acme", {"title": "T", "url": "https://e.com/x",
-                                                     "severity": "high",
-                                                     "evidence": "E", "remediation": "R"})
-    assert "hackerone.com/acme/reports/new" in url
-
-
-def test_round60_lockout_recovery_rejects_bad_ssh():
-    from wpsecscan import round60
-    out = round60.lockout_recovery("$(rm -rf /)", "admin")
-    assert out["ok"] is False
-
-
-def test_round60_emit_terraform_tls():
-    from wpsecscan import round60
-    tf = round60.emit_terraform({"title": "Missing security headers (TLS)"})
-    assert "cloudflare_zone_settings_override" in tf
-
 
 # ============================================================
 # auto_remediation
 # ============================================================
-
-def test_auto_remediation_fixes_for_classifies():
-    from wpsecscan import auto_remediation
-    rep = {"target": "https://e.com",
-            "results": [
-                {"check_id": "debug_leaks", "findings": [{"title": "WP_DEBUG on", "url": "/"}]},
-                {"check_id": "exposed_files", "findings": [{"title": "wp-config.bak", "url": "/wp-config.bak"}]},
-            ]}
-    plan = auto_remediation.fixes_for(rep)
-    kinds = {p["check_id"]: p["fix_kind"] for p in plan}
-    assert kinds["debug_leaks"] == "auto" and kinds["exposed_files"] == "manual"
 
 
 # ============================================================

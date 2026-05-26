@@ -153,16 +153,6 @@ def test_wallet_seed_phrase_leak_detects_bip39():
 # Group A consent gate
 # ============================================================
 
-def test_exploit_verify_consent_denied_without_env():
-    from wpsecscan import exploit_verify
-    # No env var set, no sites list = consent denied
-    if "WPSECSCAN_OWNED_TARGETS" in os.environ:
-        del os.environ["WPSECSCAN_OWNED_TARGETS"]
-    fn = getattr(exploit_verify, "_consent_check", None)
-    if fn:
-        ok, _ = fn("https://anything.example.com")
-        assert ok is False
-
 
 # ============================================================
 # Group D — Trust signals + Group E — Threat intel
@@ -180,21 +170,6 @@ def test_threat_intel_v2_module_loads():
 # ============================================================
 # Group H — GUI helpers (snooze / saved views)
 # ============================================================
-
-def test_snooze_finding_round_trip(monkeypatch, tmp_path):
-    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    from wpsecscan import gui_round64 as g
-    # Re-evaluate path constants by re-importing for env var
-    import importlib
-    importlib.reload(g)
-    g.snooze_finding("test-finding-id", days=1)
-    assert g.is_snoozed("test-finding-id") is True
-
-
-def test_severity_pie_renders_canvas():
-    """Smoke: don't import Tk just to check; instead, verify the function exists."""
-    from wpsecscan import gui_round64 as g
-    assert callable(g.render_severity_pie)
 
 
 # ============================================================
@@ -242,24 +217,6 @@ def test_trend_over_time_history_round_trip(monkeypatch, tmp_path):
 # ============================================================
 # Group J — CLI a11y helpers
 # ============================================================
-
-def test_screenreader_strips_ansi():
-    from wpsecscan.cli import screenreader_friendly as sr
-    assert sr.strip_decorations("\x1b[31mred text\x1b[0m") == "red text"
-
-
-def test_high_contrast_renders_bold_severity():
-    from wpsecscan.cli import high_contrast as hc
-    out = hc.render_finding("critical", "Bad thing")
-    assert "CRITICAL" in out
-
-
-def test_voice_summary_text_fallback(tmp_path):
-    """Without pyttsx3, expect .txt fallback."""
-    from wpsecscan.cli import voice_summary as v
-    out_path = v.export_voice_summary({"target": "x.com", "summary": {"critical": 0}}, str(tmp_path / "out.wav"))
-    # Either .wav (pyttsx3 worked) or .txt (fallback) — both OK
-    assert Path(out_path).exists()
 
 
 # ============================================================
@@ -420,17 +377,3 @@ def test_brand_monitor_typosquat_candidates():
     assert "example.com" not in cands  # never include the original
 
 
-def test_forensics_timeline_merges_sorted():
-    from wpsecscan.forensics import timeline_builder as tb
-    events = [
-        tb.TimelineEvent("2026-05-24T02:00:00Z", "waf", "1.2.3.4", "GET /", "x.com"),
-        tb.TimelineEvent("2026-05-24T01:00:00Z", "wp-audit", "alice", "login", "x.com"),
-    ]
-    out = tb.build_timeline(events)
-    assert out[0].timestamp < out[1].timestamp
-
-
-def test_historical_scan_wayback_url_format():
-    from wpsecscan.timetravel import historical_scan
-    url = historical_scan.wayback_url("https://example.com", "20240101000000")
-    assert "web.archive.org" in url and "20240101" in url

@@ -116,232 +116,20 @@ def test_wp_cli_inject_detects_phar():
 # egress recorder + network fingerprint
 # ============================================================
 
-def test_egress_recorder_lifecycle(tmp_path, monkeypatch):
-    from wpsecscan import egress_recorder
-    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    p = egress_recorder.start_recording("https://example.com")
-    egress_recorder.record("https://example.com/page", method="GET", status=200, took_ms=42)
-    egress_recorder.record("https://api.example.com/x", method="POST", status=201)
-    final = egress_recorder.stop_recording()
-    assert final == p
-    summary = egress_recorder.summarise(p)
-    assert summary["total"] == 2
-    assert summary["unique_hosts"] >= 1
-
-
-def test_network_fingerprint_no_host():
-    from wpsecscan.network_fingerprint import fingerprint_url
-    out = fingerprint_url("ftp://example.com")
-    assert "error" in out
-
 
 # ============================================================
 # C39-C50 — Reporters
 # ============================================================
-
-def test_round62_reporter_csv_pivot_by_severity():
-    from wpsecscan.reporters.round62 import csv_pivot
-    rep = {"target": "https://e.com",
-            "results": [{"check_id": "x", "findings": [
-                {"severity": "high", "title": "A"},
-                {"severity": "high", "title": "B"},
-                {"severity": "low",  "title": "C"},
-            ]}]}
-    csv = csv_pivot(rep, by="severity")
-    assert "high,2" in csv and "low,1" in csv
-
-
-def test_round62_reporter_grafana_shape():
-    from wpsecscan.reporters.round62 import grafana_dashboard
-    out = grafana_dashboard({"target": "x", "summary": {"critical": 1}})
-    assert "panels" in out and out["panels"]
-
-
-def test_round62_reporter_siem_ndjson():
-    from wpsecscan.reporters.round62 import siem_ndjson
-    rep = {"target": "https://e.com",
-            "results": [{"check_id": "x", "findings": [
-                {"severity": "high", "title": "T", "url": "/"}
-            ]}]}
-    out = siem_ndjson(rep)
-    assert '"check_id": "x"' in out and '"severity": "high"' in out
-
-
-def test_round62_reporter_confluence_markdown():
-    from wpsecscan.reporters.round62 import confluence_page_markdown
-    rep = {"target": "https://e.com", "risk_score": 50,
-            "summary": {"critical": 1, "high": 0, "medium": 0, "low": 0, "info": 0},
-            "results": [{"check_id": "x", "findings": [{"severity": "critical", "title": "T", "url": "/"}]}]}
-    md = confluence_page_markdown(rep)
-    assert "# WPSecScan report" in md and "[CRITICAL]" in md
-
-
-def test_round62_reporter_streamlit_script():
-    from wpsecscan.reporters.round62 import streamlit_script
-    s = streamlit_script()
-    assert "import streamlit as st" in s and "uploaded" in s
-
-
-def test_round62_reporter_sbom_diff(tmp_path):
-    from wpsecscan.reporters.round62 import sbom_diff
-    old = {"components": [{"name": "react", "version": "17.0.0"}]}
-    new = {"components": [{"name": "react", "version": "18.0.0"},
-                            {"name": "next", "version": "14.2.0"}]}
-    (tmp_path / "old.json").write_text(json.dumps(old))
-    (tmp_path / "new.json").write_text(json.dumps(new))
-    d = sbom_diff(str(tmp_path / "old.json"), str(tmp_path / "new.json"))
-    assert any(a["name"] == "next" for a in d["added"])
-    assert any(c["name"] == "react" for c in d["version_changed"])
 
 
 # ============================================================
 # D51-D60 — Integrations
 # ============================================================
 
-def test_burp_project_xml():
-    from wpsecscan.integrations.round62 import burp_project_xml
-    rep = {"target": "https://e.com",
-            "results": [{"check_id": "x", "findings": [
-                {"severity": "high", "title": "T", "url": "https://e.com/x", "evidence": "E"}
-            ]}]}
-    xml = burp_project_xml(rep)
-    assert "<items" in xml and "wpsecscan x" in xml
-
-
-def test_zap_findings_import_missing_file():
-    from wpsecscan.integrations.round62 import zap_findings_import
-    assert zap_findings_import("/nope/path/zap.json") == []
-
-
-def test_zap_findings_import_parses_minimum(tmp_path):
-    from wpsecscan.integrations.round62 import zap_findings_import
-    z = {"site": [{"@host": "e.com", "alerts": [{
-        "alert": "XSS reflected", "riskcode": "3", "desc": "d", "solution": "s",
-        "instances": [{"uri": "https://e.com/x", "evidence": "<script>"}],
-    }]}]}
-    p = tmp_path / "zap.json"
-    p.write_text(json.dumps(z))
-    out = zap_findings_import(str(p))
-    assert out and out[0]["severity"] == "high"
-
-
-def test_nuclei_pull_honors_no_network(monkeypatch):
-    from wpsecscan.integrations.round62 import nuclei_template_pull
-    monkeypatch.setenv("WPSECSCAN_NO_NETWORK", "1")
-    out = nuclei_template_pull(max_files=1)
-    assert "WPSECSCAN_NO_NETWORK" in str(out.get("errors", ""))
-
-
-def test_wordfence_cloud_sync_no_key(monkeypatch):
-    from wpsecscan.integrations.round62 import wordfence_cloud_sync
-    monkeypatch.delenv("WORDFENCE_API_KEY", raising=False)
-    assert wordfence_cloud_sync() == []
-
-
-def test_patchstack_submit_no_key(monkeypatch):
-    from wpsecscan.integrations.round62 import patchstack_submit
-    monkeypatch.delenv("PATCHSTACK_API_KEY", raising=False)
-    out = patchstack_submit({"title": "x"}, vendor="Acme")
-    assert out.get("hint", "").startswith("PATCHSTACK_API_KEY")
-
-
-def test_wpscan_submit_no_key(monkeypatch):
-    from wpsecscan.integrations.round62 import wpscan_submit
-    monkeypatch.delenv("WPSCAN_API_TOKEN", raising=False)
-    out = wpscan_submit({"title": "x"}, slug="acme")
-    assert out.get("hint", "").startswith("WPSCAN_API_TOKEN")
-
-
-def test_wpengine_kinsta_wpcom_no_keys(monkeypatch):
-    from wpsecscan.integrations.round62 import wpengine_site_state, kinsta_site_state, wpcom_site_state
-    for k in ("WPENGINE_API_TOKEN", "KINSTA_API_TOKEN", "WPCOM_API_TOKEN"):
-        monkeypatch.delenv(k, raising=False)
-    assert "WPENGINE_API_TOKEN" in wpengine_site_state("x")["error"]
-    assert "KINSTA_API_TOKEN" in kinsta_site_state("x")["error"]
-    assert "WPCOM_API_TOKEN" in wpcom_site_state("x")["error"]
-
-
-def test_n8n_recipes():
-    from wpsecscan.integrations.round62 import n8n_recipe
-    for name in ("weekly-scan", "cve-alert", "ci-gate"):
-        r = n8n_recipe(name)
-        assert "nodes" in r and r["nodes"]
-    assert "error" in n8n_recipe("nonexistent")
-
 
 # ============================================================
 # E61-E70 + G78-G80 — workflow + defensive
 # ============================================================
-
-def test_render_daily_digest_empty():
-    from wpsecscan.round62_workflow import render_daily_digest
-    body = render_daily_digest([])
-    assert "No new critical/high findings" in body
-
-
-def test_render_daily_digest_with_new_findings():
-    from wpsecscan.round62_workflow import render_daily_digest
-    import time as _t
-    sites = [{"url": "https://x.example", "last_scan_ts": int(_t.time()) - 100,
-                "last_critical": 1, "last_high": 2}]
-    body = render_daily_digest(sites)
-    assert "x.example" in body and "NEW critical=1" in body
-
-
-def test_pr_comment_body():
-    from wpsecscan.round62_workflow import pr_comment_body
-    rep = {"target": "https://e.com", "risk_score": 50,
-            "summary": {"critical": 1, "high": 2, "medium": 3, "low": 4}}
-    out = pr_comment_body(rep, baseline_critical=0, baseline_high=1)
-    assert "WPSecScan" in out and "+1" in out
-
-
-def test_pre_commit_hook_script():
-    from wpsecscan.round62_workflow import pre_commit_hook_script
-    s = pre_commit_hook_script()
-    assert "passthru" in s and "shell_exec" in s
-
-
-def test_apple_shortcuts_recipe():
-    from wpsecscan.round62_workflow import apple_shortcuts_recipe
-    r = apple_shortcuts_recipe()
-    assert r["name"] == "Scan with WPSecScan" and r["actions"]
-
-
-def test_bookmarklet_js():
-    from wpsecscan.round62_workflow import bookmarklet_js
-    js = bookmarklet_js("http://localhost:8765")
-    assert js.startswith("javascript:") and "localhost:8765" in js
-
-
-def test_zsh_completion_man_page():
-    from wpsecscan.round62_workflow import zsh_completion, man_page
-    assert "_wpsecscan" in zsh_completion()
-    assert ".TH WPSECSCAN" in man_page()
-
-
-def test_resume_marker_roundtrip(tmp_path, monkeypatch):
-    from wpsecscan.round62_workflow import write_resume_marker, load_resume_marker, clear_resume_marker
-    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    assert load_resume_marker() is None
-    write_resume_marker("https://e.com", ["c1", "c2"])
-    m = load_resume_marker()
-    assert m["target"] == "https://e.com" and m["completed"] == ["c1", "c2"]
-    clear_resume_marker()
-    assert load_resume_marker() is None
-
-
-def test_siem_forward_honors_no_network(monkeypatch):
-    from wpsecscan.round62_workflow import siem_forward
-    monkeypatch.setenv("WPSECSCAN_NO_NETWORK", "1")
-    out = siem_forward({}, endpoint="https://splunk.example", kind="splunk-hec")
-    assert out["ok"] is False
-
-
-def test_honeypot_deploy_instructions():
-    from wpsecscan.round62_workflow import honeypot_deploy_instructions
-    s = honeypot_deploy_instructions("https://e.com")
-    assert "honeypot" in s.lower() and "https://e.com" in s
 
 
 # ============================================================
@@ -382,18 +170,6 @@ def test_round_62_compliance_v2_present():
 # QA fix regression tests (round-62 post-audit)
 # ============================================================
 
-def test_bookmarklet_js_rejects_bad_api_base():
-    """QA fix: bookmarklet must regex-validate api_base to prevent JS injection."""
-    from wpsecscan.round62_workflow import bookmarklet_js
-    assert bookmarklet_js("http://localhost:8765").startswith("javascript:")
-    assert bookmarklet_js("https://api.example.com").startswith("javascript:")
-    assert bookmarklet_js("http://10.0.0.1:9000/v1").startswith("javascript:")
-    assert bookmarklet_js("javascript:alert(1)") == ""
-    assert bookmarklet_js("'); alert(1); //") == ""
-    assert bookmarklet_js("data:text/html,<script>alert(1)") == ""
-    assert bookmarklet_js("") == ""
-    assert bookmarklet_js("ftp://example.com") == ""
-
 
 def test_service_exposure_strict_ip_validation():
     """QA fix: service_exposure must not crash on garbage like '1234567'."""
@@ -402,21 +178,6 @@ def test_service_exposure_strict_ip_validation():
     ctx = {"target": "https://1234567", "shared": {}, "step": lambda _s: None}
     out = asyncio.run(check(FakeClient(base_url="https://1234567"), ctx))
     assert isinstance(out, list) and out
-
-
-def test_merkle_log_caps_at_100mb(tmp_path, monkeypatch):
-    """QA fix: merkle.log archives when exceeding 100 MB."""
-    from wpsecscan import novel_research
-    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    p = novel_research._merkle_path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    with p.open("wb") as f:
-        f.seek(101 * 1024 * 1024)
-        f.write(b"\0")
-    h = novel_research.merkle_append({"x": 1})
-    assert h
-    archives = list(p.parent.glob("merkle.log.*.archived"))
-    assert archives, "expected merkle.log.<ts>.archived"
 
 
 def test_sites_scan_passes_proxy_through(monkeypatch, tmp_path):

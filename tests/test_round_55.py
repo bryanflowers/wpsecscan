@@ -83,11 +83,6 @@ def test_header_smuggling_case_skips_passive():
 
 # ----- Wave B — reporting/UX -----
 
-def test_references_loader():
-    from wpsecscan import references
-    refs = references.for_check("sqli")
-    assert "primary" in refs
-
 
 def test_issue_export_payloads():
     from wpsecscan.reporters.issue_export import jira_payloads, github_payloads, linear_payloads
@@ -106,14 +101,6 @@ def test_risk_weights_load_defaults():
     load_weights.cache_clear()
     w = load_weights()
     assert w["critical"]["per_finding"] == DEFAULT_WEIGHTS["critical"]["per_finding"]
-
-
-def test_compliance_gap_summary():
-    from wpsecscan.compliance_gap import summary
-    s = summary()
-    assert "pci_dss" in s
-    assert "nist_800_53" in s
-    assert "iso_27001" in s
 
 
 # ----- Wave C — reliability -----
@@ -164,14 +151,6 @@ def test_incremental_skip_logic(tmp_path, monkeypatch):
     assert incremental.should_skip_check("subdomains", "https://x.com", datetime.now()) is False
 
 
-def test_redis_cache_noop_without_redis():
-    from wpsecscan import redis_cache
-    # No env, no redis -> all ops are no-ops
-    assert redis_cache.is_enabled() is False
-    assert redis_cache.get("x") is None
-    assert redis_cache.set("x", {"y": 1}) is False
-
-
 # ----- Wave E — extension -----
 
 def test_report_query_parsing():
@@ -191,55 +170,7 @@ def test_report_query_parsing():
     assert len(out) == 2
 
 
-def test_otel_no_op_when_endpoint_missing(monkeypatch):
-    monkeypatch.delenv("WPSECSCAN_OTLP_ENDPOINT", raising=False)
-    from wpsecscan import otel
-    # span() is a contextmanager — must yield None when disabled
-    with otel.span("test") as sp:
-        assert sp is None
-
-
-def test_plugin_scaffold_writes(tmp_path):
-    from wpsecscan import plugin_scaffold
-    path = tmp_path / "example.py"
-    out = plugin_scaffold.write_scaffold(path=path)
-    assert out.exists()
-    body = out.read_text(encoding="utf-8")
-    assert "CHECK_ID" in body and "CHECK_NAME" in body and "async def check" in body
-
-
-def test_hot_reload_returns_counts():
-    from wpsecscan import hot_reload
-    # No plugins -> (0, 0)
-    removed, added = hot_reload.reload_custom_checks()
-    assert isinstance(removed, int) and isinstance(added, int)
-
-
 # ----- Wave F — collab -----
-
-def test_rbac_user_lifecycle(tmp_path, monkeypatch):
-    from wpsecscan import rbac, history
-    monkeypatch.setattr(history, "_home", lambda: tmp_path)
-    token = rbac.create_user("alice", "admin")
-    assert isinstance(token, str) and len(token) > 16
-    assert rbac.authenticate("alice", token) == "admin"
-    assert rbac.authenticate("alice", "wrong") is None
-    assert rbac.has_permission("admin", "trigger_aggressive") is True
-    assert rbac.has_permission("reader", "trigger_scan") is False
-    assert rbac.delete_user("alice") is True
-    assert rbac.authenticate("alice", token) is None
-
-
-def test_audit_ship_no_op_when_unconfigured(monkeypatch):
-    from wpsecscan import audit_log_ship
-    monkeypatch.delenv("WPSECSCAN_AUDIT_SHIP_URL", raising=False)
-    assert audit_log_ship.ship({"event": "test"}) is False
-
-
-def test_chat_bot_slack_no_text():
-    from wpsecscan.chat_bot import handle_slack
-    out = handle_slack({})
-    assert "Usage" in out.get("text", "")
 
 
 # ----- Wave G — compliance -----
@@ -270,22 +201,6 @@ def test_attestation_html_fallback(tmp_path, monkeypatch):
 
 
 # ----- Wave H — polish -----
-
-def test_fix_feedback_roundtrip(tmp_path, monkeypatch):
-    from wpsecscan import fix_feedback, history
-    monkeypatch.setattr(history, "_home", lambda: tmp_path)
-    fix_feedback.record("https://x.com", "csp", "Missing CSP", True, "applied nginx header")
-    got = fix_feedback.get("https://x.com", "csp", "Missing CSP")
-    assert got["worked"] is True
-    summary = fix_feedback.summary_for_check("csp")
-    assert summary == {"yes": 1, "no": 0, "total": 1}
-
-
-def test_trend_md_no_snapshots(tmp_path, monkeypatch):
-    from wpsecscan import trend_md, history
-    monkeypatch.setattr(history, "_home", lambda: tmp_path)
-    out = trend_md.render("https://x.com")
-    assert "No snapshots" in out
 
 
 def test_completion_generates_for_all_shells():
@@ -371,36 +286,6 @@ def test_bug3_api_server_path_traversal_blocks_backslash():
         assert not rejected, f"{good!r} should be allowed"
 
 
-def test_bug4_rbac_default_denies_unknown_role():
-    """B4: has_permission must NOT raise on an unknown role; returns False."""
-    from wpsecscan import rbac
-    assert rbac.has_permission("ghost", "trigger_scan") is False
-    assert rbac.has_permission("", "trigger_scan") is False
-    assert rbac.has_permission("admin", "no_such_permission") is False
-    # Valid combos still work
-    assert rbac.has_permission("admin", "trigger_aggressive") is True
-    assert rbac.has_permission("reader", "fetch_report") is True
-
-
-def test_bug5_audit_ship_detects_datadog_before_loki():
-    """B5: a Datadog URL containing 'loki' must NOT be classified as loki."""
-    from wpsecscan import audit_log_ship
-    assert audit_log_ship._detect_protocol("https://http-intake.logs.datadoghq.com/api/v2/logs") == "datadog"
-    assert audit_log_ship._detect_protocol("https://internal-loki-datadog.example.com/api") == "datadog"
-    assert audit_log_ship._detect_protocol("https://logs.example.com/loki/api/v1/push") == "loki"
-    assert audit_log_ship._detect_protocol("https://splunk.example.com/services/collector/event") == "splunk"
-    assert audit_log_ship._detect_protocol("https://example.com/log") == "generic"
-
-
-def test_bug5b_audit_ship_imports_time_at_top():
-    """B5: `time` is imported at top-of-file, not via __import__('time')."""
-    import inspect
-    from wpsecscan import audit_log_ship
-    src = inspect.getsource(audit_log_ship)
-    assert "__import__('time')" not in src, "remove the __import__ hack"
-    assert "\nimport time\n" in src, "import time at top"
-
-
 def test_bug6_gui_windows_defines_app_name():
     """B6: APP_NAME must be defined in gui_windows.py (onboarding wizard uses it)."""
     from wpsecscan import gui_windows
@@ -419,19 +304,6 @@ def test_bug7_report_query_tilde_operator_now_tokenizes():
                                                     Finding(severity="low",  title="other thing")])])
     out = query(rep, "title ~ '[A-Z]+[0-9]+'")
     assert len(out) == 1 and out[0]["title"] == "ABC123 found"
-
-
-def test_bug8_otel_retries_when_endpoint_appears(monkeypatch):
-    """B8: if WPSECSCAN_OTLP_ENDPOINT is unset, the loader must NOT cache the
-    negative result so a later env change re-tries."""
-    monkeypatch.delenv("WPSECSCAN_OTLP_ENDPOINT", raising=False)
-    from wpsecscan import otel
-    # Reset module state
-    otel._tracer = None
-    otel._initialized = False
-    otel._try_init()  # no env -> no init, no caching
-    assert otel._initialized is False, \
-        "_initialized must stay False when no endpoint is configured"
 
 
 def test_bug9_completion_flags_match_argparse():

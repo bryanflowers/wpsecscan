@@ -47,14 +47,8 @@ browser = ["playwright>=1.40"]
 yaml = ["pyyaml>=6.0"]
 # Distributed CVE-DB cache + RBAC bcrypt hashing
 ops = ["redis>=5.0", "bcrypt>=4.0"]
-# Round-61: Sun Valley ttk theme for a modern Windows-11 look (GUI only)
-ui = ["sv-ttk>=2.6", "Pillow>=10"]
-# OpenTelemetry traces
-otel = [
-    "opentelemetry-api>=1.20",
-    "opentelemetry-sdk>=1.20",
-    "opentelemetry-exporter-otlp>=1.20",
-]
+# Optional Pillow for GUI image rendering
+ui = ["Pillow>=10"]
 # Everything optional in one install
 all = [
     "reportlab>=4.0",
@@ -62,10 +56,6 @@ all = [
     "pyyaml>=6.0",
     "redis>=5.0",
     "bcrypt>=4.0",
-    "opentelemetry-api>=1.20",
-    "opentelemetry-sdk>=1.20",
-    "opentelemetry-exporter-otlp>=1.20",
-    "sv-ttk>=2.6",
     "Pillow>=10",
 ]
 # Test deps (also installed by CI)
@@ -85,8 +75,11 @@ Issues        = "https://github.com/bryanflowers/wpsecscan/issues"
 Changelog     = "https://github.com/bryanflowers/wpsecscan/blob/main/CHANGELOG.md"
 Security      = "https://github.com/bryanflowers/wpsecscan/blob/main/SECURITY.md"
 
+[tool.setuptools.packages.find]
+include = ["wpsecscan*"]
+exclude = ["tests*", "build*", "dist*"]
+
 [tool.setuptools]
-packages = ["wpsecscan", "wpsecscan.checks", "wpsecscan.reporters", "wpsecscan.integrations"]
 include-package-data = true
 
 [tool.setuptools.package-data]

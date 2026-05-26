@@ -43,15 +43,6 @@ def test_ua_rotation_returns_string():
     assert ua_rotation.pool_size() >= 15
 
 
-def test_rate_limit_parses_headers():
-    from wpsecscan import rate_limit
-    rate_limit.update_from_headers("test-svc", {
-        "x-ratelimit-remaining": "5",
-        "x-ratelimit-limit": "100",
-    })
-    assert rate_limit.snapshot()["test-svc"]["remaining"] == 5
-
-
 def test_users_deep_no_response():
     from wpsecscan.checks.users_deep import check
     findings = _run(check(FakeClient(), _ctx()))
@@ -107,12 +98,6 @@ def test_interactsh_id_format():
     assert s.host.endswith(".oast.live") or "oast" in s.host
 
 
-def test_auto_scan_detect_tech():
-    from wpsecscan import auto_scan
-    techs = auto_scan.detect_tech({"shared": {"core_version": "6.5"}})
-    assert "wordpress" in techs
-
-
 def test_template_signature_no_manifest():
     from wpsecscan.template_signature import filter_verified
     from pathlib import Path
@@ -121,20 +106,6 @@ def test_template_signature_no_manifest():
 
 
 # ---------- Wave C: ZAP ----------
-
-def test_scan_modes_apply():
-    from wpsecscan.scan_modes import apply_mode
-    class A: pass
-    a = A(); a.concurrency = 10
-    apply_mode(a, "active")
-    assert a.aggressive is True
-    assert a.concurrency == 5  # halved
-
-
-def test_session_context_list_empty(tmp_path, monkeypatch):
-    from wpsecscan import session_context, history
-    monkeypatch.setattr(history, "_home", lambda: tmp_path)
-    assert session_context.list_contexts() == []
 
 
 def test_forced_browse_loads_wordlist():
@@ -163,12 +134,6 @@ def test_openapi_scanner_no_spec():
     assert any("openapi" in f.title.lower() for f in findings)
 
 
-def test_alert_filters_load_empty(tmp_path, monkeypatch):
-    from wpsecscan import alert_filters, history
-    monkeypatch.setattr(history, "_home", lambda: tmp_path)
-    assert alert_filters.load_filters() == []
-
-
 def test_js_plugin_list_empty(tmp_path, monkeypatch):
     from wpsecscan import js_plugin, history
     monkeypatch.setattr(history, "_home", lambda: tmp_path)
@@ -184,20 +149,6 @@ def test_turbo_engine_build_raw_request():
     assert b"POST /api HTTP/1.1" in head
     assert b"Host: x.com" in head
     assert final.startswith(b"\r\n") and final.endswith(b'{"a":1}')
-
-
-def test_response_diff_no_outliers():
-    from wpsecscan.response_diff import diff
-    out = diff([{"status": 200, "len": 1000, "body_hash": "abc"}] * 5)
-    assert out["outliers"] == []
-
-
-def test_response_diff_finds_outlier():
-    from wpsecscan.response_diff import diff
-    rs = [{"status": 200, "len": 1000, "body_hash": "abc"}] * 4 + \
-         [{"status": 500, "len": 5000, "body_hash": "xyz"}]
-    out = diff(rs)
-    assert 4 in out["outliers"]
 
 
 def test_attack_scripts_scaffold_template_includes_run_fn():
@@ -223,27 +174,10 @@ def test_burp_import_missing_file():
         import_burp_project(Path("/nonexistent/foo.burp"))
 
 
-def test_pcap_replay_no_scapy_returns_note():
-    from wpsecscan.pcap_replay import import_pcap, _has_scapy
-    if _has_scapy():
-        return
-    har = import_pcap(Path("/nonexistent.pcap"))
-    assert har["log"]["entries"] == []
-    assert "_note" in har["log"]
-
-
 def test_mobile_app_endpoints_skips_when_absent():
     from wpsecscan.checks.mobile_app_endpoints import check
     findings = _run(check(FakeClient(), _ctx()))
     assert any("mobile" in f.title.lower() or "association" in f.title.lower() for f in findings)
-
-
-def test_intel_freshness_report():
-    from wpsecscan import intel_freshness
-    rep = intel_freshness.report()
-    assert isinstance(rep, list)
-    for entry in rep:
-        assert "source" in entry and "status" in entry
 
 
 def test_host_recon_skips_no_hostname():

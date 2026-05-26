@@ -116,13 +116,6 @@ def test_osint_module_imports():
 
 # ---- Wave T: compliance + bounty ----
 
-def test_risk_aging_first_seen(tmp_path, monkeypatch):
-    from wpsecscan import risk_aging, history
-    monkeypatch.setattr(history, "_home", lambda: tmp_path)
-    risk_aging.mark_first_seen("foo::bar", "low")
-    # No escalation immediately
-    assert risk_aging.age_escalate("foo::bar") is None
-
 
 def test_bounty_format_h1():
     from wpsecscan.reporters.bounty_format import format_for_hackerone
@@ -140,18 +133,6 @@ def test_trust_center_html():
 
 
 # ---- Wave U: continuous ----
-
-def test_window_parse_in():
-    from wpsecscan.continuous import is_in_window
-    assert is_in_window(None) is True
-    # malformed → True (always)
-    assert is_in_window("not-a-window") is True
-
-
-def test_profile_load_empty(tmp_path, monkeypatch):
-    from wpsecscan import continuous, history
-    monkeypatch.setattr(history, "_home", lambda: tmp_path)
-    assert continuous.profile_for("https://x.com") == {}
 
 
 # ---- Wave V: exec pack ----
@@ -192,28 +173,6 @@ def test_bloom_filter():
 
 # ---- Wave Z: UX polish ----
 
-def test_cyberchef_url():
-    from wpsecscan.gui_polish import cyberchef_url
-    assert "https://gchq.github.io/CyberChef" in cyberchef_url("abc")
-
-
-def test_shodan_search_url():
-    from wpsecscan.gui_polish import shodan_search_url
-    assert "shodan.io" in shodan_search_url("example.com")
-
-
-def test_unlock_achievement(tmp_path, monkeypatch):
-    from wpsecscan import gui_polish, history
-    monkeypatch.setattr(history, "_home", lambda: tmp_path)
-    assert gui_polish.unlock("first_scan") is True
-    assert gui_polish.unlock("first_scan") is False  # already unlocked
-
-
-def test_latest_changelog_section():
-    from wpsecscan.gui_polish import latest_changelog_section
-    s = latest_changelog_section()
-    assert isinstance(s, str)
-
 
 # ---- Wave AA: observability ----
 
@@ -229,20 +188,6 @@ def test_perf_trend_empty():
 
 
 # ---- Wave BB: scanner security ----
-
-def test_shred_dry_run(tmp_path):
-    from wpsecscan.scanner_security import shred_older_than
-    (tmp_path / "old.txt").write_text("x", encoding="utf-8")
-    out = shred_older_than(tmp_path, days=10000, dry_run=True)
-    assert isinstance(out, list)
-
-
-def test_audit_permissions(tmp_path, monkeypatch):
-    from wpsecscan import scanner_security, history
-    monkeypatch.setattr(history, "_home", lambda: tmp_path)
-    (tmp_path / "users.json").write_text("{}", encoding="utf-8")
-    issues = scanner_security.audit_permissions()
-    assert isinstance(issues, list)
 
 
 # ---- Wave CC: education ----

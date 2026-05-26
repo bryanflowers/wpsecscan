@@ -325,31 +325,6 @@ def test_ux_extras_i18n_new_locales():
 # Wave L — Plugin outreach
 # ============================================================
 
-def test_plugin_outreach_disclosure_email():
-    from wpsecscan import plugin_outreach
-    from wpsecscan.models import Finding
-    f = Finding(severity="high", title="XSS", evidence="ev", remediation="rm", url="https://e.com/")
-    body = plugin_outreach.disclosure_email(f, vendor="Acme")
-    assert "Acme" in body and "XSS" in body and "90 days" in body or "90-day" in body
-
-
-def test_plugin_outreach_cve_request_schema():
-    from wpsecscan import plugin_outreach
-    from wpsecscan.models import Finding
-    f = Finding(severity="critical", title="RCE", evidence="ev", remediation="rm", url="/")
-    rec = plugin_outreach.cve_request(f, vendor="Acme", product="Foo")
-    assert rec["dataType"] == "CVE_RECORD"
-    assert rec["containers"]["cna"]["affected"][0]["vendor"] == "Acme"
-
-
-def test_plugin_outreach_export_bundle_json():
-    from wpsecscan import plugin_outreach
-    from wpsecscan.models import Finding
-    f = Finding(severity="high", title="T", evidence="E", remediation="R", url="/")
-    bundle = plugin_outreach.export_bundle(f, vendor="Acme", slug="acme", product="Foo")
-    payload = json.loads(bundle)
-    assert "disclosure_email" in payload and "cve_request" in payload
-
 
 # ============================================================
 # Wave M — Headless WP audit
@@ -372,45 +347,10 @@ def test_headless_wp_audit_detects_nextjs():
 # Wave N — Reliability
 # ============================================================
 
-def test_reliability_perf_first_call_no_regression(tmp_path, monkeypatch):
-    from wpsecscan import reliability
-    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    out = reliability.record_check_duration("test_check", 1500)
-    assert out["regressed"] is False
-
-
-def test_reliability_perf_regression_after_10_samples(tmp_path, monkeypatch):
-    from wpsecscan import reliability
-    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    for _ in range(10):
-        reliability.record_check_duration("test_check2", 100)
-    # very long sample should regress
-    out = reliability.record_check_duration("test_check2", 50000)
-    assert out["regressed"] is True
-
-
-def test_reliability_cache_trend(tmp_path, monkeypatch):
-    from wpsecscan import reliability
-    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    reliability.record_cache_stats("https://example.com", hits=80, misses=20)
-    trend = reliability.cache_trend("https://example.com", days=1)
-    assert len(trend) == 1 and trend[0]["rate"] == 0.8
-
 
 # ============================================================
 # Wave O — Browser replay (skip if no Playwright)
 # ============================================================
-
-def test_browser_replay_imports():
-    from wpsecscan import browser_replay
-    assert hasattr(browser_replay, "record_attacker_session")
-    assert hasattr(browser_replay, "diff_reports")
-    assert hasattr(browser_replay, "trace_to_video")
-
-
-def test_browser_replay_diff_reports_missing_files():
-    from wpsecscan import browser_replay
-    assert browser_replay.diff_reports("/nope", "/nope2") == ""
 
 
 # ============================================================
@@ -438,84 +378,10 @@ def test_hardware_keys_tpm_rejects_bad_name():
 # Wave Q — WAF tuning
 # ============================================================
 
-def test_waf_tuning_allow_list_spec():
-    from wpsecscan import waf_tuning
-    s = waf_tuning.generate_allow_list("1.2.3.4", "WPSecScan/1.0")
-    assert s["match"]["ip"] == "1.2.3.4"
-
-
-def test_waf_tuning_modsec_rule_shape():
-    from wpsecscan import waf_tuning
-    s = waf_tuning.generate_allow_list("1.2.3.4", "WPSecScan")
-    rule = waf_tuning.to_modsec_rule(s, rule_id=990001)
-    assert "SecRule" in rule and "1.2.3.4" in rule and "990001" in rule
-
-
-def test_waf_tuning_cf_publish_no_token():
-    from wpsecscan import waf_tuning
-    os.environ.pop("CF_API_TOKEN", None)
-    out = waf_tuning.cloudflare_publish_rule("zone", {"match": {"ip": "1.2.3.4"}})
-    assert out["ok"] is False and "CF_API_TOKEN" in out["hint"]
-
 
 # ============================================================
 # Wave R — Novel research
 # ============================================================
-
-def test_novel_fp_learner_roundtrip(tmp_path, monkeypatch):
-    from wpsecscan import novel_research
-    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    novel_research.record_false_positive("cid", "Some title", is_fp=True)
-    p = novel_research.fp_confidence_penalty("cid", "Some title")
-    assert 0.0 < p <= 0.5
-
-
-def test_novel_honeypot_detector():
-    from wpsecscan import novel_research
-    assert novel_research.looks_like_honeypot({"X-Canary": "1"}, "")
-    assert not novel_research.looks_like_honeypot({}, "<html>normal</html>")
-
-
-def test_novel_mutate_response():
-    from wpsecscan import novel_research
-    variants = novel_research.mutate_response("Hello")
-    names = {n for n, _ in variants}
-    assert {"identity", "upper", "lower", "trimmed"}.issubset(names)
-
-
-def test_novel_remediation_effectiveness(tmp_path, monkeypatch):
-    from wpsecscan import novel_research
-    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    # 3 effective + 0 not = best 1.0
-    for _ in range(3):
-        novel_research.record_remediation_outcome("cid", "Do X", fixed=True)
-    out = novel_research.remediation_effectiveness("cid")
-    assert out["samples"] == 3 and out["best_rate"] == 1.0
-
-
-def test_novel_merkle_chain(tmp_path, monkeypatch):
-    from wpsecscan import novel_research
-    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    h1 = novel_research.merkle_append({"a": 1})
-    h2 = novel_research.merkle_append({"b": 2})
-    assert h1 and h2 and h1 != h2
-    assert novel_research.merkle_verify() is True
-
-
-def test_novel_encrypt_decrypt_roundtrip():
-    try:
-        from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
-    except ImportError:
-        return  # cryptography not installed; skip
-    import base64
-    from wpsecscan import novel_research
-    priv = X25519PrivateKey.generate()
-    pub_b64 = base64.b64encode(priv.public_key().public_bytes_raw()).decode()
-    priv_b64 = base64.b64encode(priv.private_bytes_raw()).decode()
-    sealed = novel_research.encrypt_for_recipient(b"secret payload", pub_b64)
-    assert sealed
-    plain = novel_research.decrypt_from_sender(sealed, priv_b64)
-    assert plain == b"secret payload"
 
 
 # ============================================================

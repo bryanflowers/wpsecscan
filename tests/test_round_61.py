@@ -211,34 +211,6 @@ def test_config_get_with_default(tmp_path, monkeypatch):
 # Q3 — sv-ttk wrapper
 # ============================================================
 
-def test_gui_polish_apply_sv_ttk_none_root():
-    from wpsecscan import gui_polish
-    assert gui_polish.apply_sv_ttk_if_available(None) == ""
-
-
-def test_gui_polish_apply_sv_ttk_no_dep():
-    """If sv_ttk isn't installed, the wrapper returns "" without raising."""
-    from wpsecscan import gui_polish
-    import sys
-    # Hide sv_ttk for this test if it's installed
-    real = sys.modules.pop("sv_ttk", None)
-    try:
-        class _FakeRoot:
-            pass
-        out = gui_polish.apply_sv_ttk_if_available(_FakeRoot(), "sv-ttk-dark")
-        # Either the optional dep isn't installed → ""
-        # OR it's installed but our fake root makes it fail → ""
-        assert out == "" or out.startswith("sv-ttk-")
-    finally:
-        if real is not None:
-            sys.modules["sv_ttk"] = real
-
-
-def test_gui_polish_themes_has_sv_ttk_entries():
-    from wpsecscan.gui_polish import THEMES
-    assert "sv-ttk-dark" in THEMES
-    assert "sv-ttk-light" in THEMES
-
 
 # ============================================================
 # Q1 — WP plugin compliance smoke (file presence + content)

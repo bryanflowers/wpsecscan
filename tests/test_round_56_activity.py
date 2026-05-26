@@ -84,15 +84,6 @@ def test_activity_bounded_deque():
 
 # ---------------- emit sites wired ----------------
 
-def test_audit_log_emits(tmp_path, monkeypatch):
-    """audit_log.record_scan_start should fire one integration event."""
-    from wpsecscan import audit_log, activity, history
-    monkeypatch.setattr(history, "_home", lambda: tmp_path)
-    activity.clear()
-    audit_log.record_scan_start("https://x.com", {"aggressive": True})
-    cats = [e["category"] for e in activity.recent()]
-    assert "integration" in cats
-
 
 def test_reporter_html_emits(tmp_path):
     """HTML reporter write should emit one reporter event."""

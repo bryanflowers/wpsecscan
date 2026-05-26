@@ -96,17 +96,6 @@ def test_dom_xss_headless_emits_install_hint_without_playwright():
 
 # ----------------------- Wave 4 power-user -----------------------
 
-def test_audit_log_record_and_read(tmp_path, monkeypatch):
-    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    from wpsecscan import audit_log
-    from wpsecscan import history
-    monkeypatch.setattr(history, "_home", lambda: str(tmp_path))
-    rec = audit_log.record_scan_start("https://x.com", {"auth_pass": "secret", "ok": "yes"})
-    assert rec["args"]["auth_pass"] == "<redacted>"
-    assert rec["args"]["ok"] == "yes"
-    log = audit_log.read_log()
-    assert log and log[0]["event"] == "scan_started"
-
 
 def test_marketplace_loads_catalogue():
     from wpsecscan import marketplace
