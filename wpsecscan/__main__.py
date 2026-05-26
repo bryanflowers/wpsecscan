@@ -278,6 +278,56 @@ async def _scan_one(target: str, args, console: Console):
         if not args.no_console:
             console.print(f"[green]✓[/green] Auto-PR script (review before running): [bold]{pr_p}[/bold]")
 
+    # #35 — direct issue-tracker push with idempotency cache.
+    push_results: list[tuple[str, list[dict]]] = []
+    if getattr(args, "push_jira", None):
+        try:
+            base, project, email = [s.strip() for s in args.push_jira.split(",", 2)]
+            from . import issue_push as _ip
+            from .reporters.issue_export import jira_payloads
+            payloads = jira_payloads(report, project, getattr(args, "push_min_sev", "high"))
+            push_results.append(("jira", _ip.push_jira(target, payloads,
+                                                          base_url=base, email=email)))
+        except (ValueError, Exception) as e:  # noqa: BLE001
+            console.print(f"[yellow]--push-jira failed: {e}[/yellow]")
+    if getattr(args, "push_linear", None):
+        try:
+            from . import issue_push as _ip
+            from .reporters.issue_export import linear_payloads
+            payloads = linear_payloads(report, args.push_linear, getattr(args, "push_min_sev", "high"))
+            push_results.append(("linear", _ip.push_linear(target, payloads)))
+        except Exception as e:  # noqa: BLE001
+            console.print(f"[yellow]--push-linear failed: {e}[/yellow]")
+    if getattr(args, "push_servicenow", None):
+        try:
+            from . import issue_push as _ip
+            payloads = _ip.servicenow_payloads(report, getattr(args, "push_min_sev", "high"))
+            push_results.append(("servicenow", _ip.push_servicenow(target, payloads,
+                                                                       instance=args.push_servicenow)))
+        except Exception as e:  # noqa: BLE001
+            console.print(f"[yellow]--push-servicenow failed: {e}[/yellow]")
+    if getattr(args, "push_github", None):
+        try:
+            from . import issue_push as _ip
+            from .reporters.issue_export import github_payloads
+            payloads = github_payloads(report, getattr(args, "push_min_sev", "high"))
+            push_results.append(("github", _ip.push_github(target, payloads,
+                                                              repo=args.push_github)))
+        except Exception as e:  # noqa: BLE001
+            console.print(f"[yellow]--push-github failed: {e}[/yellow]")
+    for system, results in push_results:
+        ok = sum(1 for r in results if r.get("ok"))
+        skipped = sum(1 for r in results if r.get("skipped"))
+        if not args.no_console:
+            console.print(f"[green]✓[/green] Pushed to {system}: "
+                           f"{ok - skipped} new / {skipped} cached-dedupe / "
+                           f"{len(results) - ok} failed")
+        # Log first failure body for diagnosis
+        for r in results:
+            if not r.get("ok"):
+                console.print(f"  [yellow]{system} error:[/yellow] {r.get('error', r)}")
+                break
+
     # FEAT-003: --notion-database emits a Notion-API curl script
     if getattr(args, "notion_database", None):
         from .reporters import issue_export as _ix
@@ -619,6 +669,17 @@ def main() -> None:
     p.add_argument("--auto-pr", action="store_true", help="N41: after scan, write a shell script of `gh pr create` commands with conservative fixes.")
     p.add_argument("--auto-pr-repo", default=None, metavar="OWNER/NAME", help="Target repo for --auto-pr commands.")
     # FEAT-003: Notion export
+    # #35 — direct REST push to issue trackers with idempotency keys.
+    p.add_argument("--push-jira", default=None, metavar="BASE_URL,PROJECT,EMAIL",
+                   help="#35: POST findings to Jira REST. Comma-separated 'https://you.atlassian.net,SEC,you@example.com'. Token via $JIRA_API_TOKEN.")
+    p.add_argument("--push-linear", default=None, metavar="TEAM_ID",
+                   help="#35: POST findings to Linear GraphQL. Token via $LINEAR_API_KEY.")
+    p.add_argument("--push-servicenow", default=None, metavar="INSTANCE_HOST",
+                   help="#35: POST findings to ServiceNow incident table. Auth via $SERVICENOW_USERNAME / $SERVICENOW_PASSWORD.")
+    p.add_argument("--push-github", default=None, metavar="OWNER/REPO",
+                   help="#35: POST findings to a GitHub Issues repo. Token via $GITHUB_TOKEN.")
+    p.add_argument("--push-min-sev", default="high", metavar="SEV",
+                   help="Lowest severity to push to issue trackers (default: high).")
     p.add_argument("--notion-database", default=None, metavar="DATABASE_ID",
                    help="FEAT-003: also write a Notion-API curl script that creates one page per "
                         "above-threshold finding in the given Notion database. Token via $NOTION_TOKEN.")

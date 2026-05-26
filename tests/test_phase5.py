@@ -346,6 +346,42 @@ def test_cmd_portfolio_no_sites_exits_two(monkeypatch, capsys):
     assert ei.value.code == 2
 
 
+# ============================== #35 issue_push =================================
+
+def test_idempotency_key_is_stable():
+    from wpsecscan.issue_push import idempotency_key
+    k1 = idempotency_key("https://x.com", "headers", "Missing CSP")
+    k2 = idempotency_key("https://x.com", "headers", "Missing CSP")
+    k3 = idempotency_key("https://y.com", "headers", "Missing CSP")
+    assert k1 == k2
+    assert k1 != k3
+    assert len(k1) == 32
+
+
+def test_push_jira_no_token_returns_error(monkeypatch):
+    monkeypatch.delenv("JIRA_API_TOKEN", raising=False)
+    monkeypatch.delenv("WPSECSCAN_JIRA_TOKEN", raising=False)
+    from wpsecscan.issue_push import push_jira
+    r = push_jira("https://x.com", [], base_url="https://j.example", email="me@x.com")
+    assert r == [{"ok": False, "error": "JIRA_API_TOKEN not set"}]
+
+
+def test_push_jira_skips_cached(monkeypatch, tmp_path):
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    monkeypatch.setenv("JIRA_API_TOKEN", "fake")
+    from wpsecscan import issue_push as ip
+    # Pre-populate cache for one payload's title.
+    key = ip.idempotency_key("https://x.com", "", "[HIGH] Some title")
+    cache = {key: {"system": "jira", "ticket_id": "SEC-99", "url": "https://j/browse/SEC-99"}}
+    ip._save_cache(cache)
+    payload = {"fields": {"summary": "[HIGH] Some title", "labels": ["wpsecscan", "high"]}}
+    r = ip.push_jira("https://x.com", [payload],
+                       base_url="https://j.example", email="me@x.com",
+                       cache=cache)
+    assert r == [{"ok": True, "skipped": True, "ticket": "SEC-99",
+                   "url": "https://j/browse/SEC-99"}]
+
+
 def test_cmd_diff_tree_too_few_snapshots(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     from wpsecscan.__main__ import _cmd_diff_tree
