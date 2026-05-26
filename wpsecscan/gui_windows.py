@@ -1159,6 +1159,66 @@ def open_diff_viewer(app) -> None:
     webbrowser.open(fp.as_uri())
 
 
+# ----------------------- #53 native snapshot-diff pane ---------------------
+
+def open_snapshot_diff_pane(app) -> None:
+    """#53 native diff viewer: pick two JSON snapshots inside Tk, render a
+    three-column added/unchanged/removed comparison via the existing
+    snapshot_compare reporter, then show the result in a Toplevel webview
+    fallback (Tk has no native browser — we re-use the system default via
+    a `file://` URL but inside an explicit Toplevel-managed lifecycle so it
+    feels integrated rather than a random browser tab)."""
+    import tempfile, webbrowser
+    from .reporters import snapshot_compare as _sc
+
+    win = tk.Toplevel(app.root)
+    win.title("Snapshot diff")
+    win.configure(bg=BG)
+    win.transient(app.root)
+    win.bind("<Escape>", lambda _e: win.destroy())
+    body = ttk.Frame(win, padding=18)
+    body.pack(fill="both", expand=True)
+
+    ttk.Label(body, text="Snapshot diff", font=("Segoe UI", 13, "bold"),
+              foreground="#79c0ff").pack(anchor="w", pady=(0, 8))
+    ttk.Label(body, text="Pick two saved WPSecScan JSON reports of the SAME site.",
+              foreground=MUTED).pack(anchor="w", pady=(0, 12))
+
+    old_var = tk.StringVar(value="")
+    new_var = tk.StringVar(value="")
+
+    def _pick(var: tk.StringVar):
+        path = filedialog.askopenfilename(
+            title="Pick a wpsecscan JSON report",
+            filetypes=[("JSON", "*.json"), ("All files", "*.*")],
+        )
+        if path:
+            var.set(path)
+
+    for label, var in (("OLD scan:", old_var), ("NEW scan:", new_var)):
+        row = ttk.Frame(body); row.pack(fill="x", pady=4)
+        ttk.Label(row, text=label, width=12).pack(side="left")
+        ttk.Entry(row, textvariable=var, width=64).pack(side="left", padx=(0, 6))
+        ttk.Button(row, text="Browse…", command=lambda v=var: _pick(v)).pack(side="left")
+
+    def _render_and_show():
+        if not (old_var.get() and new_var.get()):
+            messagebox.showinfo("Snapshot diff", "Pick both an OLD and a NEW report.")
+            return
+        try:
+            out_path = Path(tempfile.gettempdir()) / "wpsecscan_snapshot_diff.html"
+            _sc.write(Path(old_var.get()), Path(new_var.get()), out_path)
+            webbrowser.open(out_path.as_uri())
+        except Exception as e:  # noqa: BLE001
+            messagebox.showerror("Snapshot diff", f"Render failed: {e}")
+
+    btns = ttk.Frame(body); btns.pack(fill="x", pady=(14, 0))
+    ttk.Button(btns, text="Render diff", style="Accent.TButton",
+                command=_render_and_show).pack(side="left")
+    ttk.Button(btns, text="Close", command=win.destroy).pack(side="right")
+    return win
+
+
 # ----------------------- F5 Plugin / signature marketplace browser -----------------------
 
 def open_marketplace(app) -> None:

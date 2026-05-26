@@ -315,6 +315,8 @@ class App:
         tools.add_command(label="Multi-URL risk trend overlay...", command=self._open_multi_trend)
         # E4: standalone HTML diff viewer
         tools.add_command(label="Two-report HTML diff viewer...", command=self._open_diff_viewer)
+        tools.add_command(label="Snapshot diff (same site, two scans)...",
+                            command=self._open_snapshot_diff)
         # E7: drill historical findings by OWASP/ATT&CK/CWE/D3FEND tag
         tools.add_command(label="Drill historical findings by tag...", command=self._open_drill_by_tag)
         # F5: drop-in marketplace browser
@@ -613,6 +615,10 @@ class App:
         self._ctx_menu.add_separator()
         self._ctx_menu.add_command(label="Run nuclei tag for this check", command=self._ctx_run_nuclei)
         self._ctx_menu.add_command(label="Open in sqlmap (proven param)", command=self._ctx_open_sqlmap)
+        # #52: per-check skip from the right-click menu
+        self._ctx_menu.add_separator()
+        self._ctx_menu.add_command(label="Never run this check again",
+                                      command=self._ctx_disable_check)
 
         # Right: notebook with "Finding detail" + "Activity feed" tabs
         right_outer = ttk.Frame(paned, style="Panel.TFrame")
@@ -2001,6 +2007,10 @@ class App:
         from . import gui_windows as _gw
         _gw.open_multi_trend(self)
 
+    def _open_snapshot_diff(self) -> None:
+        from . import gui_windows as _gw
+        _gw.open_snapshot_diff_pane(self)
+
     def _open_diff_viewer(self) -> None:
         """E4: launch the standalone two-report HTML viewer in the browser."""
         from . import gui_windows as _gw
@@ -2944,6 +2954,28 @@ class App:
         # Find the check_name from results
         cname = next((r.check_name for r in self._current_report.results if r.check_id == cid), cid)
         self._open_playbook_walker(cid, cname)
+
+    # ---- #52 per-check skip from right-click ----
+
+    def _ctx_disable_check(self) -> None:
+        cid = self._selected_finding_check_id()
+        if not cid:
+            return
+        from . import gui_windows as _gw
+        disabled = _gw.load_disabled_checks()
+        if cid in disabled:
+            messagebox.showinfo(APP_NAME, f"Check '{cid}' is already disabled.")
+            return
+        if not messagebox.askyesno(
+            APP_NAME,
+            f"Disable the '{cid}' check from this point on?\n\n"
+            "It will no longer run on any scan from this install. "
+            "Re-enable from Settings → 'Enable / disable individual checks…'."
+        ):
+            return
+        disabled.add(cid)
+        _gw.save_disabled_checks(disabled)
+        self._toast(f"✓ Disabled check '{cid}'. Restart scan to apply.", duration_ms=5000)
 
     # ---- #15 quick actions ----
 
