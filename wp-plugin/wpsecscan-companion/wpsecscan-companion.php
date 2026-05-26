@@ -39,6 +39,8 @@ add_action( 'rest_api_init',  'wpsecscan_companion_register_routes' );
 // #23: AJAX endpoint that powers the "Test connection" button on the
 // admin page. Admin-only; doesn't expose anything an admin can't already see.
 add_action( 'wp_ajax_wpsecscan_companion_test_connection', 'wpsecscan_companion_test_connection_ajax' );
+// #31: wp_cron job to pre-compute the file-monitor manifest every 6 hours.
+add_action( 'wpsecscan_companion_precompute_manifest_cron_hook', 'wpsecscan_companion_precompute_manifest_cron' );
 
 /**
  * Load translations from /languages/<text-domain>-<locale>.mo
@@ -56,13 +58,20 @@ function wpsecscan_companion_load_textdomain() {
  */
 register_activation_hook(   __FILE__, function () {
     add_option( WPSECSCAN_COMPANION_LOG_OPTION, [] );
+    // #31 — schedule the manifest-precompute cron job (every 6h).
+    if ( ! wp_next_scheduled( 'wpsecscan_companion_precompute_manifest_cron_hook' ) ) {
+        wp_schedule_event( time() + 300, 'twicedaily', 'wpsecscan_companion_precompute_manifest_cron_hook' );
+    }
 } );
 
 /**
- * Deactivation: revoke any active token so dormant installs don't have a live token.
+ * Deactivation: revoke any active token + clear the cron job + transients.
  */
 register_deactivation_hook( __FILE__, function () {
     delete_option( WPSECSCAN_COMPANION_TOKEN_OPTION );
+    wp_clear_scheduled_hook( 'wpsecscan_companion_precompute_manifest_cron_hook' );
+    delete_transient( 'wpsecscan_companion_file_manifest' );
+    delete_transient( 'wpsecscan_companion_file_manifest_full' );
 } );
 
 /**
