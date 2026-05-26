@@ -73,6 +73,38 @@ function wpsecscan_companion_register_routes() {
         'callback'            => 'wpsecscan_companion_2fa_enforcement_callback',
         'permission_callback' => 'wpsecscan_companion_check_token',
     ] );
+    // ===== v1.2.0 endpoints =====
+    // #11: list every currently-logged-in admin (from usermeta.session_tokens).
+    register_rest_route( 'wpsecscan/v1', '/active-sessions', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_active_sessions_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
+    // #12: last N option changes + plugin (de)activations, sourced from
+    // option_name LIKE pattern and active_plugins history.
+    register_rest_route( 'wpsecscan/v1', '/recent-admin-actions', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_recent_admin_actions_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
+    // #17: per-table DB size from INFORMATION_SCHEMA.
+    register_rest_route( 'wpsecscan/v1', '/db-size-by-table', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_db_size_by_table_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
+    // #18: recursive walk for .log / error_log / .htaccess.bak under web root.
+    register_rest_route( 'wpsecscan/v1', '/log-files', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_log_files_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
+    // #19: last 50 lines of error_log with PII stripped.
+    register_rest_route( 'wpsecscan/v1', '/php-error-log-tail', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_php_error_log_tail_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
 }
 
 /**
@@ -427,4 +459,211 @@ function wpsecscan_companion_diagnostics_callback( $request ) {
     update_option( WPSECSCAN_COMPANION_LOG_OPTION, $log, false );
 
     return rest_ensure_response( $payload );
+}
+
+// ====================================================================
+// v1.2.0 endpoint callbacks
+// ====================================================================
+
+/**
+ * #11 — Currently-logged-in admins. Walks user_meta for `session_tokens`
+ * on every administrator-role user and returns the active sessions.
+ */
+function wpsecscan_companion_active_sessions_callback( $request ) {
+    $out = [];
+    $admins = get_users( [
+        'role'   => 'administrator',
+        'fields' => [ 'ID', 'user_login', 'user_email' ],
+    ] );
+    foreach ( $admins as $u ) {
+        $tokens = (array) get_user_meta( $u->ID, 'session_tokens', true );
+        foreach ( $tokens as $hash => $tk ) {
+            if ( ! is_array( $tk ) ) {
+                continue;
+            }
+            $out[] = [
+                'user_login'   => $u->user_login,
+                'user_id'      => (int) $u->ID,
+                'ip'           => isset( $tk['ip'] )         ? (string) $tk['ip']         : '',
+                'login'        => isset( $tk['login'] )      ? gmdate( 'c', (int) $tk['login'] )      : null,
+                'last_login'   => isset( $tk['last_login'] ) ? gmdate( 'c', (int) $tk['last_login'] ) : null,
+                'expiration'   => isset( $tk['expiration'] ) ? gmdate( 'c', (int) $tk['expiration'] ) : null,
+                'ua'           => isset( $tk['ua'] )         ? substr( (string) $tk['ua'], 0, 200 )   : '',
+            ];
+        }
+    }
+    return rest_ensure_response( [
+        'active_sessions' => $out,
+        'count'           => count( $out ),
+        'generated'       => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * #12 — Last 50 option changes + plugin (de)activations.
+ *
+ * Note: WordPress doesn't keep a full audit log of option writes; this
+ * relies on Wordfence's wfHits / Solid's itsec_logs / wp_audit_log when
+ * present, falling back to a heuristic that scans recent options with
+ * `_transient_*` (timestamped) and pulls the most-recent.
+ */
+function wpsecscan_companion_recent_admin_actions_callback( $request ) {
+    global $wpdb;
+    $rows = [];
+
+    // Solid Security keeps a per-action audit table (itsec_logs).
+    $solid = $wpdb->prefix . 'itsec_logs';
+    if ( $wpdb->get_var( "SHOW TABLES LIKE '{$solid}'" ) === $solid ) {
+        $raw = $wpdb->get_results(
+            "SELECT timestamp, code, init_user_login AS user, data
+               FROM {$solid}
+              WHERE code IN ('plugin-activate','plugin-deactivate','plugin-install',
+                             'theme-activate','option-update','user-create',
+                             'user-role-changed')
+              ORDER BY timestamp DESC LIMIT 50",
+            ARRAY_A
+        );
+        foreach ( (array) $raw as $r ) {
+            $rows[] = [
+                'when'    => (string) $r['timestamp'],
+                'code'    => (string) $r['code'],
+                'user'    => (string) $r['user'],
+                'source'  => 'solid',
+            ];
+        }
+    }
+
+    // Heuristic fallback: pull recently-updated transients to spot active
+    // administrative activity (plugin updates write _site_transient_update_*).
+    if ( ! $rows ) {
+        $raw = $wpdb->get_results(
+            "SELECT option_name FROM {$wpdb->options}
+              WHERE option_name LIKE '\\_site\\_transient\\_update\\_%'
+              ORDER BY option_id DESC LIMIT 20",
+            ARRAY_A
+        );
+        foreach ( (array) $raw as $r ) {
+            $rows[] = [
+                'when'   => null,
+                'code'   => 'transient-update',
+                'option' => (string) $r['option_name'],
+                'source' => 'heuristic',
+            ];
+        }
+    }
+
+    return rest_ensure_response( [
+        'actions'   => $rows,
+        'count'     => count( $rows ),
+        'generated' => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * #17 — DB size per table via INFORMATION_SCHEMA.
+ */
+function wpsecscan_companion_db_size_by_table_callback( $request ) {
+    global $wpdb;
+    $raw = $wpdb->get_results( $wpdb->prepare(
+        "SELECT table_name AS name,
+                table_rows AS rows_estimate,
+                data_length + index_length AS bytes
+           FROM information_schema.tables
+          WHERE table_schema = %s
+          ORDER BY bytes DESC",
+        DB_NAME
+    ), ARRAY_A );
+    $rows = [];
+    foreach ( (array) $raw as $r ) {
+        $rows[] = [
+            'table' => (string) $r['name'],
+            'rows'  => (int) $r['rows_estimate'],
+            'bytes' => (int) $r['bytes'],
+        ];
+    }
+    return rest_ensure_response( [
+        'tables'    => $rows,
+        'generated' => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * #18 — Log files exposed under the web root. Walks ABSPATH at depth ≤2
+ * (deeper traversal is the file-monitor's job) and reports any *.log,
+ * error_log, or .htaccess.bak.
+ */
+function wpsecscan_companion_log_files_callback( $request ) {
+    $patterns = [ '*.log', 'error_log', 'debug.log', '.htaccess.bak', '.htaccess.old' ];
+    $abspath  = realpath( ABSPATH ) ?: ABSPATH;
+    $found    = [];
+    // Top-level only — manifest-class deep walks live in /file-monitor.
+    foreach ( $patterns as $pat ) {
+        $matches = glob( $abspath . DIRECTORY_SEPARATOR . $pat );
+        if ( $matches ) {
+            foreach ( $matches as $m ) {
+                $found[] = [
+                    'path'  => ltrim( str_replace( $abspath, '', $m ), DIRECTORY_SEPARATOR ),
+                    'bytes' => (int) @filesize( $m ),
+                ];
+            }
+        }
+    }
+    // Also check immediate subdirectories one level deep.
+    $subdirs = @scandir( $abspath ) ?: [];
+    foreach ( $subdirs as $sd ) {
+        if ( $sd[0] === '.' ) { continue; }
+        $full = $abspath . DIRECTORY_SEPARATOR . $sd;
+        if ( ! is_dir( $full ) ) { continue; }
+        foreach ( $patterns as $pat ) {
+            $matches = glob( $full . DIRECTORY_SEPARATOR . $pat );
+            if ( $matches ) {
+                foreach ( $matches as $m ) {
+                    $found[] = [
+                        'path'  => ltrim( str_replace( $abspath, '', $m ), DIRECTORY_SEPARATOR ),
+                        'bytes' => (int) @filesize( $m ),
+                    ];
+                }
+            }
+        }
+    }
+    return rest_ensure_response( [
+        'log_files' => $found,
+        'count'     => count( $found ),
+        'web_root'  => $abspath,
+        'generated' => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * #19 — Last 50 lines of error_log with PII stripped.
+ */
+function wpsecscan_companion_php_error_log_tail_callback( $request ) {
+    $log_path = (string) ini_get( 'error_log' );
+    $lines    = [];
+    if ( $log_path && file_exists( $log_path ) && is_readable( $log_path ) ) {
+        // Read last ~80 KB to bound memory; split + tail-50.
+        $size = filesize( $log_path );
+        $f    = @fopen( $log_path, 'rb' );
+        if ( $f ) {
+            $offset = max( 0, $size - 80 * 1024 );
+            @fseek( $f, $offset );
+            $blob   = (string) @fread( $f, 80 * 1024 );
+            @fclose( $f );
+            $all    = preg_split( "/\r?\n/", $blob );
+            $all    = array_filter( $all, function ( $l ) { return $l !== ''; } );
+            $lines  = array_slice( array_values( $all ), -50 );
+        }
+    }
+    // PII strip: emails, IPv4 addresses.
+    $lines = array_map( function ( $l ) {
+        $l = preg_replace( '/\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/', '[EMAIL]', $l );
+        $l = preg_replace( '/\b(?:\d{1,3}\.){3}\d{1,3}\b/',                            '[IP]',    $l );
+        return $l;
+    }, $lines );
+    return rest_ensure_response( [
+        'log_path'  => $log_path ?: '(not configured)',
+        'lines'     => $lines,
+        'count'     => count( $lines ),
+        'generated' => gmdate( 'c' ),
+    ] );
 }

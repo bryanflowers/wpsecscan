@@ -3,7 +3,7 @@
  * Plugin Name: WPSecScan companion
  * Plugin URI:  https://github.com/bryanflowers/wpsecscan
  * Description: Exposes a read-only, token-gated REST endpoint so the WPSecScan defensive scanner can pull authoritative diagnostics in one round-trip. No write actions.
- * Version:     1.1.0
+ * Version:     1.2.0
  * Requires at least: 5.6
  * Requires PHP: 7.4
  * Author:      Bryan
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'WPSECSCAN_COMPANION_VERSION',     '1.1.0' );
+define( 'WPSECSCAN_COMPANION_VERSION',     '1.2.0' );
 define( 'WPSECSCAN_COMPANION_TOKEN_OPTION', 'wpsecscan_companion_token' );
 define( 'WPSECSCAN_COMPANION_TOKEN_TTL',    60 * 60 );    // 60 minutes
 define( 'WPSECSCAN_COMPANION_LOG_OPTION',   'wpsecscan_companion_log' );

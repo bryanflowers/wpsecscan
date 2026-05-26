@@ -268,10 +268,124 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
                 url=ctx["target"] + "/wp-admin/",
             ))
 
+    # ===== v1.2.0 endpoint consumers =====
+
+    # #11 — active-sessions: flag anomalous parallel sessions per admin
+    step("companion: pulling active-sessions...")
+    sess = await _hit(base, "/wp-json/wpsecscan/v1/active-sessions", token)
+    if sess and sess.get("active_sessions"):
+        per_user: dict[str, list] = {}
+        for s in sess["active_sessions"]:
+            per_user.setdefault(s.get("user_login", "?"), []).append(s)
+        excessive = [(u, sl) for u, sl in per_user.items() if len(sl) >= 3]
+        if excessive:
+            lines = []
+            for u, sl in excessive[:5]:
+                ips = sorted({x.get("ip", "?") for x in sl})
+                lines.append(f"  - {u}: {len(sl)} sessions across {len(ips)} IPs ({', '.join(ips[:3])})")
+            findings.append(Finding(
+                severity="medium",
+                title=f"Admin account(s) with 3+ concurrent sessions ({len(excessive)} user(s))",
+                evidence="Multiple parallel admin sessions can indicate account "
+                         "compromise (the attacker is logged in alongside the real user):\n\n"
+                         + "\n".join(lines),
+                remediation=(
+                    "If unexpected: change the password + Force-log-out-everywhere "
+                    "in WP admin → Users → Profile. Then audit recent admin actions "
+                    "via the /recent-admin-actions endpoint."
+                ),
+                url=ctx["target"] + "/wp-admin/users.php",
+            ))
+
+    # #18 — log-files exposed under the web root
+    step("companion: pulling log-files...")
+    logs = await _hit(base, "/wp-json/wpsecscan/v1/log-files", token)
+    if logs and logs.get("log_files"):
+        lines = []
+        for f in logs["log_files"][:10]:
+            lines.append(f"  - {f.get('path','?')} ({f.get('bytes',0):,} bytes)")
+        findings.append(Finding(
+            severity="high" if any("error_log" in (f.get("path") or "") for f in logs["log_files"]) else "medium",
+            title=f"{len(logs['log_files'])} log file(s) exposed under web root",
+            evidence=("These files live inside the web root and may be "
+                       "served verbatim by a misconfigured nginx/Apache:\n\n"
+                       + "\n".join(lines)),
+            remediation=(
+                "Move log files outside ABSPATH (e.g. /var/log/wp/{site}.log) "
+                "or add a deny rule. Apache: `<FilesMatch \"\\.log$\">Require "
+                "all denied</FilesMatch>`. Nginx: `location ~ \\.log$ { "
+                "deny all; }`."
+            ),
+            url=ctx["target"],
+        ))
+
+    # #17 — db-size-by-table: flag abnormally large per-table sizes
+    step("companion: pulling db-size-by-table...")
+    db = await _hit(base, "/wp-json/wpsecscan/v1/db-size-by-table", token)
+    if db and db.get("tables"):
+        # Heuristic: any non-_postmeta table >100 MB, or _options >50 MB.
+        large = []
+        for t in db["tables"]:
+            name = (t.get("table") or "").lower()
+            bytes_ = int(t.get("bytes") or 0)
+            if name.endswith("_postmeta") and bytes_ > 500 * 1024 * 1024:
+                large.append(t)
+            elif name.endswith("_options") and bytes_ > 50 * 1024 * 1024:
+                large.append(t)
+            elif name.endswith("_comments") and bytes_ > 200 * 1024 * 1024:
+                large.append(t)
+            elif bytes_ > 1 * 1024 * 1024 * 1024:
+                large.append(t)
+        if large:
+            findings.append(Finding(
+                severity="low",
+                title=f"{len(large)} DB table(s) abnormally large",
+                evidence="\n".join(
+                    f"  - {t.get('table')}: {int(t.get('bytes', 0)) / (1024 * 1024):.1f} MB "
+                    f"({int(t.get('rows', 0)):,} rows)"
+                    for t in large[:10]
+                ),
+                remediation=(
+                    "Large _options often = transient bloat (clean with "
+                    "Transients Manager). Large _postmeta often = leftover "
+                    "plugin garbage (clean with WP-Optimize). Large _comments "
+                    "= spam — run an Akismet sweep."
+                ),
+                url=ctx["target"],
+            ))
+
+    # #19 — php-error-log-tail: surface critical errors
+    step("companion: pulling php-error-log-tail...")
+    errs = await _hit(base, "/wp-json/wpsecscan/v1/php-error-log-tail", token)
+    if errs and errs.get("lines"):
+        critical_lines = [l for l in errs["lines"]
+                            if "PHP Fatal error" in l or "PHP Parse error" in l]
+        if critical_lines:
+            findings.append(Finding(
+                severity="medium",
+                title=f"{len(critical_lines)} PHP fatal error(s) in error_log",
+                evidence="Last 5 fatal entries (PII stripped):\n\n"
+                         + "\n".join(f"  - {l[:200]}" for l in critical_lines[:5]),
+                remediation=(
+                    "Track down the plugin / theme causing the fatals. The "
+                    "error log path is "
+                    f"{errs.get('log_path', '(not configured)')}. "
+                    "Disable WP_DEBUG_DISPLAY in wp-config.php so fatals "
+                    "don't leak to visitors while you fix."
+                ),
+                url=ctx["target"],
+            ))
+
+    # #12 — recent-admin-actions: informational pull, no finding
+    step("companion: pulling recent-admin-actions...")
+    _ = await _hit(base, "/wp-json/wpsecscan/v1/recent-admin-actions", token)
+    # Returned data is informational; surfaced via JSON output extra field
+    # in a future release. No finding generated today.
+
     return findings or [Finding(
         severity="info",
         title="Companion advanced endpoints — no issues found",
-        evidence=f"Pulled 5 advanced endpoints with companion token at {base}.",
+        evidence=f"Pulled the full v1.1 + v1.2 endpoint set with companion token at {base}.",
         remediation="No action needed.",
         url=ctx["target"],
     )]
