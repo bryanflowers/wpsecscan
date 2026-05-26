@@ -92,7 +92,19 @@ def open_settings(app) -> None:
     ttk.Entry(body, textvariable=app.github_repo_var, width=42).grid(row=row, column=1, columnspan=2, sticky="ew")
     row += 1
     ttk.Label(body, text="Personal access token:").grid(row=row, column=0, sticky="w", padx=(0, 8), pady=(6, 0))
-    ttk.Entry(body, textvariable=app.github_token_var, width=42, show="*").grid(row=row, column=1, columnspan=2, sticky="ew", pady=(6, 0))
+    # UX-037: Show/Hide toggle so users can verify the PAT they pasted.
+    _pat_entry = ttk.Entry(body, textvariable=app.github_token_var, width=36, show="*")
+    _pat_entry.grid(row=row, column=1, sticky="ew", pady=(6, 0))
+    _pat_btn = ttk.Button(body, text="Show", width=6)
+    def _toggle_pat(e=_pat_entry, btn=_pat_btn):
+        if e.cget("show"):
+            e.config(show="")
+            btn.config(text="Hide")
+        else:
+            e.config(show="*")
+            btn.config(text="Show")
+    _pat_btn.config(command=_toggle_pat)
+    _pat_btn.grid(row=row, column=2, sticky="w", padx=(6, 0), pady=(6, 0))
     row += 1
     ttk.Label(body, text="Create issues for severity ≥:").grid(row=row, column=0, sticky="w", padx=(0, 8), pady=(6, 0))
     ttk.OptionMenu(body, app.github_threshold_var, app.github_threshold_var.get() or "high",
@@ -1285,12 +1297,29 @@ def open_onboarding_wizard(app):
 
     vars_: dict[str, tk.StringVar] = {}
     saved = _load_setup_tokens()
+    # UX-037: per-row "Show"/"Hide" toggle so users can verify they
+    # pasted the right token without screen-recording a leaked clipboard.
     for key, label, hint in tokens:
         ttk.Label(body, text=label, font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(8, 0))
         ttk.Label(body, text=hint, foreground=MUTED, font=("Segoe UI", 8)).pack(anchor="w")
         v = tk.StringVar(value=saved.get(key, ""))
         vars_[key] = v
-        ttk.Entry(body, textvariable=v, show="*", width=70).pack(anchor="w", pady=(2, 0))
+        row = ttk.Frame(body)
+        row.pack(anchor="w", fill="x", pady=(2, 0))
+        entry = ttk.Entry(row, textvariable=v, show="*", width=58)
+        entry.pack(side="left")
+        toggle_btn = ttk.Button(row, text="Show", width=6)
+        def _make_toggle(e=entry, btn=toggle_btn):
+            def _cb():
+                if e.cget("show"):
+                    e.config(show="")
+                    btn.config(text="Hide")
+                else:
+                    e.config(show="*")
+                    btn.config(text="Show")
+            return _cb
+        toggle_btn.config(command=_make_toggle())
+        toggle_btn.pack(side="left", padx=(6, 0))
 
     btns = ttk.Frame(body)
     btns.pack(fill="x", pady=(16, 0))
