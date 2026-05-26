@@ -323,6 +323,9 @@ class App:
         tools.add_command(label="Two-report HTML diff viewer...", command=self._open_diff_viewer)
         tools.add_command(label="Snapshot diff (same site, two scans)...",
                             command=self._open_snapshot_diff)
+        # #41 — saved-sites credential vault
+        tools.add_command(label="Saved sites (credential vault)...",
+                            command=self._open_saved_sites)
         # E7: drill historical findings by OWASP/ATT&CK/CWE/D3FEND tag
         tools.add_command(label="Drill historical findings by tag...", command=self._open_drill_by_tag)
         # F5: drop-in marketplace browser
@@ -2062,6 +2065,10 @@ class App:
     def _open_snapshot_diff(self) -> None:
         from . import gui_windows as _gw
         _gw.open_snapshot_diff_pane(self)
+
+    def _open_saved_sites(self) -> None:
+        from . import gui_windows as _gw
+        _gw.open_saved_sites(self)
 
     def _open_saved_report(self) -> None:
         """#55: open a saved JSON report from disk into the current view."""

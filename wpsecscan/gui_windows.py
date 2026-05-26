@@ -1442,3 +1442,135 @@ def mark_wizard_seen() -> None:
         _wizard_seen_path().write_text("1", encoding="utf-8")
     except OSError:
         pass
+
+
+# ----------------------- #41 Saved-sites credential vault -----------------------
+
+def open_saved_sites(app) -> None:
+    """#41: GUI for managing saved-site credentials. The actual storage is
+    delegated to wpsecscan.creds_vault (OS keychain or sealed fallback).
+    This dialog shows the list of saved sites + a per-row 'Use' button
+    that pre-fills the URL + credential fields on the main scan form."""
+    from . import creds_vault as _cv
+
+    win = tk.Toplevel(app.root)
+    win.title("Saved sites")
+    win.configure(bg=BG)
+    win.geometry("640x420")
+    win.transient(app.root)
+    win.bind("<Escape>", lambda _e: win.destroy())
+
+    body = ttk.Frame(win, padding=14)
+    body.pack(fill="both", expand=True)
+
+    ttk.Label(body, text="Saved sites",
+              font=("Segoe UI", 13, "bold"), foreground="#79c0ff").pack(anchor="w")
+    ttk.Label(body, text=f"Storage backend: {_cv.backend_in_use()}",
+              foreground=MUTED).pack(anchor="w", pady=(0, 8))
+
+    listbox = tk.Listbox(body, bg=PANEL, fg=FG, height=12,
+                          font=("Segoe UI", 10),
+                          selectbackground=ACCENT)
+    listbox.pack(fill="both", expand=True, pady=(0, 8))
+
+    def _refresh():
+        listbox.delete(0, "end")
+        for site, fields in _cv.list_sites():
+            field_str = ", ".join(fields)
+            listbox.insert("end", f"{site}   [{field_str}]")
+
+    _refresh()
+
+    # --- Add new
+    add_frame = ttk.LabelFrame(body, text="Add / update credential", padding=8)
+    add_frame.pack(fill="x", pady=(8, 0))
+    url_var  = tk.StringVar()
+    field_var = tk.StringVar(value="auth_pass")
+    value_var = tk.StringVar()
+    row = ttk.Frame(add_frame); row.pack(fill="x")
+    ttk.Label(row, text="Site URL:", width=10).pack(side="left")
+    ttk.Entry(row, textvariable=url_var, width=36).pack(side="left", padx=(0, 8))
+    ttk.Label(row, text="Field:").pack(side="left")
+    ttk.OptionMenu(row, field_var, "auth_pass",
+                    "auth_pass", "auth_app_password", "auth_totp",
+                    "companion_token", "wpscan_token", "hibp_token",
+                    "vt_token", "abuseipdb_token", "github_search_token",
+                  ).pack(side="left", padx=(4, 0))
+    row2 = ttk.Frame(add_frame); row2.pack(fill="x", pady=(6, 0))
+    ttk.Label(row2, text="Value:", width=10).pack(side="left")
+    val_entry = ttk.Entry(row2, textvariable=value_var, width=58, show="*")
+    val_entry.pack(side="left", padx=(0, 6))
+    show_btn = ttk.Button(row2, text="Show", width=6)
+    def _toggle_show():
+        if val_entry.cget("show"):
+            val_entry.config(show=""); show_btn.config(text="Hide")
+        else:
+            val_entry.config(show="*"); show_btn.config(text="Show")
+    show_btn.config(command=_toggle_show)
+    show_btn.pack(side="left")
+
+    def _save():
+        u = url_var.get().strip()
+        f = field_var.get().strip()
+        v = value_var.get()
+        if not u or not f or not v:
+            messagebox.showinfo("Saved sites", "URL, field, and value are all required.")
+            return
+        backend = _cv.set_secret(u, f, v)
+        url_var.set(""); value_var.set("")
+        _refresh()
+        try:
+            app._toast(f"✓ Saved {f} for {u} (backend: {backend})", duration_ms=5000)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _use_selected():
+        sel = listbox.curselection()
+        if not sel:
+            return
+        line = listbox.get(sel[0])
+        site = line.split("   [", 1)[0]
+        # Pre-fill the main scan form. The auth_user is not stored in keychain
+        # (it's not secret) — leave the user to type it.
+        try:
+            app.url_var.set(site)
+            app.url_entry.focus_set()
+            # Try to inject creds into the scan path via the existing
+            # auth vars if they exist on the App.
+            for field in _cv.list_fields_for(site):
+                val = _cv.get_secret(site, field)
+                if val is None:
+                    continue
+                target_var_name = {
+                    "auth_pass":         "auth_pass_var",
+                    "auth_app_password": "auth_app_password_var",
+                    "auth_totp":         "auth_totp_var",
+                    "companion_token":   "companion_token_var",
+                }.get(field)
+                if target_var_name and hasattr(app, target_var_name):
+                    getattr(app, target_var_name).set(val)
+            app._toast(f"✓ Loaded creds for {site}", duration_ms=4000)
+            win.destroy()
+        except Exception as e:  # noqa: BLE001
+            messagebox.showerror("Saved sites", f"Couldn't load: {e}")
+
+    def _delete_selected():
+        sel = listbox.curselection()
+        if not sel:
+            return
+        line = listbox.get(sel[0])
+        site = line.split("   [", 1)[0]
+        if not messagebox.askyesno("Saved sites",
+                f"Remove ALL stored fields for {site}?"):
+            return
+        for field in _cv.list_fields_for(site):
+            _cv.delete_secret(site, field)
+        _refresh()
+
+    btns = ttk.Frame(body); btns.pack(fill="x", pady=(8, 0))
+    ttk.Button(btns, text="Save / update", command=_save).pack(side="left")
+    ttk.Button(btns, text="Use selected", style="Accent.TButton",
+                command=_use_selected).pack(side="left", padx=(8, 0))
+    ttk.Button(btns, text="Delete selected", command=_delete_selected).pack(side="left", padx=(8, 0))
+    ttk.Button(btns, text="Close", command=win.destroy).pack(side="right")
+    return win
