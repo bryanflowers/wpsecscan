@@ -434,6 +434,111 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
                 url=ctx["target"],
             ))
 
+    # #16 — transient cache bloat
+    step("companion: pulling transient-cache-size...")
+    tc = await _hit(base, "/wp-json/wpsecscan/v1/transient-cache-size", token)
+    if tc and isinstance(tc.get("bytes_total"), int):
+        mb = tc["bytes_total"] / (1024 * 1024)
+        if mb > 50:
+            top = tc.get("fattest") or []
+            lines = "\n".join(
+                f"  - {t.get('name','?')}  ({int(t.get('bytes',0))/1024:.0f} KB)"
+                for t in top[:5]
+            )
+            findings.append(Finding(
+                severity="low",
+                title=f"WordPress transients occupy {mb:.0f} MB ({tc.get('count',0):,} rows)",
+                evidence="Transients are short-lived caches; >50 MB of them "
+                         "is usually a plugin failing to expire them. Top "
+                         "5 by size:\n\n" + lines,
+                remediation=(
+                    "Install Transients Manager (free) or run "
+                    "`wp transient delete --expired` via WP-CLI to clear "
+                    "expired entries. Persistent bloat usually traces back "
+                    "to one plugin — check the fattest names."
+                ),
+                url=ctx["target"],
+            ))
+
+    # #15 — object cache: surface installed-but-unused configs
+    step("companion: pulling object-cache-info...")
+    oc = await _hit(base, "/wp-json/wpsecscan/v1/object-cache-info", token)
+    if oc:
+        if oc.get("dropin_installed") and not oc.get("wp_using_ext_obj"):
+            findings.append(Finding(
+                severity="low",
+                title="object-cache.php drop-in installed but not in use by core",
+                evidence=(
+                    f"Found drop-in at {oc.get('dropin_path','?')} "
+                    f"(vendor: {oc.get('dropin_vendor','?')}) but "
+                    "`wp_using_ext_object_cache()` returns False. Means the "
+                    "drop-in is dormant — performance gain is lost."
+                ),
+                remediation=(
+                    "Check the drop-in's admin panel (Redis / W3TC / "
+                    "LiteSpeed) — usually a 'Connect' or 'Enable' toggle is "
+                    "off, or the Redis/Memcached server is unreachable."
+                ),
+                url=ctx["target"],
+            ))
+
+    # #22 — multisite info: flag if any sub-blog has zero admins
+    step("companion: pulling multisite-network-info...")
+    ms = await _hit(base, "/wp-json/wpsecscan/v1/multisite-network-info", token)
+    if ms and ms.get("is_multisite"):
+        zero_admins = [b for b in (ms.get("blogs") or []) if b.get("admin_count", 0) == 0]
+        if zero_admins:
+            findings.append(Finding(
+                severity="medium",
+                title=f"{len(zero_admins)} multisite blog(s) have 0 administrators",
+                evidence="A sub-blog with no admin user is unmanageable + "
+                         "indicates either a deletion gap or an enumeration "
+                         "lure where someone could provision their own admin "
+                         "via the network admin interface:\n\n"
+                         + "\n".join(f"  - blog_id={b.get('blog_id')} "
+                                       f"domain={b.get('domain')}{b.get('path','')}"
+                                       for b in zero_admins[:5]),
+                remediation=(
+                    "Network admin → Sites → click each blog → Users → "
+                    "promote one user to administrator, OR archive the "
+                    "blog if it should be retired."
+                ),
+                url=ctx["target"] + "/wp-admin/network/sites.php",
+            ))
+
+    # #21 — mail deliverability: info-only when no plugin detected
+    step("companion: pulling wp-mail-deliverability...")
+    md = await _hit(base, "/wp-json/wpsecscan/v1/wp-mail-deliverability", token)
+    if md and not md.get("plugins_detected"):
+        findings.append(Finding(
+            severity="info",
+            title="No SMTP plugin detected (wp_mail uses PHP mail())",
+            evidence="No WP Mail SMTP / Fluent SMTP / Easy WP SMTP / Mailgun "
+                     "plugin is active. Default PHP mail() has poor "
+                     "deliverability — messages from this site are likely "
+                     "to land in spam.",
+            remediation=(
+                "Install WP Mail SMTP (free, by WPForms) and configure a "
+                "transactional provider (Mailgun, SendGrid, Amazon SES, "
+                "or Brevo) to dramatically improve deliverability."
+            ),
+            url=ctx["target"] + "/wp-admin/plugin-install.php?s=wp+mail+smtp",
+        ))
+    elif md and md.get("last_failure"):
+        findings.append(Finding(
+            severity="medium",
+            title="SMTP plugin reports a recent send failure",
+            evidence=f"Plugins active: {', '.join(md.get('plugins_detected',[]))}\n"
+                     f"Last failure: {md.get('last_failure','')[:300]}",
+            remediation=(
+                "Open the SMTP plugin's debug / test page in WP admin and "
+                "send a test message; the failure reason is usually visible "
+                "there. Common: missing/wrong API key, sending domain not "
+                "verified."
+            ),
+            url=ctx["target"] + "/wp-admin/admin.php?page=wp-mail-smtp",
+        ))
+
     # #20 — cron-shell-commands
     step("companion: pulling cron-shell-commands...")
     shell = await _hit(base, "/wp-json/wpsecscan/v1/cron-shell-commands", token)

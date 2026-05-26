@@ -123,6 +123,30 @@ function wpsecscan_companion_register_routes() {
         'callback'            => 'wpsecscan_companion_cron_shell_commands_callback',
         'permission_callback' => 'wpsecscan_companion_check_token',
     ] );
+    // #15: Redis/Memcached drop-in status.
+    register_rest_route( 'wpsecscan/v1', '/object-cache-info', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_object_cache_info_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
+    // #16: total bytes of _transient_* rows.
+    register_rest_route( 'wpsecscan/v1', '/transient-cache-size', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_transient_cache_size_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
+    // #21: wp_mail() deliverability indicators.
+    register_rest_route( 'wpsecscan/v1', '/wp-mail-deliverability', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_wp_mail_deliverability_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
+    // #22: per-blog admin counts on a multisite network.
+    register_rest_route( 'wpsecscan/v1', '/multisite-network-info', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_multisite_network_info_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
 }
 
 /**
@@ -649,6 +673,145 @@ function wpsecscan_companion_log_files_callback( $request ) {
         'count'     => count( $found ),
         'web_root'  => $abspath,
         'generated' => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * #15 — Object cache drop-in detection + status.
+ */
+function wpsecscan_companion_object_cache_info_callback( $request ) {
+    $dropin    = WP_CONTENT_DIR . '/object-cache.php';
+    $installed = file_exists( $dropin );
+    $vendor    = '';
+    if ( $installed ) {
+        $body = (string) @file_get_contents( $dropin, false, null, 0, 2048 );
+        if ( stripos( $body, 'Redis_Object_Cache' )    !== false ) { $vendor = 'redis-object-cache'; }
+        elseif ( stripos( $body, 'W3_Object_Cache' )    !== false ) { $vendor = 'w3-total-cache'; }
+        elseif ( stripos( $body, 'litespeed' )          !== false ) { $vendor = 'litespeed'; }
+        elseif ( stripos( $body, 'memcached' )          !== false ) { $vendor = 'memcached'; }
+        elseif ( stripos( $body, 'WP_Object_Cache' )    !== false ) { $vendor = 'unknown'; }
+    }
+
+    // Backend stats: try Redis via the Redis Object Cache plugin's globals.
+    $stats = [];
+    if ( function_exists( 'wp_object_cache_get_stats' ) ) {
+        $s = @wp_object_cache_get_stats();
+        if ( is_array( $s ) ) { $stats = $s; }
+    }
+
+    return rest_ensure_response( [
+        'dropin_installed' => $installed,
+        'dropin_vendor'    => $vendor,
+        'dropin_path'      => $installed ? str_replace( ABSPATH, '', $dropin ) : '',
+        'stats'            => $stats,
+        'wp_using_ext_obj' => function_exists( 'wp_using_ext_object_cache' ) ? (bool) wp_using_ext_object_cache() : false,
+        'generated'        => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * #16 — Bytes occupied by `_transient_*` rows in wp_options.
+ */
+function wpsecscan_companion_transient_cache_size_callback( $request ) {
+    global $wpdb;
+    $bytes_total = (int) $wpdb->get_var(
+        "SELECT COALESCE( SUM( LENGTH( option_value ) ), 0 )
+           FROM {$wpdb->options}
+          WHERE option_name LIKE '\\_transient\\_%'
+             OR option_name LIKE '\\_site\\_transient\\_%'"
+    );
+    $count = (int) $wpdb->get_var(
+        "SELECT COUNT(*) FROM {$wpdb->options}
+          WHERE option_name LIKE '\\_transient\\_%'
+             OR option_name LIKE '\\_site\\_transient\\_%'"
+    );
+    // Spot the 5 fattest transient names so we surface what's bloating.
+    $fattest = $wpdb->get_results(
+        "SELECT option_name AS name, LENGTH( option_value ) AS bytes
+           FROM {$wpdb->options}
+          WHERE option_name LIKE '\\_transient\\_%'
+             OR option_name LIKE '\\_site\\_transient\\_%'
+          ORDER BY bytes DESC LIMIT 5",
+        ARRAY_A
+    );
+    return rest_ensure_response( [
+        'bytes_total' => $bytes_total,
+        'count'       => $count,
+        'fattest'     => array_map( function ( $r ) {
+            return [ 'name' => (string) $r['name'], 'bytes' => (int) $r['bytes'] ];
+        }, (array) $fattest ),
+        'generated'   => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * #21 — Best-effort wp_mail() deliverability indicators. Reads any SMTP
+ * plugin's stored last-send + last-error options when present.
+ */
+function wpsecscan_companion_wp_mail_deliverability_callback( $request ) {
+    $out = [
+        'plugins_detected' => [],
+        'last_success_ts'  => null,
+        'last_failure_ts'  => null,
+        'last_failure'     => '',
+    ];
+    $active = (array) get_option( 'active_plugins', [] );
+    // WP Mail SMTP by WPForms — stores transient `wp_mail_smtp_debug_event`.
+    if ( in_array( 'wp-mail-smtp/wp_mail_smtp.php', $active, true ) ) {
+        $out['plugins_detected'][] = 'wp-mail-smtp';
+        $dbg = get_option( 'wp_mail_smtp_debug_event_last_error', '' );
+        if ( $dbg ) {
+            $out['last_failure']    = (string) $dbg;
+        }
+    }
+    if ( in_array( 'fluent-smtp/fluent-smtp.php', $active, true ) ) {
+        $out['plugins_detected'][] = 'fluent-smtp';
+    }
+    if ( in_array( 'easy-wp-smtp/easy-wp-smtp.php', $active, true ) ) {
+        $out['plugins_detected'][] = 'easy-wp-smtp';
+    }
+    // Mailgun for WP.
+    if ( in_array( 'mailgun/mailgun.php', $active, true ) ) {
+        $out['plugins_detected'][] = 'mailgun';
+    }
+    $out['generated'] = gmdate( 'c' );
+    return rest_ensure_response( $out );
+}
+
+/**
+ * #22 — Multisite network info. Returns per-blog admin count + super-admin
+ * list. Skipped (with explicit flag) on single-site installs so the
+ * scanner can short-circuit cleanly.
+ */
+function wpsecscan_companion_multisite_network_info_callback( $request ) {
+    if ( ! is_multisite() ) {
+        return rest_ensure_response( [
+            'is_multisite' => false,
+            'generated'    => gmdate( 'c' ),
+        ] );
+    }
+    $super = (array) get_super_admins();
+    $blogs = function_exists( 'get_sites' ) ? get_sites( [ 'number' => 200 ] ) : [];
+    $rows  = [];
+    foreach ( $blogs as $b ) {
+        switch_to_blog( (int) $b->blog_id );
+        $admins = count_users()['avail_roles']['administrator'] ?? 0;
+        restore_current_blog();
+        $rows[] = [
+            'blog_id'    => (int) $b->blog_id,
+            'domain'     => (string) $b->domain,
+            'path'       => (string) $b->path,
+            'admin_count'=> (int) $admins,
+            'registered' => (string) $b->registered,
+        ];
+    }
+    return rest_ensure_response( [
+        'is_multisite'   => true,
+        'super_admins'   => $super,
+        'super_count'    => count( $super ),
+        'blogs'          => $rows,
+        'blog_count'     => count( $rows ),
+        'generated'      => gmdate( 'c' ),
     ] );
 }
 
