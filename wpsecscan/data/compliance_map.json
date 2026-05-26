@@ -270,6 +270,11 @@
   "debug_log_pii_sniff":       {"pci_dss": "10.5.1","nist_800_53": "AU-9",  "iso_27001": "A.8.15"},
   "wp_debug_display_via_rest": {"pci_dss": "6.3.3", "nist_800_53": "SI-11", "iso_27001": "A.8.27"},
   "object_cache_dropin":       {"pci_dss": "6.4.3", "nist_800_53": "CM-7",  "iso_27001": "A.8.9"},
+  "xmlrpc_amplification":      {"pci_dss": "6.4.2", "nist_800_53": "SC-5",  "iso_27001": "A.8.6"},
+  "open_registration":         {"pci_dss": "8.3.1", "nist_800_53": "AC-2",  "iso_27001": "A.5.16"},
+  "hsts_preload_eligibility":  {"pci_dss": "4.2.1", "nist_800_53": "SC-8",  "iso_27001": "A.8.24"},
+  "ct_log_recent_certs":       {"pci_dss": "4.2.1", "nist_800_53": "SC-17", "iso_27001": "A.8.24"},
+  "login_redirect_http_hop":   {"pci_dss": "4.2.1", "nist_800_53": "SC-8",  "iso_27001": "A.8.24"},
   "theme_cves": {
     "pci_dss": "6.3.3",
     "nist_800_53": "SI-2",

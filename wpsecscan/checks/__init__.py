@@ -181,6 +181,12 @@ from .db_admin_login_probe import check as db_admin_login_probe
 from .debug_log_pii_sniff import check as debug_log_pii_sniff
 from .wp_debug_display_via_rest import check as wp_debug_display_via_rest
 from .object_cache_dropin import check as object_cache_dropin
+# Audit-extras-v5 (FEAT-009/014/017/029/044)
+from .xmlrpc_amplification import check as xmlrpc_amplification
+from .open_registration import check as open_registration
+from .hsts_preload_eligibility import check as hsts_preload_eligibility
+from .ct_log_recent_certs import check as ct_log_recent_certs
+from .login_redirect_http_hop import check as login_redirect_http_hop
 
 # Aggressive (active payloads) — opt-in
 from .sqli import check as sqli
@@ -338,6 +344,12 @@ ALL_CHECKS = [
     ("debug_log_pii_sniff",         "debug.log PII content sniff",                debug_log_pii_sniff,          False),
     ("wp_debug_display_via_rest",   "WP_DEBUG_DISPLAY via malformed REST POST",   wp_debug_display_via_rest,    False),
     ("object_cache_dropin",         "/wp-content/object-cache.php drop-in audit", object_cache_dropin,          False),
+    # ---- Audit-extras-v5 (FEAT-009/014/017/029/044) ----
+    ("xmlrpc_amplification",        "xmlrpc.php multicall amplification ratio",   xmlrpc_amplification,         False),
+    ("open_registration",           "Open registration without membership plugin", open_registration,           False),
+    ("hsts_preload_eligibility",    "HSTS preload eligibility audit",             hsts_preload_eligibility,     False),
+    ("ct_log_recent_certs",         "CT-log recent unexpected cert issuances",    ct_log_recent_certs,          False),
+    ("login_redirect_http_hop",     "HTTP hop in /wp-login.php redirect chain",   login_redirect_http_hop,      False),
     # ---- Aggressive ----
     ("sqli",               "SQL injection probes",       sqli,               True),
     ("xss_reflected",      "Reflected XSS probes",       xss_reflected,      True),
