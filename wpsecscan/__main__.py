@@ -414,7 +414,7 @@ def main() -> None:
     # `wpsecscan <url>` invocations stay backward-compatible.
     if len(sys.argv) >= 2 and sys.argv[1] in (
         "sites", "schedule", "digest", "ai-cost", "db", "ai-options", "analytics",
-        "compare", "badge",
+        "compare", "badge", "paths",
     ):
         _dispatch_subcommand(sys.argv[1], sys.argv[2:])
         return
@@ -500,6 +500,9 @@ def main() -> None:
     p.add_argument("--site-concurrency", type=int, default=1, metavar="N",
                    help="When scanning multiple sites via --file, run up to N in parallel (default 1 = serial). "
                         "Each site still uses --concurrency per-host. Trade off throughput against being a polite neighbour.")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Validate config + print the list of checks that would run against the target, then exit. "
+                        "Does not perform any HTTP requests; safe to run against any URL.")
     p.add_argument("--checkpoint", action="store_true", help="Save progress to ~/.wpsecscan/checkpoints/ so a Ctrl+C scan can resume on next run")
     p.add_argument("--fail-on", default=None, metavar="LEVEL[,LEVEL]",
                    help="Exit with code 2 if any finding is at or above this severity. "
@@ -655,6 +658,51 @@ def main() -> None:
         serve(host=host, port=port, token=getattr(args, "api_token", None))
         sys.exit(0)
 
+    # --dry-run short-circuit: print what would happen, exit without HTTP.
+    if getattr(args, "dry_run", False):
+        target = args.target or (args.file and "<first URL in --file>") or "<URL>"
+        from .checks import ALL_CHECKS
+        passive = [c for c in ALL_CHECKS if not c[3]]
+        aggressive = [c for c in ALL_CHECKS if c[3]]
+        print(f"WPSecScan dry-run — would scan: {target}")
+        print(f"Output dir:         {_outdir(args.out)}")
+        print(f"Timeout:            {args.timeout}s")
+        print(f"Per-host concurrency: {args.concurrency}")
+        print(f"Site concurrency:   {getattr(args, 'site_concurrency', 1)}")
+        print(f"Aggressive payloads: {'ON' if args.aggressive else 'OFF'}")
+        print(f"Prove-mode:         {'ON' if args.prove else 'OFF'}")
+        auth_summary = "anonymous"
+        if args.companion_token: auth_summary = "companion plugin token"
+        elif args.auth_user and (args.auth_pass or args.auth_app_password):
+            auth_summary = f"as {args.auth_user}"
+        print(f"Auth:               {auth_summary}")
+        print(f"Proxy:              {args.proxy or '(direct)'}")
+        print(f"Reports:            " + ", ".join(filter(None, [
+            "HTML" if not args.json_only else None,
+            "JSON" if not args.html_only else None,
+            "CSV" if args.csv else None,
+            "SARIF" if args.sarif else None,
+            "Markdown" if args.md else None,
+            "XLSX" if args.xlsx else None,
+            "exec-PDF" if args.exec_pdf else None,
+            "Burp scope" if args.burp_export else None,
+            "Attestation" if args.attestation else None,
+            "SBOM" if args.sbom else None,
+        ])))
+        print(f"\nPassive checks ({len(passive)}) would all run:")
+        for cid, cname, _fn, _agg in passive[:20]:
+            print(f"  {cid:30s} {cname}")
+        if len(passive) > 20:
+            print(f"  ... and {len(passive) - 20} more")
+        if args.aggressive:
+            print(f"\nAggressive checks ({len(aggressive)}) would run:")
+            for cid, cname, _fn, _agg in aggressive:
+                print(f"  {cid:30s} {cname}")
+        else:
+            print(f"\nAggressive checks ({len(aggressive)}) WOULD NOT run (no --aggressive).")
+        print("\nNo HTTP requests have been made. Run without --dry-run to actually scan.")
+        sys.exit(0)
+
     # Round-56 --demo short-circuit: synthetic scan, no HTTP, all artifacts.
     if getattr(args, "demo", False):
         from . import demo as _demo
@@ -775,9 +823,65 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_compare(args)
     elif cmd == "badge":
         _cmd_badge(args)
+    elif cmd == "paths":
+        _cmd_paths(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
+
+
+def _cmd_paths(args: list[str]) -> None:
+    """`wpsecscan paths` — print the canonical ~/.wpsecscan/ layout with
+    a short description and the current on-disk size of each entry.
+    Useful for operators who want to know where to back up / clean up
+    state without grepping the source."""
+    if args and args[0] in ("-h", "--help"):
+        print("usage: wpsecscan paths  (prints ~/.wpsecscan/ layout + current sizes)")
+        return
+    from . import history as _h
+    home = _h._home()
+    items = [
+        ("history.json",                        "Last 20 scanned URLs (GUI dropdown)"),
+        ("profiles.json",                       "Named scan profiles"),
+        ("settings.json",                       "Tokens from the GUI onboarding wizard"),
+        ("sites.json",                          "Managed sites list (`wpsecscan sites`)"),
+        ("schedule_state.json",                 "Scheduled-scan cron state"),
+        ("digest.json",                         "SMTP / webhook digest config"),
+        ("annotations.json",                    "Per-finding annotations"),
+        ("comments.json",                       "Per-finding free-text comments"),
+        ("stars.json",                          "Starred findings"),
+        ("disabled_checks.json",                "Persistently disabled check IDs"),
+        ("reports/",                            "Saved JSON / HTML snapshots + timestamped history"),
+        ("cache/wporg/",                        "24h-cached wp.org plugin metadata"),
+        ("checkpoints/",                        "--checkpoint resumable scan state"),
+        ("logs/",                               "--debug log files (rotating)"),
+        ("demo/",                               "--demo synthetic-scan artifacts"),
+        ("analytics/events.jsonl",              "Opt-in analytics (off by default)"),
+        ("wordfence.json",                      "Aggregated CVE database cache"),
+    ]
+    def _size(p: Path) -> str:
+        if not p.exists():
+            return "(absent)"
+        if p.is_dir():
+            total = 0
+            n = 0
+            for f in p.rglob("*"):
+                try:
+                    if f.is_file():
+                        total += f.stat().st_size
+                        n += 1
+                except OSError:
+                    pass
+            return f"{total/1024:>8.1f} KB  ({n} files)"
+        try:
+            return f"{p.stat().st_size/1024:>8.1f} KB"
+        except OSError:
+            return "(error)"
+    print(f"WPSECSCAN_HOME = {home}\n")
+    for name, desc in items:
+        p = home / name
+        print(f"  {name:36s}  {_size(p):>22s}  {desc}")
+    print(f"\nOverride the base directory with the WPSECSCAN_HOME env var.")
 
 
 def _cmd_compare(args: list[str]) -> None:
