@@ -105,6 +105,24 @@ function wpsecscan_companion_register_routes() {
         'callback'            => 'wpsecscan_companion_php_error_log_tail_callback',
         'permission_callback' => 'wpsecscan_companion_check_token',
     ] );
+    // #13: hooks in _get_cron_array() with a failure count > 0.
+    register_rest_route( 'wpsecscan/v1', '/wp-cron-failures', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_wp_cron_failures_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
+    // #14: cron hooks added in last 7 days, sorted by next-run time.
+    register_rest_route( 'wpsecscan/v1', '/scheduled-task-anomalies', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_scheduled_task_anomalies_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
+    // #20: cron callbacks that reference shell-exec functions.
+    register_rest_route( 'wpsecscan/v1', '/cron-shell-commands', [
+        'methods'             => 'GET',
+        'callback'            => 'wpsecscan_companion_cron_shell_commands_callback',
+        'permission_callback' => 'wpsecscan_companion_check_token',
+    ] );
 }
 
 /**
@@ -630,6 +648,198 @@ function wpsecscan_companion_log_files_callback( $request ) {
         'log_files' => $found,
         'count'     => count( $found ),
         'web_root'  => $abspath,
+        'generated' => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * #13 — Hooks in `_get_cron_array()` with failure count > 0.
+ *
+ * WordPress core doesn't track failure counts; we surface anything the
+ * Action Scheduler library tracks (used by WooCommerce + many others) and
+ * supplement with hooks that were due in the past but haven't run.
+ */
+function wpsecscan_companion_wp_cron_failures_callback( $request ) {
+    $rows = [];
+    // Action Scheduler — installed alongside WooCommerce and many plugins.
+    global $wpdb;
+    $as_table = $wpdb->prefix . 'actionscheduler_actions';
+    if ( $wpdb->get_var( "SHOW TABLES LIKE '{$as_table}'" ) === $as_table ) {
+        $raw = $wpdb->get_results(
+            "SELECT hook, status, attempts, scheduled_date_gmt
+               FROM {$as_table}
+              WHERE status = 'failed' OR attempts > 3
+              ORDER BY scheduled_date_gmt DESC LIMIT 50",
+            ARRAY_A
+        );
+        foreach ( (array) $raw as $r ) {
+            $rows[] = [
+                'hook'      => (string) $r['hook'],
+                'status'    => (string) $r['status'],
+                'attempts'  => (int) $r['attempts'],
+                'scheduled' => (string) $r['scheduled_date_gmt'],
+                'source'    => 'action-scheduler',
+            ];
+        }
+    }
+    // Heuristic for vanilla wp-cron: hooks whose `next_run` is in the past.
+    $cron = (array) _get_cron_array();
+    $now  = time();
+    $stuck = 0;
+    foreach ( $cron as $ts => $hooks ) {
+        if ( $ts >= $now ) { continue; }
+        $diff = $now - (int) $ts;
+        if ( $diff < 3600 ) { continue; } // < 1h late is normal
+        foreach ( (array) $hooks as $hook_name => $args ) {
+            $rows[] = [
+                'hook'      => (string) $hook_name,
+                'status'    => 'overdue',
+                'overdue_s' => (int) $diff,
+                'scheduled' => gmdate( 'c', (int) $ts ),
+                'source'    => 'wp-cron',
+            ];
+            $stuck++;
+            if ( $stuck >= 50 ) { break 2; }
+        }
+    }
+    return rest_ensure_response( [
+        'failures'  => $rows,
+        'count'     => count( $rows ),
+        'generated' => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * #14 — Cron hooks added in the last 7 days. WordPress doesn't keep
+ * an explicit add-timestamp; we approximate using the `scheduled_date_gmt`
+ * from Action Scheduler when available, else flag any hook whose next-run
+ * is in the next 7 days (newly-scheduled often look like this).
+ */
+function wpsecscan_companion_scheduled_task_anomalies_callback( $request ) {
+    global $wpdb;
+    $rows = [];
+    $as_table = $wpdb->prefix . 'actionscheduler_actions';
+    if ( $wpdb->get_var( "SHOW TABLES LIKE '{$as_table}'" ) === $as_table ) {
+        $raw = $wpdb->get_results(
+            "SELECT hook, status, scheduled_date_gmt
+               FROM {$as_table}
+              WHERE scheduled_date_gmt > DATE_SUB( UTC_TIMESTAMP(), INTERVAL 7 DAY )
+              ORDER BY scheduled_date_gmt DESC LIMIT 30",
+            ARRAY_A
+        );
+        foreach ( (array) $raw as $r ) {
+            $rows[] = [
+                'hook'      => (string) $r['hook'],
+                'status'    => (string) $r['status'],
+                'scheduled' => (string) $r['scheduled_date_gmt'],
+                'source'    => 'action-scheduler',
+            ];
+        }
+    }
+    // wp-cron: any hook whose next-run timestamp is within the next 7d
+    // AND that doesn't match a known wp-core hook name (heuristic for
+    // "newly added").
+    $core_hooks = [
+        'wp_version_check', 'wp_update_plugins', 'wp_update_themes',
+        'wp_scheduled_delete', 'wp_scheduled_auto_draft_delete',
+        'delete_expired_transients', 'wp_privacy_delete_old_export_files',
+        'recovery_mode_clean_expired_keys', 'wp_https_detection',
+        'do_pings',
+    ];
+    $cron = (array) _get_cron_array();
+    $cutoff = time() + ( 7 * 86400 );
+    foreach ( $cron as $ts => $hooks ) {
+        if ( (int) $ts > $cutoff ) { continue; }
+        foreach ( (array) $hooks as $hook_name => $args ) {
+            if ( in_array( $hook_name, $core_hooks, true ) ) { continue; }
+            $rows[] = [
+                'hook'      => (string) $hook_name,
+                'scheduled' => gmdate( 'c', (int) $ts ),
+                'source'    => 'wp-cron-non-core',
+            ];
+        }
+    }
+    return rest_ensure_response( [
+        'anomalies' => array_slice( $rows, 0, 50 ),
+        'count'     => count( $rows ),
+        'window_d'  => 7,
+        'generated' => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * #20 — Cron-hook callbacks that reference shell-exec PHP functions.
+ *
+ * Walks the cron array, resolves each callback to a file via reflection,
+ * grep-scans the source file for `exec()` / `shell_exec()` / `passthru()` /
+ * `system()` / `popen()` / `proc_open()`. Returns the matching hooks with
+ * the offending function names found nearby.
+ */
+function wpsecscan_companion_cron_shell_commands_callback( $request ) {
+    $rows  = [];
+    $cron  = (array) _get_cron_array();
+    $bad_fns = [ 'exec', 'shell_exec', 'passthru', 'system', 'popen', 'proc_open' ];
+    foreach ( $cron as $ts => $hooks ) {
+        foreach ( (array) $hooks as $hook_name => $args ) {
+            // _get_cron_array() gives only the hook name and args; resolve
+            // via WP's registered callbacks for this hook.
+            global $wp_filter;
+            if ( ! isset( $wp_filter[ $hook_name ] ) ) { continue; }
+            $hookobj = $wp_filter[ $hook_name ];
+            $callbacks = is_object( $hookobj ) && isset( $hookobj->callbacks )
+                ? $hookobj->callbacks
+                : [];
+            foreach ( $callbacks as $priority => $cbs ) {
+                foreach ( (array) $cbs as $cb ) {
+                    if ( ! is_array( $cb ) || ! isset( $cb['function'] ) ) {
+                        continue;
+                    }
+                    $fn = $cb['function'];
+                    $source_file = '';
+                    try {
+                        if ( is_string( $fn ) && function_exists( $fn ) ) {
+                            $rf = new ReflectionFunction( $fn );
+                            $source_file = (string) $rf->getFileName();
+                        } elseif ( is_array( $fn ) && isset( $fn[1] ) ) {
+                            $rm = new ReflectionMethod( $fn[0], $fn[1] );
+                            $source_file = (string) $rm->getFileName();
+                        } elseif ( $fn instanceof Closure ) {
+                            $rc = new ReflectionFunction( $fn );
+                            $source_file = (string) $rc->getFileName();
+                        }
+                    } catch ( Throwable $e ) {
+                        continue;
+                    }
+                    if ( ! $source_file || ! file_exists( $source_file ) ) {
+                        continue;
+                    }
+                    $size = @filesize( $source_file );
+                    if ( $size === false || $size > 1024 * 1024 ) {
+                        continue; // skip >1 MB files
+                    }
+                    $body = @file_get_contents( $source_file );
+                    if ( ! $body ) { continue; }
+                    $matches = [];
+                    foreach ( $bad_fns as $bad ) {
+                        // \b{bad}\s*\(  to avoid matching substrings.
+                        if ( preg_match( '/\b' . preg_quote( $bad, '/' ) . '\s*\(/', $body ) ) {
+                            $matches[] = $bad;
+                        }
+                    }
+                    if ( $matches ) {
+                        $rows[] = [
+                            'hook'      => (string) $hook_name,
+                            'source'    => ltrim( str_replace( ABSPATH, '', $source_file ), DIRECTORY_SEPARATOR ),
+                            'functions' => $matches,
+                        ];
+                    }
+                }
+            }
+        }
+    }
+    return rest_ensure_response( [
+        'flagged'   => array_slice( $rows, 0, 50 ),
+        'count'     => count( $rows ),
         'generated' => gmdate( 'c' ),
     ] );
 }

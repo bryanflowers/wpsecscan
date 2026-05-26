@@ -382,6 +382,85 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     # Returned data is informational; surfaced via JSON output extra field
     # in a future release. No finding generated today.
 
+    # #13 — wp-cron-failures
+    step("companion: pulling wp-cron-failures...")
+    crf = await _hit(base, "/wp-json/wpsecscan/v1/wp-cron-failures", token)
+    if crf and crf.get("failures"):
+        n = len(crf["failures"])
+        sev = "high" if n >= 10 else "medium"
+        lines = []
+        for f in crf["failures"][:8]:
+            lines.append(f"  - {f.get('hook','?')}  ({f.get('status','?')}, "
+                          f"source={f.get('source','?')})")
+        findings.append(Finding(
+            severity=sev,
+            title=f"{n} wp-cron hook(s) failing or overdue",
+            evidence=("Stalled cron is a frequent indicator of malware "
+                       "persistence — attackers hijack a hook, then ensure "
+                       "WP can't run it to its scheduled completion:\n\n"
+                       + "\n".join(lines)),
+            remediation=(
+                "Verify each hook's callback resolves cleanly (check "
+                "Action Scheduler's admin page if WooCommerce is installed). "
+                "For overdue wp-cron hooks, ensure WP_CRON_LOCK_TIMEOUT is "
+                "not stuck and the site receives enough traffic to trigger "
+                "wp-cron, OR install a system cron job hitting wp-cron.php."
+            ),
+            url=ctx["target"] + "/wp-admin/tools.php?page=action-scheduler",
+        ))
+
+    # #14 — scheduled-task-anomalies
+    step("companion: pulling scheduled-task-anomalies...")
+    anom = await _hit(base, "/wp-json/wpsecscan/v1/scheduled-task-anomalies", token)
+    if anom and anom.get("anomalies"):
+        recently_added = anom["anomalies"]
+        if len(recently_added) >= 5:
+            lines = "\n".join(
+                f"  - {a.get('hook','?')}  (scheduled {a.get('scheduled','?')})"
+                for a in recently_added[:8]
+            )
+            findings.append(Finding(
+                severity="low",
+                title=f"{len(recently_added)} non-core cron hook(s) scheduled in last 7 days",
+                evidence=("Newly-scheduled hooks aren't intrinsically bad, "
+                           "but if they correspond to plugins you didn't "
+                           "install in the last week, they may be malware "
+                           "persistence:\n\n" + lines),
+                remediation=(
+                    "Cross-reference each hook name against installed plugins. "
+                    "Hooks that look auto-generated (hex strings, base64-ish, "
+                    "single-letter names) deserve immediate investigation."
+                ),
+                url=ctx["target"],
+            ))
+
+    # #20 — cron-shell-commands
+    step("companion: pulling cron-shell-commands...")
+    shell = await _hit(base, "/wp-json/wpsecscan/v1/cron-shell-commands", token)
+    if shell and shell.get("flagged"):
+        lines = []
+        for f in shell["flagged"][:6]:
+            funcs = ", ".join(f.get("functions") or [])
+            lines.append(f"  - hook={f.get('hook','?')}  "
+                          f"source={f.get('source','?')}  uses=[{funcs}]")
+        findings.append(Finding(
+            severity="high",
+            title=f"{len(shell['flagged'])} cron hook(s) call shell-exec functions",
+            evidence=("These cron callbacks contain references to PHP's "
+                       "shell-exec family (exec/shell_exec/passthru/system/"
+                       "popen/proc_open). Legitimate uses exist (e.g. some "
+                       "imagick fallback paths) but cron hooks running shell "
+                       "commands are a classic command-injection backdoor "
+                       "pattern:\n\n" + "\n".join(lines)),
+            remediation=(
+                "Audit each flagged source file. Legitimate uses should be "
+                "narrowly scoped (specific binary, escaped args). Anything "
+                "that runs the cron-arg or option content through a shell "
+                "command is almost certainly malware."
+            ),
+            url=ctx["target"],
+        ))
+
     return findings or [Finding(
         severity="info",
         title="Companion advanced endpoints — no issues found",
