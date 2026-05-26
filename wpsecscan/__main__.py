@@ -210,6 +210,18 @@ async def _scan_one(target: str, args, console: Console):
             n_overrides = _policy.apply_severity_overrides(report, pol)
             n_rules = _policy.apply_severity_rules(report, pol)
             n_suppressed = _policy.apply_suppressions(report, pol)
+            # Item #75 — alert-fatigue triage. Auto-snooze first (cheap),
+            # then anomaly flag (AI-backed). Both no-op without flags.
+            if getattr(args, "ai_auto_snooze_info_findings", False):
+                from . import ai_triage as _atr
+                n_snoozed = _atr.auto_snooze_info(report)
+                if n_snoozed and not args.no_console:
+                    console.print(f"[yellow]auto-snoozed {n_snoozed} info finding(s).[/yellow]")
+            if getattr(args, "ai_flag_anomalies_for_human", False):
+                from . import ai_triage as _atr
+                n_flagged = _atr.flag_anomalies(report)
+                if n_flagged and not args.no_console:
+                    console.print(f"[yellow]AI flagged {n_flagged} anomaly(ies) for human review.[/yellow]")
             if (n_overrides or n_rules or n_suppressed) and not args.no_console:
                 console.print(
                     f"[yellow]Policy applied: "
@@ -935,6 +947,15 @@ def main() -> None:
                    help="#67: POST findings to Bugzilla via REST 5.0. Token via $BUGZILLA_API_KEY.")
     p.add_argument("--push-trac", default=None, metavar="BASE_URL,USERNAME",
                    help="#67: POST findings to Trac via XML-RPC plugin. Password via $TRAC_PASSWORD.")
+    # Item #75 — AI auto-triage on every scan
+    p.add_argument("--ai-auto-snooze-info-findings", action="store_true",
+                   help="#75: silently drop info-severity findings before any reporter "
+                        "runs. Pure heuristic — no AI call. Snoozes are appended to "
+                        "~/.wpsecscan/auto-triage.log.")
+    p.add_argument("--ai-flag-anomalies-for-human", action="store_true",
+                   help="#75: ask the AI to flag findings that look unusual for this "
+                        "target's site class. Flagged findings get `extra.ai_anomaly`. "
+                        "Needs an AI backend configured (otherwise no-op).")
     p.add_argument("--push-min-sev", default="high", metavar="SEV",
                    help="Lowest severity to push to issue trackers (default: high).")
     p.add_argument("--notion-database", default=None, metavar="DATABASE_ID",
@@ -1416,6 +1437,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_cron_schedule(args)
     elif cmd == "sla":
         _cmd_sla(args)
+    elif cmd == "import-pentest":
+        _cmd_import_pentest(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -2260,6 +2283,58 @@ def _cmd_doctor(args: list[str]) -> None:
     else:
         print("All optional components detected.")
     sys.exit(0)
+
+
+def _cmd_import_pentest(args: list[str]) -> None:
+    """Item #76 — import findings from external pentest tools.
+
+      wpsecscan import-pentest FILE [--target URL] [--format burp|zap|auto]
+                                    [--no-save]
+
+    Parses a Burp Suite scan XML or OWASP ZAP report.xml and writes the
+    resulting ScanReport to the normal snapshot history so it appears on
+    the agency dashboard and SLA tracker alongside automated scans.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_import_pentest.__doc__.strip()); return
+    path = Path(args[0])
+    if not path.exists():
+        print(f"file not found: {path}", file=sys.stderr); sys.exit(2)
+    fmt = "auto"
+    target_override = ""
+    save = True
+    for i, a in enumerate(args[1:]):
+        if a == "--target" and i + 2 <= len(args[1:]):
+            target_override = args[i + 2]
+        elif a == "--format" and i + 2 <= len(args[1:]):
+            fmt = args[i + 2]
+        elif a == "--no-save":
+            save = False
+    from .importers import burp_zap as _bz
+    if fmt == "burp":
+        report = _bz.import_burp(path, target_override)
+    elif fmt == "zap":
+        report = _bz.import_zap(path, target_override)
+    else:
+        report = _bz.autoimport(path, target_override)
+    print(f"imported {len(report.all_findings)} finding(s) for {report.target}")
+    if save:
+        from . import history as _h
+        out_path = _h.save_snapshot(report) if hasattr(_h, "save_snapshot") else None
+        if out_path:
+            print(f"snapshot saved: {out_path}")
+        else:
+            # Fallback: write to ~/.wpsecscan/reports/ manually.
+            import json
+            home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+            reports = home / "reports"
+            reports.mkdir(parents=True, exist_ok=True)
+            from urllib.parse import urlparse
+            safe = (urlparse(report.target).hostname or "imported").replace(":", "_")
+            ts = report.scanned_at.replace(":", "").replace("-", "")[:13]
+            snap = reports / f"{safe}-{ts}.json"
+            snap.write_text(json.dumps(report.to_dict(), indent=2), encoding="utf-8")
+            print(f"snapshot saved: {snap}")
 
 
 def _cmd_cron_schedule(args: list[str]) -> None:

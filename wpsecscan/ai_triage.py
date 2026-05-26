@@ -539,3 +539,87 @@ def apply_all_enabled(report) -> dict:
         out["kev_overlay"] = correlate_with_kev(findings)
 
     return out
+
+
+# ============================================================
+# Item #75 — alert-fatigue triage that runs on every scan
+# ============================================================
+
+def auto_snooze_info(report) -> int:
+    """Drop every info-severity finding from `report.results`.
+    No AI call — pure heuristic noise reduction so reporters surface
+    what humans should look at. Returns the count of dropped findings.
+    """
+    import time as _t
+    home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+    log_path = home / "auto-triage.log"
+    n = 0
+    try:
+        home.mkdir(parents=True, exist_ok=True)
+        log_fh = log_path.open("a", encoding="utf-8")
+    except OSError:
+        log_fh = None
+    try:
+        for r in report.results:
+            keep = []
+            for f in r.findings:
+                if f.severity == "info":
+                    n += 1
+                    if log_fh:
+                        log_fh.write(f"{_t.strftime('%Y-%m-%dT%H:%M:%S')}  snoozed-info  "
+                                      f"{report.target}  {r.check_id}: {f.title}\n")
+                    continue
+                keep.append(f)
+            r.findings = keep
+    finally:
+        if log_fh:
+            log_fh.close()
+    return n
+
+
+def flag_anomalies(report) -> int:
+    """Ask the AI which findings look unusual for this target's site
+    class. Decorates `extra.ai_anomaly = <reason>` on each flagged
+    finding. Returns the flagged count. No-ops when no AI backend is
+    configured (silent — never break the scan)."""
+    if not report.all_findings:
+        return 0
+    if not ai_assist.is_configured():
+        return 0
+    lines = []
+    for r in report.results:
+        for f in r.findings:
+            lines.append(f"{f.severity}|{r.check_id}|{f.title[:120]}")
+    prompt = (
+        "You are a senior WordPress security auditor. For the target site\n"
+        f"  {report.target}\n"
+        "the following findings were produced (severity|check_id|title):\n\n"
+        + "\n".join(lines[:80]) + "\n\n"
+        "Identify findings that are ANOMALOUS for a site of this class —\n"
+        "out of pattern given the target's apparent purpose. Output one JSON\n"
+        "object per line in the format:\n"
+        '  {"check_id": "...", "title": "...", "reason": "..."}\n'
+        "Output only JSON lines, no commentary. Empty output if nothing anomalous."
+    )
+    resp = ai_assist.chat(prompt, max_tokens=800) if hasattr(ai_assist, "chat") else None
+    if not resp:
+        return 0
+    flagged: dict[tuple[str, str], str] = {}
+    for raw in (resp.splitlines() if isinstance(resp, str) else []):
+        raw = raw.strip()
+        if not raw.startswith("{"):
+            continue
+        try:
+            d = json.loads(raw)
+            flagged[(d.get("check_id", ""), d.get("title", ""))] = str(d.get("reason", ""))
+        except (ValueError, AttributeError):
+            continue
+    n = 0
+    for r in report.results:
+        for f in r.findings:
+            reason = flagged.get((r.check_id, f.title))
+            if reason:
+                f.extra["ai_anomaly"] = reason
+                n += 1
+    return n
+
