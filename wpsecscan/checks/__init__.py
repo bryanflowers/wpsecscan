@@ -187,6 +187,11 @@ from .open_registration import check as open_registration
 from .hsts_preload_eligibility import check as hsts_preload_eligibility
 from .ct_log_recent_certs import check as ct_log_recent_certs
 from .login_redirect_http_hop import check as login_redirect_http_hop
+# Audit-extras-v6 (FEAT-011/020/027/007)
+from .webhook_signing_secrets import check as webhook_signing_secrets
+from .ai_chatbot_endpoint_leak import check as ai_chatbot_endpoint_leak
+from .oauth_redirect_misconfig import check as oauth_redirect_misconfig
+from .core_checksums import check as core_checksums
 
 # Aggressive (active payloads) — opt-in
 from .sqli import check as sqli
@@ -350,6 +355,11 @@ ALL_CHECKS = [
     ("hsts_preload_eligibility",    "HSTS preload eligibility audit",             hsts_preload_eligibility,     False),
     ("ct_log_recent_certs",         "CT-log recent unexpected cert issuances",    ct_log_recent_certs,          False),
     ("login_redirect_http_hop",     "HTTP hop in /wp-login.php redirect chain",   login_redirect_http_hop,      False),
+    # ---- Audit-extras-v6 (FEAT-011/020/027/007) ----
+    ("webhook_signing_secrets",     "Payment-webhook signing-secret leak",         webhook_signing_secrets,      False),
+    ("ai_chatbot_endpoint_leak",    "AI-chatbot REST endpoint PII leak",           ai_chatbot_endpoint_leak,     False),
+    ("oauth_redirect_misconfig",    "OAuth redirect_uri staging/localhost misconfig", oauth_redirect_misconfig,  False),
+    ("core_checksums",              "WP core file checksums vs wp.org manifest",   core_checksums,               False),
     # ---- Aggressive ----
     ("sqli",               "SQL injection probes",       sqli,               True),
     ("xss_reflected",      "Reflected XSS probes",       xss_reflected,      True),

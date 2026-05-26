@@ -275,6 +275,10 @@
   "hsts_preload_eligibility":  {"pci_dss": "4.2.1", "nist_800_53": "SC-8",  "iso_27001": "A.8.24"},
   "ct_log_recent_certs":       {"pci_dss": "4.2.1", "nist_800_53": "SC-17", "iso_27001": "A.8.24"},
   "login_redirect_http_hop":   {"pci_dss": "4.2.1", "nist_800_53": "SC-8",  "iso_27001": "A.8.24"},
+  "webhook_signing_secrets":   {"pci_dss": "3.7.6", "nist_800_53": "SC-12", "iso_27001": "A.8.25"},
+  "ai_chatbot_endpoint_leak":  {"pci_dss": "7.2.1", "nist_800_53": "AC-3",  "iso_27001": "A.8.3"},
+  "oauth_redirect_misconfig":  {"pci_dss": "6.4.3", "nist_800_53": "AC-3",  "iso_27001": "A.5.10"},
+  "core_checksums":            {"pci_dss": "11.5.2","nist_800_53": "SI-7",  "iso_27001": "A.8.32"},
   "theme_cves": {
     "pci_dss": "6.3.3",
     "nist_800_53": "SI-2",
