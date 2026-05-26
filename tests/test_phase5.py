@@ -346,6 +346,39 @@ def test_cmd_portfolio_no_sites_exits_two(monkeypatch, capsys):
     assert ei.value.code == 2
 
 
+# ============================== #56 tray icon ==================================
+
+def test_tray_start_returns_none_when_pystray_missing(monkeypatch):
+    """If pystray isn't importable, start_tray returns None cleanly."""
+    import sys, builtins
+    from wpsecscan import tray
+    real_import = builtins.__import__
+    def _stub_import(name, *args, **kw):
+        if name == "pystray":
+            raise ImportError("pystray not installed (stub)")
+        return real_import(name, *args, **kw)
+    monkeypatch.setattr(builtins, "__import__", _stub_import)
+    # Drop any cached import so the function re-evaluates.
+    monkeypatch.delitem(sys.modules, "pystray", raising=False)
+    class _FakeApp: pass
+    out = tray.start_tray(_FakeApp())
+    assert out is None
+
+
+def test_tray_hide_falls_through_when_no_icon():
+    """hide_to_tray with no active icon calls app.root.destroy() (normal close)."""
+    from wpsecscan import tray
+    called = {"destroyed": False}
+    class _FakeRoot:
+        def destroy(self): called["destroyed"] = True
+        def withdraw(self): called["destroyed"] = "withdrew_instead"  # must NOT happen
+    class _FakeApp:
+        root = _FakeRoot()
+        # no _tray_icon attribute set
+    tray.hide_to_tray(_FakeApp())
+    assert called["destroyed"] is True
+
+
 # ============================== #51 GUI pause/resume ===========================
 
 def test_scan_honours_is_paused_then_resumes(monkeypatch):

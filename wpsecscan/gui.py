@@ -772,6 +772,14 @@ class App:
         # E9 voice readout — opt-in via preference; default off.
         self.tts_enabled = self._load_pref("tts_enabled", False)
 
+        # #56: minimize-to-tray. start_tray() returns None when pystray /
+        # Pillow aren't installed; the WM_DELETE handler falls through to
+        # destroy() in that case.
+        from . import tray as _tray
+        _tray.start_tray(self)
+        self.root.protocol("WM_DELETE_WINDOW",
+                              lambda: _tray.hide_to_tray(self))
+
         # --- Bottom summary bar ---
         bottom = ttk.Frame(self.root, padding=(16, 6, 16, 12), style="Panel.TFrame")
         bottom.pack(side="bottom", fill="x")

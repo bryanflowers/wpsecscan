@@ -47,8 +47,8 @@ browser = ["playwright>=1.40"]
 yaml = ["pyyaml>=6.0"]
 # Distributed CVE-DB cache + RBAC bcrypt hashing
 ops = ["redis>=5.0", "bcrypt>=4.0"]
-# Optional Pillow for GUI image rendering
-ui = ["Pillow>=10"]
+# Optional Pillow for GUI image rendering + pystray for minimize-to-tray (#56)
+ui = ["Pillow>=10", "pystray>=0.19"]
 # Everything optional in one install
 all = [
     "reportlab>=4.0",
@@ -57,6 +57,7 @@ all = [
     "redis>=5.0",
     "bcrypt>=4.0",
     "Pillow>=10",
+    "pystray>=0.19",
 ]
 # Test deps (also installed by CI)
 test = ["pytest>=7.4"]
