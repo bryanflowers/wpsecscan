@@ -1,0 +1,115 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "WPSecScan scan-report",
+    "version": "1.0.0",
+    "summary": "Schema for the JSON document WPSecScan writes for each scan (item #53).",
+    "description": "Machine-readable schema for the output of `wpsecscan <url> --json-only` and the `report.json` artefact bundled with every HTML / agency-dashboard run. Use this spec to generate typed SDKs (openapi-generator, openapi-typescript, etc.) without hand-rolling structs."
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "Severity": {
+        "type": "string",
+        "enum": ["info", "low", "medium", "high", "critical"]
+      },
+      "Finding": {
+        "type": "object",
+        "required": ["severity", "title"],
+        "properties": {
+          "severity": { "$ref": "#/components/schemas/Severity" },
+          "title": {
+            "type": "string",
+            "description": "Short human-readable summary, e.g. 'WordPress version disclosed in generator meta tag'."
+          },
+          "evidence": {
+            "type": "string",
+            "description": "Raw byte-level evidence (HTTP response excerpt, file path, header value)."
+          },
+          "remediation": {
+            "type": "string",
+            "description": "Step-by-step fix the operator should apply."
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Specific URL on the target that produced this finding (may be empty for site-wide findings)."
+          },
+          "extra": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Free-form structured detail. Common keys include `cve`, `cvss`, `wordfence_vid`, `wpvulndb_id`, `plugin_slug`, `plugin_version`, `proven`, `playbook`."
+          }
+        }
+      },
+      "CheckResult": {
+        "type": "object",
+        "required": ["check_id", "check_name", "findings"],
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "description": "Stable identifier, e.g. 'headers', 'plugin_cves', 'xmlrpc'."
+          },
+          "check_name": { "type": "string" },
+          "findings": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Finding" }
+          },
+          "error": {
+            "type": ["string", "null"],
+            "description": "Populated if the check raised before completing; null on success."
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Wall-clock time for this single check."
+          }
+        }
+      },
+      "SeveritySummary": {
+        "type": "object",
+        "description": "Count of findings at each severity for the whole scan.",
+        "required": ["info", "low", "medium", "high", "critical"],
+        "properties": {
+          "info":     { "type": "integer", "minimum": 0 },
+          "low":      { "type": "integer", "minimum": 0 },
+          "medium":   { "type": "integer", "minimum": 0 },
+          "high":     { "type": "integer", "minimum": 0 },
+          "critical": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "ScanReport": {
+        "type": "object",
+        "required": ["target", "scanned_at", "duration_ms", "summary", "risk_score", "results"],
+        "properties": {
+          "target": {
+            "type": "string",
+            "format": "uri",
+            "description": "Root URL of the WordPress site that was scanned."
+          },
+          "scanned_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 timestamp at which the scan started."
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total wall-clock time of the scan in milliseconds."
+          },
+          "summary": { "$ref": "#/components/schemas/SeveritySummary" },
+          "risk_score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Composite 0-100 score (higher = better posture) derived from wpsecscan.risk.compute_risk_score()."
+          },
+          "results": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CheckResult" }
+          }
+        }
+      }
+    }
+  }
+}

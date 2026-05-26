@@ -333,6 +333,14 @@ async def _scan_one(target: str, args, console: Console):
         if not args.no_console:
             console.print(f"[green]✓[/green] Compliance attestation matrix: [bold]{ca_p}[/bold]")
 
+    # #52 — board-room 1-page dashboard
+    if getattr(args, "board_1pager", False):
+        from .reporters import board_one_pager as _bp
+        bp_p = out_dir / f"{stem}-board.html"
+        _bp.write(report, bp_p)
+        if not args.no_console:
+            console.print(f"[green]✓[/green] Board 1-pager: [bold]{bp_p}[/bold]")
+
     # N40 attestation
     if getattr(args, "attestation", None):
         from .reporters import attestation as _att
@@ -879,6 +887,13 @@ def main() -> None:
                    help="#51: write a printable compliance-attestation matrix mapping every "
                         "check that ran to its controls across 8 frameworks (PCI/NIST/ISO/NIST-CSF/"
                         "CIS/HITRUST/CMMC).")
+    p.add_argument("--board-1pager", action="store_true",
+                   help="#52: write a single-landscape-page board-room risk dashboard "
+                        "(three big numbers, three sentences, three actions to ratify).")
+    p.add_argument("--print-openapi", action="store_true",
+                   help="#53: print the OpenAPI 3.1 schema for the WPSecScan JSON output to "
+                        "stdout, then exit. Pipe to openapi-typescript / openapi-generator to "
+                        "build typed SDKs.")
     p.add_argument("--redact-evidence", action="store_true",
                    help="#61: mask JWTs / session cookies / bearer tokens / PII in finding evidence before any reporter writes. Recommended when sharing reports externally.")
     p.add_argument("--diff-html", nargs=2, metavar=("OLD.json", "NEW.json"),
@@ -957,6 +972,13 @@ def main() -> None:
     if getattr(args, "completion", None):
         from .completion import generate
         print(generate(args.completion))
+        sys.exit(0)
+
+    # #53 — dump OpenAPI schema and exit. Early, before I/O setup, so the
+    # operator can `wpsecscan --print-openapi > spec.json` cleanly.
+    if getattr(args, "print_openapi", False):
+        spec = Path(__file__).parent / "data" / "openapi-scan-report.json"
+        sys.stdout.write(spec.read_text(encoding="utf-8"))
         sys.exit(0)
 
     # Read --auth-pass from stdin when the user passes `-`. Stops the
