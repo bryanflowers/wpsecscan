@@ -1,0 +1,66 @@
+{
+  "title": "WPSecScan — security posture",
+  "description": "Import as a Datadog dashboard. Assumes wpsecscan is streaming via the Logs HTTP intake (--siem-datadog) and that the logs have ddsource=wpsecscan. See https://docs.datadoghq.com/dashboards/api/#create-a-new-dashboard.",
+  "layout_type": "ordered",
+  "widgets": [
+    {
+      "definition": {
+        "type": "note",
+        "content": "## WPSecScan dashboard\nImport this JSON via *Dashboards → New → Import dashboard JSON*. Assumes wpsecscan events have `ddsource:wpsecscan` (the default when using `--siem-datadog`). Tags used: `target`, `severity`, `check_id`.",
+        "background_color": "vivid_blue",
+        "font_size": "14",
+        "show_tick": false
+      }
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Critical findings (last 24h)",
+        "requests": [
+          {"q": "count:wpsecscan.findings{severity:critical}.as_count()", "aggregator": "sum"}
+        ],
+        "precision": 0,
+        "autoscale": false,
+        "custom_unit": "findings"
+      }
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "High findings (last 24h)",
+        "requests": [
+          {"q": "count:wpsecscan.findings{severity:high}.as_count()", "aggregator": "sum"}
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Findings by severity over time",
+        "requests": [
+          {"q": "logs(\"source:wpsecscan severity:critical\").index(\"*\").rollup(\"count\", \"15m\")", "display_type": "bars"},
+          {"q": "logs(\"source:wpsecscan severity:high\").index(\"*\").rollup(\"count\", \"15m\")",     "display_type": "bars"},
+          {"q": "logs(\"source:wpsecscan severity:medium\").index(\"*\").rollup(\"count\", \"15m\")",   "display_type": "bars"}
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "toplist",
+        "title": "Top targets by open critical+high",
+        "requests": [
+          {"q": "top(sum:logs.hits{source:wpsecscan,(severity:critical OR severity:high)} by {target}, 10, 'sum', 'desc')"}
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "toplist",
+        "title": "Top check_ids triggered",
+        "requests": [
+          {"q": "top(sum:logs.hits{source:wpsecscan} by {check_id}, 10, 'sum', 'desc')"}
+        ]
+      }
+    }
+  ]
+}

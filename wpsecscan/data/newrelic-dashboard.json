@@ -1,0 +1,57 @@
+{
+  "name": "WPSecScan — security posture",
+  "description": "Import via New Relic Insights/Dashboards → '+ Add data' → Import. Assumes wpsecscan log events are ingested with attribute `scanner = 'wpsecscan'` (set by `wpsecscan` siem forwarders).",
+  "permissions": "PUBLIC_READ_WRITE",
+  "pages": [
+    {
+      "name": "Overview",
+      "widgets": [
+        {
+          "title": "Critical findings (last 24h)",
+          "visualization": {"id": "viz.billboard"},
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {"query": "SELECT count(*) FROM Log WHERE scanner = 'wpsecscan' AND severity = 'critical' SINCE 24 hours ago"}
+            ]
+          }
+        },
+        {
+          "title": "High findings (last 24h)",
+          "visualization": {"id": "viz.billboard"},
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {"query": "SELECT count(*) FROM Log WHERE scanner = 'wpsecscan' AND severity = 'high' SINCE 24 hours ago"}
+            ]
+          }
+        },
+        {
+          "title": "Findings by severity over time",
+          "visualization": {"id": "viz.line"},
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {"query": "SELECT count(*) FROM Log WHERE scanner = 'wpsecscan' FACET severity TIMESERIES 1 hour SINCE 7 days ago"}
+            ]
+          }
+        },
+        {
+          "title": "Top targets by open critical + high",
+          "visualization": {"id": "viz.table"},
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {"query": "SELECT count(*) FROM Log WHERE scanner = 'wpsecscan' AND (severity = 'critical' OR severity = 'high') FACET target SINCE 30 days ago LIMIT 25"}
+            ]
+          }
+        },
+        {
+          "title": "Top check_ids triggered",
+          "visualization": {"id": "viz.bar"},
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {"query": "SELECT count(*) FROM Log WHERE scanner = 'wpsecscan' FACET check_id SINCE 7 days ago LIMIT 25"}
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

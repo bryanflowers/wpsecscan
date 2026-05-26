@@ -426,6 +426,43 @@ async def _scan_one(target: str, args, console: Console):
                                                               repo=args.push_github)))
         except Exception as e:  # noqa: BLE001
             console.print(f"[yellow]--push-github failed: {e}[/yellow]")
+    # Item #67 — Redmine / Bugzilla / Trac (all re-use the github_payloads
+    # shape — title + body — so the title/body templates stay consistent
+    # across trackers.)
+    if getattr(args, "push_redmine", None):
+        try:
+            base, project_id = [s.strip() for s in args.push_redmine.split(",", 1)]
+            from . import issue_push as _ip
+            from .reporters.issue_export import github_payloads
+            payloads = github_payloads(report, getattr(args, "push_min_sev", "high"))
+            push_results.append(("redmine", _ip.push_redmine(target, payloads,
+                                                                base_url=base,
+                                                                project_id=project_id)))
+        except (ValueError, Exception) as e:  # noqa: BLE001
+            console.print(f"[yellow]--push-redmine failed: {e}[/yellow]")
+    if getattr(args, "push_bugzilla", None):
+        try:
+            base, product, component = [s.strip() for s in args.push_bugzilla.split(",", 2)]
+            from . import issue_push as _ip
+            from .reporters.issue_export import github_payloads
+            payloads = github_payloads(report, getattr(args, "push_min_sev", "high"))
+            push_results.append(("bugzilla", _ip.push_bugzilla(target, payloads,
+                                                                  base_url=base,
+                                                                  product=product,
+                                                                  component=component)))
+        except (ValueError, Exception) as e:  # noqa: BLE001
+            console.print(f"[yellow]--push-bugzilla failed: {e}[/yellow]")
+    if getattr(args, "push_trac", None):
+        try:
+            base, username = [s.strip() for s in args.push_trac.split(",", 1)]
+            from . import issue_push as _ip
+            from .reporters.issue_export import github_payloads
+            payloads = github_payloads(report, getattr(args, "push_min_sev", "high"))
+            push_results.append(("trac", _ip.push_trac(target, payloads,
+                                                          base_url=base,
+                                                          username=username)))
+        except (ValueError, Exception) as e:  # noqa: BLE001
+            console.print(f"[yellow]--push-trac failed: {e}[/yellow]")
     for system, results in push_results:
         ok = sum(1 for r in results if r.get("ok"))
         skipped = sum(1 for r in results if r.get("skipped"))
@@ -888,6 +925,13 @@ def main() -> None:
                    help="#35: POST findings to ServiceNow incident table. Auth via $SERVICENOW_USERNAME / $SERVICENOW_PASSWORD.")
     p.add_argument("--push-github", default=None, metavar="OWNER/REPO",
                    help="#35: POST findings to a GitHub Issues repo. Token via $GITHUB_TOKEN.")
+    # Item #67 — Redmine / Bugzilla / Trac push
+    p.add_argument("--push-redmine", default=None, metavar="BASE_URL,PROJECT_ID",
+                   help="#67: POST findings to Redmine. Token via $REDMINE_API_KEY.")
+    p.add_argument("--push-bugzilla", default=None, metavar="BASE_URL,PRODUCT,COMPONENT",
+                   help="#67: POST findings to Bugzilla via REST 5.0. Token via $BUGZILLA_API_KEY.")
+    p.add_argument("--push-trac", default=None, metavar="BASE_URL,USERNAME",
+                   help="#67: POST findings to Trac via XML-RPC plugin. Password via $TRAC_PASSWORD.")
     p.add_argument("--push-min-sev", default="high", metavar="SEV",
                    help="Lowest severity to push to issue trackers (default: high).")
     p.add_argument("--notion-database", default=None, metavar="DATABASE_ID",
@@ -1357,6 +1401,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_slack_app(args)
     elif cmd == "pr-status":
         _cmd_pr_status(args)
+    elif cmd == "dashboard-templates":
+        _cmd_dashboard_templates(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -2201,6 +2247,36 @@ def _cmd_doctor(args: list[str]) -> None:
     else:
         print("All optional components detected.")
     sys.exit(0)
+
+
+def _cmd_dashboard_templates(args: list[str]) -> None:
+    """Item #66 — print bundled Datadog / New Relic dashboard templates.
+
+      wpsecscan dashboard-templates datadog
+      wpsecscan dashboard-templates newrelic
+      wpsecscan dashboard-templates list
+
+    Pipe into a file then import in the respective product. Useful when
+    you've wired up the SIEM forwarders (`--siem-datadog` / Logstash) and
+    want a starting-point dashboard instead of building it by hand.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_dashboard_templates.__doc__.strip()); return
+    data_dir = Path(__file__).parent / "data"
+    mapping = {
+        "datadog":  data_dir / "datadog-dashboard.json",
+        "newrelic": data_dir / "newrelic-dashboard.json",
+    }
+    if args[0] == "list":
+        for name, p in mapping.items():
+            mark = "✓" if p.exists() else "•"
+            print(f"  {mark} {name:10s}  {p}")
+        return
+    target = args[0].lower()
+    if target not in mapping:
+        print(f"unknown template: {target}; try 'datadog' or 'newrelic'", file=sys.stderr)
+        sys.exit(64)
+    sys.stdout.write(mapping[target].read_text(encoding="utf-8"))
 
 
 def _cmd_slack_app(args: list[str]) -> None:

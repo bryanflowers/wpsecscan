@@ -87,29 +87,69 @@ def notify_discord(webhook_url: str, report: Any) -> bool:
 
 
 def notify_teams(webhook_url: str, report: Any) -> bool:
+    """Item #65 — Microsoft Teams Adaptive Card 1.5.
+
+    The legacy MessageCard format is officially retired by Microsoft;
+    Adaptive Cards 1.5 render natively in modern Teams clients (Outlook
+    actionable messages too) with proper severity colour accents,
+    columns, and a clickable open-report action when WPSECSCAN_REPORT_URL
+    is set (so a CI job can pass a deep link to the artifact).
+    """
     d = _summary(report)
     s = d.get("summary", {})
     target = d.get("target", "?")
-    risk = d.get("risk_score", 0)
+    risk = int(d.get("risk_score", 0))
     crit = int(s.get("critical", 0))
-    color = "FF0000" if crit else ("FF9900" if s.get("high", 0) else "00CC00")
-    payload = {
-        "@type": "MessageCard",
-        "@context": "https://schema.org/extensions",
-        "themeColor": color,
-        "summary": f"WPSecScan — {target}",
-        "title": f"WPSecScan scan complete — {target}",
-        "sections": [{
-            "facts": [
-                {"name": "Risk", "value": f"{risk}/100"},
-                {"name": "Critical", "value": str(crit)},
-                {"name": "High", "value": str(s.get("high", 0))},
-                {"name": "Medium", "value": str(s.get("medium", 0))},
-                {"name": "Low", "value": str(s.get("low", 0))},
+    high = int(s.get("high", 0))
+    if crit:
+        color, status_label = "attention", "CRITICAL"
+    elif high:
+        color, status_label = "warning", "HIGH"
+    else:
+        color, status_label = "good", "OK"
+
+    def _row(label: str, val: int, accent: str = "default") -> dict:
+        return {
+            "type": "ColumnSet",
+            "columns": [
+                {"type": "Column", "width": "auto",
+                 "items": [{"type": "TextBlock", "text": label, "wrap": True}]},
+                {"type": "Column", "width": "stretch",
+                 "items": [{"type": "TextBlock", "text": str(val), "horizontalAlignment": "Right",
+                              "weight": "Bolder", "color": accent}]},
             ],
+        }
+
+    actions: list[dict] = []
+    report_url = os.environ.get("WPSECSCAN_REPORT_URL", "")
+    if report_url:
+        actions.append({"type": "Action.OpenUrl", "title": "Open full report",
+                          "url": report_url})
+
+    card = {
+        "type": "message",
+        "attachments": [{
+            "contentType": "application/vnd.microsoft.card.adaptive",
+            "content": {
+                "type": "AdaptiveCard",
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                "version": "1.5",
+                "body": [
+                    {"type": "TextBlock", "size": "Large", "weight": "Bolder",
+                     "text": f"WPSecScan — {target}", "wrap": True},
+                    {"type": "TextBlock", "spacing": "None", "isSubtle": True,
+                     "text": f"Status: {status_label} · Risk {risk}/100", "color": color},
+                    _row("Critical", crit, "attention" if crit else "default"),
+                    _row("High",     high, "warning"   if high else "default"),
+                    _row("Medium",   int(s.get("medium", 0))),
+                    _row("Low",      int(s.get("low", 0))),
+                    _row("Info",     int(s.get("info", 0))),
+                ],
+                **({"actions": actions} if actions else {}),
+            },
         }],
     }
-    return _post_json(webhook_url, payload)
+    return _post_json(webhook_url, card)
 
 
 def notify_all(report: Any) -> dict:

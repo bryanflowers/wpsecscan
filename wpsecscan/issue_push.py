@@ -228,6 +228,137 @@ def push_servicenow(target: str, payloads: list[dict], *, instance: str,
 # GitHub Issues
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Redmine — POST /issues.json with X-Redmine-API-Key header
+# ---------------------------------------------------------------------------
+
+def push_redmine(target: str, payloads: list[dict], *, base_url: str,
+                  project_id: str | int,
+                  cache: dict[str, dict] | None = None) -> list[dict]:
+    """Item #67 — push to Redmine. Token via $REDMINE_API_KEY.
+
+    `payloads` is the iterable from reporters.issue_export.github_payloads
+    (re-using its title+body shape, mapped here to Redmine's schema).
+    """
+    token = os.environ.get("REDMINE_API_KEY") or os.environ.get("WPSECSCAN_REDMINE_TOKEN", "")
+    if not token:
+        return [{"ok": False, "error": "REDMINE_API_KEY not set"}]
+    cache = cache if cache is not None else _load_cache()
+    results = []
+    for p in payloads:
+        title = p.get("title", "")
+        body = p.get("body", "") or p.get("description", "")
+        key = idempotency_key(target, "", title)
+        if key in cache:
+            results.append({"ok": True, "skipped": True, "ticket": cache[key].get("ticket_id"),
+                              "url": cache[key].get("url")})
+            continue
+        rm_payload = {"issue": {"project_id": project_id, "subject": title,
+                                  "description": body}}
+        status, resp = _post_json(
+            f"{base_url.rstrip('/')}/issues.json",
+            rm_payload,
+            {"X-Redmine-API-Key": token},
+        )
+        if status in (200, 201) and isinstance(resp, dict) and resp.get("issue"):
+            iid = resp["issue"].get("id")
+            url = f"{base_url.rstrip('/')}/issues/{iid}"
+            cache[key] = {"system": "redmine", "ticket_id": f"#{iid}", "url": url,
+                          "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+            results.append({"ok": True, "ticket": f"#{iid}", "url": url})
+        else:
+            results.append({"ok": False, "status": status, "error": resp})
+    _save_cache(cache)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Bugzilla — REST 5.0 — POST /rest/bug?api_key=KEY
+# ---------------------------------------------------------------------------
+
+def push_bugzilla(target: str, payloads: list[dict], *, base_url: str,
+                   product: str, component: str, version: str = "unspecified",
+                   cache: dict[str, dict] | None = None) -> list[dict]:
+    """Item #67 — push to Bugzilla. Token via $BUGZILLA_API_KEY."""
+    token = os.environ.get("BUGZILLA_API_KEY") or os.environ.get("WPSECSCAN_BUGZILLA_TOKEN", "")
+    if not token:
+        return [{"ok": False, "error": "BUGZILLA_API_KEY not set"}]
+    cache = cache if cache is not None else _load_cache()
+    results = []
+    for p in payloads:
+        title = p.get("title", "")
+        body = p.get("body", "") or p.get("description", "")
+        key = idempotency_key(target, "", title)
+        if key in cache:
+            results.append({"ok": True, "skipped": True, "ticket": cache[key].get("ticket_id"),
+                              "url": cache[key].get("url")})
+            continue
+        bz_payload = {
+            "product": product, "component": component, "version": version,
+            "summary": title, "description": body, "op_sys": "All", "platform": "All",
+        }
+        status, resp = _post_json(
+            f"{base_url.rstrip('/')}/rest/bug?api_key={token}",
+            bz_payload, {},
+        )
+        if status in (200, 201) and isinstance(resp, dict) and resp.get("id"):
+            bid = resp["id"]
+            url = f"{base_url.rstrip('/')}/show_bug.cgi?id={bid}"
+            cache[key] = {"system": "bugzilla", "ticket_id": f"#{bid}", "url": url,
+                          "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+            results.append({"ok": True, "ticket": f"#{bid}", "url": url})
+        else:
+            results.append({"ok": False, "status": status, "error": resp})
+    _save_cache(cache)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Trac — XML-RPC ticket.create  (Trac 1.4+ via the XmlRpcPlugin)
+# ---------------------------------------------------------------------------
+
+def push_trac(target: str, payloads: list[dict], *, base_url: str,
+               username: str, cache: dict[str, dict] | None = None) -> list[dict]:
+    """Item #67 — push to Trac via its XML-RPC plugin.
+
+    Trac doesn't ship a first-party REST API; the XmlRpcPlugin is the de-
+    facto integration point. Password via $TRAC_PASSWORD.
+    """
+    import xmlrpc.client
+    pw = os.environ.get("TRAC_PASSWORD") or os.environ.get("WPSECSCAN_TRAC_PASSWORD", "")
+    if not pw:
+        return [{"ok": False, "error": "TRAC_PASSWORD not set"}]
+    cache = cache if cache is not None else _load_cache()
+    # https://user:pw@trac.example.com/login/xmlrpc — standard Trac auth URL.
+    from urllib.parse import quote, urlparse
+    p = urlparse(base_url)
+    rpc_url = f"{p.scheme}://{quote(username, safe='')}:{quote(pw, safe='')}@{p.netloc}{p.path.rstrip('/')}/login/xmlrpc"
+    proxy = xmlrpc.client.ServerProxy(rpc_url, allow_none=True)
+    results = []
+    for pay in payloads:
+        title = pay.get("title", "")
+        body = pay.get("body", "") or pay.get("description", "")
+        key = idempotency_key(target, "", title)
+        if key in cache:
+            results.append({"ok": True, "skipped": True,
+                              "ticket": cache[key].get("ticket_id"),
+                              "url": cache[key].get("url")})
+            continue
+        try:
+            ticket_id = proxy.ticket.create(title, body,
+                                             {"type": "defect", "priority": "major"},
+                                             True)
+        except (xmlrpc.client.Fault, OSError) as e:
+            results.append({"ok": False, "error": str(e)})
+            continue
+        url = f"{base_url.rstrip('/')}/ticket/{ticket_id}"
+        cache[key] = {"system": "trac", "ticket_id": f"#{ticket_id}", "url": url,
+                      "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+        results.append({"ok": True, "ticket": f"#{ticket_id}", "url": url})
+    _save_cache(cache)
+    return results
+
+
 def push_github(target: str, payloads: list[dict], *, repo: str,
                  cache: dict[str, dict] | None = None) -> list[dict]:
     """repo = 'owner/name'. Token via $GITHUB_TOKEN."""
