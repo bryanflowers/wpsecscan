@@ -134,6 +134,93 @@ def _auth_debug_enabled() -> bool:
     return bool(os.environ.get("WPSECSCAN_AUTH_DEBUG"))
 
 
+# #5 — paths to try when /wp-login.php doesn't exist. Plugins that
+# rename the login URL are common (WPS Hide Login, Rename wp-admin,
+# Loginizer, manual rewrites). Order matters: try the canonical
+# path first so the common case stays fast.
+_LOGIN_PATH_CANDIDATES = (
+    "/wp-login.php",
+    "/login",
+    "/login/",
+    "/admin",
+    "/admin/",
+    "/backend",
+    "/backend/",
+    "/dashboard",
+    "/dashboard/",
+    "/wp-admin/login.php",
+    "/wp-admin",
+)
+
+
+# #10 — per-site auth-strategy cache. Once we've discovered "this site
+# needs nonce + browser UA + login path X + 2FA field foo", stash it
+# so re-scans skip the discovery dance.
+def _strategy_cache_path(host: str) -> Path:
+    home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+    d = home / "auth_strategy"
+    d.mkdir(parents=True, exist_ok=True)
+    safe = re.sub(r"[^a-z0-9_.-]+", "-", host.lower()) or "host"
+    return d / f"{safe}.json"
+
+
+def load_strategy(host: str) -> dict:
+    """Read the cached auth strategy for a host. Returns {} on miss."""
+    try:
+        import json as _json
+        p = _strategy_cache_path(host)
+        if p.exists():
+            return _json.loads(p.read_text(encoding="utf-8")) or {}
+    except (OSError, ValueError):
+        pass
+    return {}
+
+
+def save_strategy(host: str, **kwargs) -> None:
+    """Update the cached auth strategy for a host with the keys provided.
+    Existing keys are preserved; new ones overwrite. Best-effort."""
+    try:
+        import json as _json
+        p = _strategy_cache_path(host)
+        existing = load_strategy(host)
+        existing.update(kwargs)
+        existing["updated"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        p.write_text(_json.dumps(existing, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+
+
+async def discover_login_url(c: httpx.AsyncClient, base: str, host: str) -> str | None:
+    """#5: probe candidate login URLs until one returns the WP login form.
+    Checks the env override WPSECSCAN_LOGIN_PATH first, then the cached
+    strategy, then a small candidate list. Returns the absolute URL of
+    the found login page (or None when nothing works)."""
+    # Honour env-var override (operator knows the path).
+    override = os.environ.get("WPSECSCAN_LOGIN_PATH", "").strip()
+    if override:
+        path = "/" + override.lstrip("/")
+        candidates = (path,) + tuple(p for p in _LOGIN_PATH_CANDIDATES if p != path)
+    else:
+        candidates = _LOGIN_PATH_CANDIDATES
+    # Honour the per-site cache.
+    cached = load_strategy(host).get("login_path")
+    if cached:
+        candidates = (cached,) + tuple(p for p in candidates if p != cached)
+
+    for path in candidates:
+        try:
+            r = await c.get(base + path)
+        except httpx.HTTPError:
+            continue
+        if r.status_code == 200 and LOGIN_FORM_RE.search(r.text or ""):
+            _auth_debug(host, f"login form discovered at {path}", r)
+            # Cache the discovered path so subsequent scans skip the probe.
+            save_strategy(host, login_path=path)
+            return base + path
+    _auth_debug(host, "no login form found at any candidate path")
+    return None
+
+
 def _auth_debug_log_path(host: str) -> Path:
     """One log file per host so subsequent runs append cleanly."""
     home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
@@ -215,16 +302,26 @@ async def _login_cookie(target: str, user: str, password: str,
             "Accept-Language": "en-US,en;q=0.9",
         },
     )
-    try:
-        r = await c.get(base + "/wp-login.php")
-    except httpx.HTTPError as e:
-        _auth_debug(host, "GET wp-login.php — transport error", None, str(e))
+    # #5: discover the login URL (handles WPS Hide Login + renamed admins).
+    login_url = await discover_login_url(c, base, host)
+    if not login_url:
+        _LAST_FAILURE[host] = ("login-url-not-found",
+            "Couldn't locate a WordPress login form at /wp-login.php or any "
+            "of the common renamed paths (/login, /admin, /backend, "
+            "/dashboard). If the login URL is custom, set "
+            "WPSECSCAN_LOGIN_PATH=/your/login/path and re-run.")
         await c.aclose()
         return None
-    _auth_debug(host, "GET wp-login.php", r)
+    try:
+        r = await c.get(login_url)
+    except httpx.HTTPError as e:
+        _auth_debug(host, f"GET {login_url} — transport error", None, str(e))
+        await c.aclose()
+        return None
+    _auth_debug(host, f"GET {login_url}", r)
     if r.status_code != 200 or not LOGIN_FORM_RE.search(r.text or ""):
         _LAST_FAILURE[host] = classify_login_failure(r.status_code, r.text or "")
-        _auth_debug(host, "wp-login.php form not found", None,
+        _auth_debug(host, "login form not found at discovered URL", None,
                      f"status={r.status_code}; reason={_LAST_FAILURE[host][0]}")
         await c.aclose()
         return None
@@ -258,15 +355,15 @@ async def _login_cookie(target: str, user: str, password: str,
 
     try:
         r = await c.post(
-            base + "/wp-login.php",
+            login_url,
             data=post_data,
             headers={"Cookie": "wordpress_test_cookie=WP%20Cookie%20check"},
         )
     except httpx.HTTPError as e:
-        _auth_debug(host, "POST wp-login.php — transport error", None, str(e))
+        _auth_debug(host, f"POST {login_url} — transport error", None, str(e))
         await c.aclose()
         return None
-    _auth_debug(host, "POST wp-login.php", r,
+    _auth_debug(host, f"POST {login_url}", r,
                   extra=f"nonce_sent={bool(nonce_value)}")
 
     # Handle 2FA prompt (Two-Factor / Wordfence / iThemes)
@@ -280,11 +377,14 @@ async def _login_cookie(target: str, user: str, password: str,
         for field in ("authcode", "wfls_two_factor_code", "two-factor-code"):
             try:
                 r2 = await c.post(
-                    base + "/wp-login.php",
+                    login_url,
                     data={field: totp, "wp-submit": "Authenticate", "redirect_to": base + "/wp-admin/"},
                 )
                 _auth_debug(host, f"POST 2FA with field={field}", r2)
                 if ADMIN_BAR_RE.search(r2.text or "") or "/wp-admin" in str(r2.url):
+                    # #10: cache the winning 2FA field name for next run.
+                    save_strategy(host, totp_field=field, nonce_required=bool(nonce_value))
+                    _LAST_FAILURE.pop(host, None)
                     return c
             except httpx.HTTPError as e:
                 _auth_debug(host, f"POST 2FA field={field} transport error", None, str(e))
@@ -294,10 +394,12 @@ async def _login_cookie(target: str, user: str, password: str,
 
     if ADMIN_BAR_RE.search(r.text or "") or "/wp-admin" in str(r.url):
         _auth_debug(host, "auth success via admin-bar / wp-admin redirect")
+        save_strategy(host, nonce_required=bool(nonce_value))
         _LAST_FAILURE.pop(host, None)
         return c
     if any(c_name.startswith("wordpress_logged_in_") for c_name in jar.keys()):
         _auth_debug(host, "auth success via wordpress_logged_in_* cookie")
+        save_strategy(host, nonce_required=bool(nonce_value))
         _LAST_FAILURE.pop(host, None)
         return c
     # #4: classify the failure so the caller can surface a precise reason.
