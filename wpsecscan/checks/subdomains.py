@@ -16,6 +16,49 @@ import httpx
 from ..http import Client
 from ..models import Finding
 
+# FEAT-025: for each takeover-candidate vendor, point the operator at the
+# exact registrar/signup URL so they can verify whether the resource is
+# still claimable before treating the finding as a false-positive.
+TAKEOVER_REGISTRAR_URL = {
+    "github.io":          "https://pages.github.com/  (claim via repo `<user>/<repo>.github.io`)",
+    "herokuapp.com":      "https://dashboard.heroku.com/new-app  (app name = the dangling subdomain prefix)",
+    "herokudns.com":      "https://dashboard.heroku.com/new-app",
+    "azurewebsites.net":  "https://portal.azure.com/  (create App Service with the dangling name)",
+    "cloudapp.net":       "https://portal.azure.com/  (Cloud Service classic)",
+    "s3.amazonaws.com":   "https://s3.console.aws.amazon.com/  (create bucket with the exact name)",
+    "trafficmanager.net": "https://portal.azure.com/  (Traffic Manager Profile)",
+    "readme.io":          "https://readme.io/  (claim the project)",
+    "zendesk.com":        "https://www.zendesk.com/register/  (re-create the help center)",
+    "surge.sh":           "`surge` CLI: `surge ./public your-name.surge.sh`",
+    "fastly.net":         "https://manage.fastly.com/  (Fastly service)",
+    "netlify.app":        "https://app.netlify.com/  (create site with that subdomain)",
+    "ghost.io":           "https://ghost.org/  (create publication with that name)",
+    "intercom.help":      "https://app.intercom.com/  (Help Center workspace)",
+    "strikingly.com":     "https://www.strikingly.com/s/sign_up",
+    "tumblr.com":         "https://www.tumblr.com/register  (claim the username)",
+    "uservoice.com":      "https://www.uservoice.com/sign-up/",
+    "wpengine.com":       "https://my.wpengine.com/  (rare — install must be on a free subdomain)",
+    "shopify.com":        "https://www.shopify.com/  (create store with that myshopify subdomain)",
+    "squarespace.com":    "https://www.squarespace.com/  (create site)",
+    "statuspage.io":      "https://manage.statuspage.io/  (claim subdomain in StatusPage account)",
+    "teamwork.com":       "https://www.teamwork.com/sign-up",
+    "unbouncepages.com":  "https://app.unbounce.com/  (page builder, custom domain step)",
+    "wishpond.com":       "https://app.wishpond.com/",
+    "kinsta.com":         "https://my.kinsta.com/  (rare — claimable on temporary domains)",
+    "agilecrm.com":       "https://www.agilecrm.com/  (create help center)",
+    "smartling.com":      "https://dashboard.smartling.com/",
+    "anima.io":           "https://www.animaapp.com/  (publish site)",
+}
+
+
+def _takeover_registrar_hint(host: str) -> str | None:
+    """Return a registrar URL hint for a takeover-candidate vendor host, or None."""
+    for vendor, url in TAKEOVER_REGISTRAR_URL.items():
+        if vendor in host:
+            return url
+    return None
+
+
 # Vendor fingerprint -> takeover-prone if CNAME points there but no resource exists.
 # Source: github.com/EdOverflow/can-i-take-over-xyz + manual additions.
 DANGLING_CNAME_FINGERPRINTS = (
@@ -215,17 +258,28 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         # A4: actively-confirmed (the provider's "unclaimed" marker was in the
         # response body) — escalate to critical. The attacker can register the
         # resource on that provider and serve content from YOUR subdomain.
+        # Annotate each candidate with the vendor's registrar URL so the
+        # operator can verify whether the resource is still claimable from
+        # the exact signup page (FEAT-025).
+        ev_lines = []
+        for s, m in takeover_candidates:
+            line = f"  - {s}: matched signature '{m[:60]}'"
+            hint = _takeover_registrar_hint(s)
+            if hint:
+                line += f"\n      verify here: {hint}"
+            ev_lines.append(line)
         findings.append(
             Finding(
                 severity="critical",
                 title=f"{len(takeover_candidates)} CONFIRMED subdomain takeover candidate(s)",
-                evidence="\n".join(f"  - {s}: matched signature '{m[:60]}'" for s, m in takeover_candidates),
+                evidence="\n".join(ev_lines),
                 remediation=(
                     "These subdomains have DNS records pointing to a CDN/SaaS provider that returns an "
                     "'unclaimed/missing' page — meaning anyone can register the resource on that provider "
                     "and serve content from YOUR subdomain. Either:\n"
                     "  1. Reclaim the resource on the SaaS provider (recreate the GitHub Pages repo, "
-                    "the Heroku app, the S3 bucket, etc.)\n"
+                    "the Heroku app, the S3 bucket, etc.) — see the per-vendor registrar URLs in the "
+                    "evidence above.\n"
                     "  2. Remove the dangling DNS record (CNAME / A) immediately.\n\n"
                     "Real-world impact: cookie hijacking (subdomain cookies leak), phishing under your "
                     "brand, malware distribution from your domain, email DMARC bypass."
