@@ -17,13 +17,13 @@ from tests.conftest import FakeClient
 
 NEW_PASSIVE = [
     "gdpr_dsr", "wp_engine_misconfig", "oauth_redirect", "cache_poisoning",
-    "upload_path_predictable", "http2_settings", "favicon_hash", "a11y_lite",
-    "smuggling_probe", "tls_protocol_audit", "cookie_consent", "websocket_audit",
+    "upload_path_predictable", "http2_settings", "favicon_fingerprint", "a11y_lite",
+    "smuggling_probe", "tls_deep", "cookie_consent", "websocket_audit",
     "woocommerce_audit", "graphql_dos",
 ]
 
 NEW_AGGRESSIVE = [
-    "prototype_pollution", "graphql_field_dos", "csv_export_csp", "waf_bypass_probe",
+    "prototype_pollution", "csv_export_csp", "waf_bypass_probe",
 ]
 
 

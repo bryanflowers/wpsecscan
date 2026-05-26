@@ -40,7 +40,6 @@ def save(target: str, data: dict) -> None:
 _PRECONDITIONS = {
     "wpgraphql":                "has_graphql",
     "graphql_dos":              "has_graphql",
-    "graphql_field_dos":        "has_graphql",
     "graphql_field_authz_deep": "has_graphql",
     "woocommerce_audit":        "has_woocommerce",
     "woocommerce_deep":         "has_woocommerce",

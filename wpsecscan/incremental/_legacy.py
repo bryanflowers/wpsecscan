@@ -23,10 +23,10 @@ from pathlib import Path
 # DNS records, file enumeration, JS supply chain, dev params — these only
 # change when someone deploys.
 LOW_CHURN_CHECK_IDS = frozenset((
-    "exposed_files", "robots_sitemap", "dns_security", "favicon_hash",
+    "exposed_files", "robots_sitemap", "dns_security",
     "favicon_fingerprint", "js_supply_chain", "js_libraries", "source_maps",
     "well_known", "webdav", "dev_params", "subdomains", "secret_leak",
-    "tls_deep", "tls_protocol_audit", "tls_headers",
+    "tls_deep", "tls_headers",
 ))
 
 

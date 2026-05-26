@@ -120,7 +120,7 @@ DEMO_ACTIVITY = [
     ("threat_intel","Sucuri SiteCheck: clean"),
     ("integration", "redis cache hit (cve_scoring · 847 ms saved)"),
     ("integration", "OTel span emitted"),
-    ("meta",        "incremental skip: favicon_hash (no change since 2026-05-20)"),
+    ("meta",        "incremental skip: favicon_fingerprint (no change since 2026-05-20)"),
     ("meta",        "check auto-disabled: js_supply_chain (3 consecutive failures)"),
     ("artifact",    "screenshots captured: 5 critical/high finding(s)"),
     ("reporter",    "HTML: wpsec-demo.html (1248 KB)"),
@@ -152,7 +152,7 @@ def build_demo_report() -> ScanReport:
         )
         results.append(cr)
     # Add a few skipped checks so the "What ran" panel shows incremental + auto-disable lines
-    results.append(CheckResult(check_id="favicon_hash", check_name="Favicon hash",
+    results.append(CheckResult(check_id="favicon_fingerprint", check_name="Favicon fingerprint",
                                 error="Skipped: incremental mode — no target change since baseline.",
                                 duration_ms=0))
     results.append(CheckResult(check_id="js_supply_chain", check_name="External JS supply-chain",

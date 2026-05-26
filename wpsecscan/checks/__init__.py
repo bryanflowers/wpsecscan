@@ -52,10 +52,8 @@ from .oauth_redirect import check as oauth_redirect
 from .cache_poisoning import check as cache_poisoning
 from .upload_path_predictable import check as upload_path_predictable
 from .http2_settings import check as http2_settings
-from .favicon_hash import check as favicon_hash
 from .a11y_lite import check as a11y_lite
 from .smuggling_probe import check as smuggling_probe
-from .tls_protocol_audit import check as tls_protocol_audit
 from .cookie_consent import check as cookie_consent
 from .websocket_audit import check as websocket_audit
 from .woocommerce_audit import check as woocommerce_audit
@@ -168,7 +166,6 @@ from .file_upload import check as file_upload
 from .default_creds import check as default_creds
 # Aggressive new ones
 from .prototype_pollution import check as prototype_pollution
-from .graphql_field_dos import check as graphql_field_dos
 from .csv_export_csp import check as csv_export_csp
 from .waf_bypass_probe import check as waf_bypass_probe
 from .xxe_upload import check as xxe_upload
@@ -265,10 +262,8 @@ ALL_CHECKS = [
     ("cache_poisoning",    "Web-cache poisoning probe",   cache_poisoning,   False),
     ("upload_path_predictable", "Predictable upload paths", upload_path_predictable, False),
     ("http2_settings",     "HTTP/2 fingerprint + EOL backend", http2_settings, False),
-    ("favicon_hash",       "Favicon fingerprint hash (Shodan)", favicon_hash, False),
     ("a11y_lite",          "Accessibility smoke check",   a11y_lite,         False),
     ("smuggling_probe",    "HTTP request-smuggling indicators", smuggling_probe, False),
-    ("tls_protocol_audit", "Deep TLS protocol + cipher + cert audit", tls_protocol_audit, False),
     ("cookie_consent",     "GDPR/ePrivacy cookie-consent audit", cookie_consent, False),
     ("websocket_audit",    "WebSocket upgrade + origin audit", websocket_audit, False),
     ("woocommerce_audit",  "WooCommerce REST + legacy-API audit", woocommerce_audit, False),
@@ -305,7 +300,6 @@ ALL_CHECKS = [
     ("sendmail_injection", "Email header injection probe", sendmail_injection, True),
     # ---- 4 new aggressive checks (round Q) ----
     ("prototype_pollution","Prototype-pollution reflection probe", prototype_pollution, True),
-    ("graphql_field_dos",  "GraphQL query-depth DoS probe", graphql_field_dos, True),
     ("csv_export_csp",     "CSV-export formula-injection probe", csv_export_csp, True),
     ("waf_bypass_probe",   "WAF bypass/passthrough probe", waf_bypass_probe,  True),
     ("xxe_upload",         "XXE via SVG upload probe",   xxe_upload,         True),

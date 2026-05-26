@@ -186,7 +186,7 @@ async def scan(
     AGGRESSIVE_IDS = {"sqli", "xss_reflected", "open_redirect", "ssrf",
                       "path_traversal", "file_upload", "default_creds",
                       "ajax_surface", "sendmail_injection", "core_tampering",
-                      "prototype_pollution", "graphql_field_dos",
+                      "prototype_pollution",
                       "csv_export_csp", "waf_bypass_probe", "xxe_upload"}
     waf_block_streak = 0
     WAF_SKIP_THRESHOLD = 3
@@ -258,7 +258,7 @@ async def scan(
             # B3: partition checks into 4 groups for the parallel mode
             if parallel_groups:
                 RECON = {"waf", "core_version", "plugins", "themes", "users", "subdomains",
-                         "dns_security", "favicon_fingerprint", "favicon_hash", "http2_settings",
+                         "dns_security", "favicon_fingerprint", "http2_settings",
                          "security_txt"}
                 # Aggressive runs sequentially even in this mode (mutation risk)
                 aggressive_ids = AGGRESSIVE_IDS

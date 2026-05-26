@@ -144,8 +144,8 @@ def test_incremental_emits_on_skip(tmp_path, monkeypatch):
         _json.dumps({"scanned_at": "2030-01-01T00:00:00"}), encoding="utf-8"
     )
     since = datetime(2025, 1, 1)
-    # `favicon_hash` is in LOW_CHURN_CHECK_IDS
-    assert incremental.should_skip_check("favicon_hash", "https://x.com", since) is True
+    # `favicon_fingerprint` is in LOW_CHURN_CHECK_IDS
+    assert incremental.should_skip_check("favicon_fingerprint", "https://x.com", since) is True
     assert any(e["category"] == "meta" and "incremental skip" in e["message"]
                for e in activity.recent())
 
