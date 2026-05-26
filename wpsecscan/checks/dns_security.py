@@ -302,4 +302,181 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     if whois_finding is not None:
         findings.append(whois_finding)
 
+    # Item #8 — MTA-STS / TLS-RPT / BIMI
+    findings.extend(await _mta_sts_findings(apex, step))
+    findings.extend(await _tls_rpt_findings(apex, step))
+    findings.extend(await _bimi_findings(apex, step))
+
+    # Item #9 — DNSSEC + DS chain
+    findings.extend(await _dnssec_findings(apex, step))
+
     return findings
+
+
+# ---------------------------------------------------------------------------
+# Item #8 — MTA-STS / TLS-RPT / BIMI
+# ---------------------------------------------------------------------------
+
+async def _mta_sts_findings(apex: str, step) -> list[Finding]:
+    """MTA-STS publishes via a TXT record at `_mta-sts.<apex>` AND a policy
+    file at https://mta-sts.<apex>/.well-known/mta-sts.txt. We check the
+    TXT record only — the policy fetch is left to the user (some test
+    setups have outbound HTTPS firewalled)."""
+    step(f"querying MTA-STS for _mta-sts.{apex}...")
+    records = [t for t in await _txt(f"_mta-sts.{apex}") if t.lower().startswith("v=stsv1")]
+    if records:
+        return [Finding(
+            severity="info",
+            title=f"MTA-STS published on _mta-sts.{apex}",
+            evidence=f"TXT record: {records[0]}",
+            remediation=(
+                "Verify the policy file at "
+                f"https://mta-sts.{apex}/.well-known/mta-sts.txt also resolves "
+                "with `mode: enforce`; the TXT record alone is the version "
+                "pointer — receiving servers fetch the policy file."
+            ),
+            url=f"https://mta-sts.{apex}/.well-known/mta-sts.txt",
+        )]
+    return [Finding(
+        severity="low",
+        title=f"No MTA-STS record on _mta-sts.{apex}",
+        evidence=(
+            "Without MTA-STS, inbound mail can be downgraded to plaintext SMTP "
+            "by a network attacker even if both ends support STARTTLS — there "
+            "is no signal to the sender that TLS was expected."
+        ),
+        remediation=(
+            f"Publish `v=STSv1; id=<YYYYMMDDhhmm>` TXT at _mta-sts.{apex} and "
+            f"host the policy file at https://mta-sts.{apex}/.well-known/"
+            "mta-sts.txt with `mode: enforce`. Start in `mode: testing` "
+            "while you verify rua reports arrive cleanly."
+        ),
+        url=f"https://mxtoolbox.com/SuperTool.aspx?action=mta-sts%3a{apex}",
+    )]
+
+
+async def _tls_rpt_findings(apex: str, step) -> list[Finding]:
+    step(f"querying TLS-RPT for _smtp._tls.{apex}...")
+    records = [t for t in await _txt(f"_smtp._tls.{apex}") if t.lower().startswith("v=tlsrptv1")]
+    if records:
+        return [Finding(
+            severity="info",
+            title=f"TLS-RPT published on _smtp._tls.{apex}",
+            evidence=f"TXT record: {records[0]}",
+            remediation="No action needed.",
+            url=f"https://mxtoolbox.com/SuperTool.aspx?action=tls-rpt%3a{apex}",
+        )]
+    return [Finding(
+        severity="info",
+        title=f"No TLS-RPT record on _smtp._tls.{apex}",
+        evidence=(
+            "TLS-RPT delivers daily reports about TLS handshake failures "
+            "on inbound mail. Without it you can't tell whether MTA-STS "
+            "is actually being honored by senders."
+        ),
+        remediation=(
+            f"Publish `v=TLSRPTv1; rua=mailto:tls-reports@{apex}` TXT at "
+            f"_smtp._tls.{apex}."
+        ),
+        url=f"https://mxtoolbox.com/SuperTool.aspx?action=tls-rpt%3a{apex}",
+    )]
+
+
+async def _bimi_findings(apex: str, step) -> list[Finding]:
+    """BIMI requires DMARC at p=quarantine or stricter. We only flag absence
+    as info; presence as info (no negative business risk to missing BIMI)."""
+    step(f"querying BIMI for default._bimi.{apex}...")
+    records = [t for t in await _txt(f"default._bimi.{apex}") if t.lower().startswith("v=bimi1")]
+    if records:
+        return [Finding(
+            severity="info",
+            title=f"BIMI record published on default._bimi.{apex}",
+            evidence=f"TXT record: {records[0]}",
+            remediation="No action needed.",
+            url=f"https://bimigroup.org/",
+        )]
+    return []  # absence is not actionable; don't add noise
+
+
+# ---------------------------------------------------------------------------
+# Item #9 — DNSSEC + DS chain
+# ---------------------------------------------------------------------------
+
+async def _dnssec_findings(apex: str, step) -> list[Finding]:
+    """DNSSEC presence check via dnspython when available; falls back to a
+    skip if it's not installed (rather than a noisy info-finding)."""
+    step(f"checking DNSSEC chain for {apex}...")
+    try:
+        import dns.resolver  # noqa: PLC0415
+        import dns.dnssec    # noqa: PLC0415 — available in dnspython 2.x
+    except ImportError:
+        return [Finding(
+            severity="info",
+            title="DNSSEC check skipped — dnspython not installed",
+            evidence="The optional `dnspython` dependency is not present.",
+            remediation="`pip install dnspython` to enable DNSSEC + MX checks.",
+            url=f"https://dnssec-analyzer.verisignlabs.com/{apex}",
+        )]
+
+    has_ds = False
+    has_dnskey = False
+    try:
+        resolver = dns.resolver.Resolver()
+        resolver.lifetime = 5.0
+        try:
+            ds_resp = resolver.resolve(apex, "DS")
+            has_ds = bool(list(ds_resp))
+        except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN,
+                 dns.resolver.NoNameservers, Exception):
+            has_ds = False
+        try:
+            dk_resp = resolver.resolve(apex, "DNSKEY")
+            has_dnskey = bool(list(dk_resp))
+        except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN,
+                 dns.resolver.NoNameservers, Exception):
+            has_dnskey = False
+    except Exception:  # noqa: BLE001 — DNS resolution must never break the scan
+        return []
+
+    if has_ds and has_dnskey:
+        return [Finding(
+            severity="info",
+            title=f"DNSSEC chain present for {apex} (DS + DNSKEY)",
+            evidence=(
+                "Both DS (parent-side) and DNSKEY (apex-side) records resolve. "
+                "Spoofing attacks against a validating resolver should fail."
+            ),
+            remediation="No action needed.",
+            url=f"https://dnssec-analyzer.verisignlabs.com/{apex}",
+        )]
+    if has_dnskey and not has_ds:
+        return [Finding(
+            severity="medium",
+            title=f"DNSSEC partially configured on {apex} — DNSKEY present but no DS at parent",
+            evidence=(
+                "The apex has DNSKEY records but the parent zone has no DS. "
+                "Validating resolvers will treat the zone as INSECURE, defeating "
+                "DNSSEC's tamper-detection."
+            ),
+            remediation=(
+                "Submit the DS records (KSK digest) to the registrar via the "
+                "domain control panel. This typically lives under 'DNSSEC' or "
+                "'Security' in the registrar UI."
+            ),
+            url=f"https://dnssec-analyzer.verisignlabs.com/{apex}",
+        )]
+    return [Finding(
+        severity="low",
+        title=f"DNSSEC not configured on {apex}",
+        evidence=(
+            "No DS at the parent and no DNSKEY at the apex. The zone is not "
+            "signed; recursive resolvers cannot detect cache-poisoning attacks "
+            "against this domain."
+        ),
+        remediation=(
+            "Enable DNSSEC at the registrar AND at the authoritative DNS "
+            "provider. Most registrars now expose a one-click toggle that "
+            "coordinates DS + DNSKEY publication."
+        ),
+        url=f"https://dnssec-analyzer.verisignlabs.com/{apex}",
+    )]

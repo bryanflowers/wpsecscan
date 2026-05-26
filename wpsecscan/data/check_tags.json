@@ -131,6 +131,7 @@
   "referenced_buckets":    {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1530", "attack_label": "Data from Cloud Storage", "cwe": "CWE-732", "d3fend": "D3-RAC"},
   "cloudflare_origin_leak":{"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1590.005", "attack_label": "Gather Victim Network: IP Addresses", "cwe": "CWE-200", "d3fend": "D3-NTA"},
   "crlf_location_injection":{"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-93", "d3fend": "D3-IAA"},
+  "host_header_validation":{"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-20", "d3fend": "D3-IAA"},
   "github_leak_search":    {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552.001", "attack_label": "Credentials in Files", "cwe": "CWE-798", "d3fend": "D3-CR"},
   "jwt_audit":             {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552.001", "attack_label": "Credentials in Files", "cwe": "CWE-347", "d3fend": "D3-CH"},
   "ssti":                  {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-1336", "d3fend": "D3-IVA"},

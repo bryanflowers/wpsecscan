@@ -489,6 +489,11 @@
     "nist_800_53": "SI-10",
     "iso_27001": "A.8.28"
   },
+  "host_header_validation": {
+    "pci_dss": "6.5.7",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
   "github_leak_search": {
     "pci_dss": "8.2.1",
     "nist_800_53": "IA-5",

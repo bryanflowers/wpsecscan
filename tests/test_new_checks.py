@@ -365,8 +365,33 @@ def test_all_new_checks_registered():
     ids = [c[0] for c in ALL_CHECKS]
     for required in ("rest_api", "cors", "js_libraries", "secret_leak",
                       "referenced_buckets", "cloudflare_origin_leak",
-                      "crlf_location_injection"):
+                      "crlf_location_injection", "host_header_validation"):
         assert required in ids, f"check {required!r} not registered in ALL_CHECKS"
+
+
+# ============================== item 7 — Host-header validation ==============================
+
+def test_host_header_validation_flags_spoofed_acceptance():
+    import asyncio as _asyncio
+    from wpsecscan.checks.host_header_validation import check
+    vulnerable_resp = FakeResponse(
+        status_code=200,
+        text="<html><a href='/wp-admin/'>WordPress login</a></html>",
+    )
+    client = FakeClient(responses={"*": vulnerable_resp})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any("DNS-rebinding" in f.title for f in findings)
+
+
+def test_host_header_validation_clean_when_421_returned():
+    import asyncio as _asyncio
+    from wpsecscan.checks.host_header_validation import check
+    safe = FakeResponse(status_code=421, text="Misdirected Request")
+    client = FakeClient(responses={"*": safe})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any("clean" in f.title.lower() for f in findings)
 
 
 # ============================== item 4 — CRLF Location injection ==============================
