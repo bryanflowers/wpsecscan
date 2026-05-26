@@ -33,6 +33,21 @@ token in the repo. Setup is per-project + per-workflow + per-environment:
 4. Save. Repeat with environment name `testpypi` if you also want
    TestPyPI dry runs (recommended).
 
+The OIDC claim that the workflow presents (already verified by a
+dry-run on 2026-05-26) is:
+
+```
+sub:               repo:bryanflowers/wpsecscan:environment:testpypi
+repository:        bryanflowers/wpsecscan
+repository_owner:  bryanflowers
+workflow_ref:      bryanflowers/wpsecscan/.github/workflows/pypi-publish.yml@refs/heads/main
+ref:               refs/heads/main
+environment:       testpypi          ← swap to `pypi` for the real publisher
+```
+
+If your Trusted Publisher entry on (Test)PyPI matches these exactly,
+the next `gh workflow run` invocation will succeed.
+
 ### Step 3 — create the GitHub Actions environments
 
 1. In the GitHub repo, go to **Settings → Environments**.
