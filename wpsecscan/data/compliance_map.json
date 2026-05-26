@@ -519,6 +519,11 @@
     "nist_800_53": "AC-7",
     "iso_27001": "A.5.17"
   },
+  "waf_lockout_guard": {
+    "pci_dss": "12.10.1",
+    "nist_800_53": "IR-4",
+    "iso_27001": "A.5.24"
+  },
   "github_leak_search": {
     "pci_dss": "8.2.1",
     "nist_800_53": "IA-5",

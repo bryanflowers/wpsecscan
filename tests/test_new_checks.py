@@ -367,8 +367,33 @@ def test_all_new_checks_registered():
                       "referenced_buckets", "cloudflare_origin_leak",
                       "crlf_location_injection", "host_header_validation",
                       "woocommerce_storefront", "page_builder_cve",
-                      "wp_fork_detection", "tls_modern", "companion_advanced"):
+                      "wp_fork_detection", "tls_modern", "companion_advanced",
+                      "waf_lockout_guard"):
         assert required in ids, f"check {required!r} not registered in ALL_CHECKS"
+
+
+# ============================== item 42 — waf_lockout_guard ====================
+
+def test_waf_lockout_guard_aborts_on_403():
+    import asyncio as _asyncio
+    from wpsecscan.checks.waf_lockout_guard import check
+    block = FakeResponse(status_code=403, text="Access denied. Ray ID: abc")
+    client = FakeClient(responses={"*": block})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any(f.severity == "critical" and "WAF lockout" in f.title for f in findings)
+    assert ctx["shared"].get("waf_lockout") is True
+
+
+def test_waf_lockout_guard_passes_through_on_200():
+    import asyncio as _asyncio
+    from wpsecscan.checks.waf_lockout_guard import check
+    ok = FakeResponse(status_code=200, text="<html>normal</html>")
+    client = FakeClient(responses={"*": ok})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any("no block detected" in f.title.lower() for f in findings)
+    assert ctx["shared"].get("waf_lockout") is not True
 
 
 # ============================== items 23-27 — companion_advanced ==============================

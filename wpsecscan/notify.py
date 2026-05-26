@@ -71,17 +71,29 @@ def validate_webhook_url(url: str) -> tuple[bool, str]:
     return True, ""
 
 
-def _post_json(url: str, payload: dict, timeout: float = 4.0) -> tuple[bool, str]:
-    """POST a JSON body. Returns (ok, error_message)."""
+def _post_json(url: str, payload: dict, timeout: float = 4.0,
+                signing_secret: str = "") -> tuple[bool, str]:
+    """POST a JSON body. Returns (ok, error_message).
+
+    Item #38: if ``signing_secret`` is set, attaches a
+    ``X-WPSecScan-Signature: sha256=<hex>`` header computed as
+    HMAC-SHA256(secret, raw_body). Receivers verify with the same
+    secret + raw_body — matches the Stripe / GitHub Webhook pattern.
+    """
     ok, why = validate_webhook_url(url)
     if not ok:
         return False, why
     try:
         data = json.dumps(payload).encode("utf-8")
+        headers = {"Content-Type": "application/json",
+                   "User-Agent": "WPSecScan/notify"}
+        if signing_secret:
+            import hmac as _hmac, hashlib as _h
+            sig = _hmac.new(signing_secret.encode("utf-8"), data, _h.sha256).hexdigest()
+            headers["X-WPSecScan-Signature"] = f"sha256={sig}"
+            headers["X-WPSecScan-Timestamp"] = str(int(__import__("time").time()))
         req = urllib.request.Request(
-            url, data=data,
-            headers={"Content-Type": "application/json", "User-Agent": "WPSecScan/notify"},
-            method="POST",
+            url, data=data, headers=headers, method="POST",
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             if 200 <= resp.status < 300:
@@ -119,12 +131,97 @@ def format_message(report) -> dict:
     return {"text": body, "username": "WPSecScan"}
 
 
-def notify(report, webhook_url: str, threshold: str = "high") -> tuple[bool, str]:
+def notify(report, webhook_url: str, threshold: str = "high",
+            signing_secret: str = "") -> tuple[bool, str]:
     if not webhook_url:
         return False, "no webhook URL"
     if not should_notify(report, threshold):
         return False, f"no findings >= {threshold}"
-    return _post_json(webhook_url, format_message(report))
+    return _post_json(webhook_url, format_message(report),
+                       signing_secret=signing_secret)
+
+
+# ---------------------------------------------------------------------------
+# #39 — PagerDuty + Opsgenie integrations
+# ---------------------------------------------------------------------------
+
+def notify_pagerduty(report, *, routing_key: str,
+                       threshold: str = "critical") -> tuple[bool, str]:
+    """PagerDuty Events API v2. routing_key is the integration key for the
+    target service. We only fire >= threshold to avoid paging on every scan."""
+    if not routing_key:
+        return False, "no PagerDuty routing key"
+    if not should_notify(report, threshold):
+        return False, f"no findings >= {threshold}"
+    s = report.summary
+    payload = {
+        "routing_key": routing_key,
+        "event_action": "trigger",
+        "dedup_key": f"wpsecscan/{report.target}/{threshold}",
+        "payload": {
+            "summary": f"WPSecScan {threshold}+ findings on {report.target}",
+            "severity": "critical" if s.get("critical", 0) else "error",
+            "source": "wpsecscan",
+            "component": report.target,
+            "custom_details": {
+                "score": report.risk_score,
+                "critical": s.get("critical", 0),
+                "high": s.get("high", 0),
+                "medium": s.get("medium", 0),
+                "scanned_at": report.scanned_at,
+            },
+        },
+    }
+    try:
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            "https://events.pagerduty.com/v2/enqueue", data=data, method="POST",
+            headers={"Content-Type": "application/json",
+                     "User-Agent": "WPSecScan/pagerduty"},
+        )
+        with urllib.request.urlopen(req, timeout=10.0) as r:
+            if 200 <= r.status < 300:
+                return True, ""
+            return False, f"HTTP {r.status}"
+    except (HTTPError, URLError, OSError) as e:
+        return False, str(e)
+
+
+def notify_opsgenie(report, *, api_key: str, region: str = "us",
+                     threshold: str = "critical") -> tuple[bool, str]:
+    """Opsgenie Alerts API. region is 'us' or 'eu'."""
+    if not api_key:
+        return False, "no Opsgenie API key"
+    if not should_notify(report, threshold):
+        return False, f"no findings >= {threshold}"
+    s = report.summary
+    base = "https://api.opsgenie.com" if region == "us" else "https://api.eu.opsgenie.com"
+    payload = {
+        "message": f"WPSecScan {threshold}+ findings on {report.target}",
+        "alias": f"wpsecscan/{report.target}/{threshold}",
+        "description": (
+            f"Risk score: {report.risk_score}/100\n"
+            f"Critical: {s.get('critical', 0)}  High: {s.get('high', 0)}  "
+            f"Medium: {s.get('medium', 0)}\nScanned: {report.scanned_at}"
+        ),
+        "priority": "P1" if s.get("critical", 0) else "P2",
+        "source": "wpsecscan",
+        "tags": ["wpsecscan", "security"],
+    }
+    try:
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            f"{base}/v2/alerts", data=data, method="POST",
+            headers={"Content-Type": "application/json",
+                     "Authorization": f"GenieKey {api_key}",
+                     "User-Agent": "WPSecScan/opsgenie"},
+        )
+        with urllib.request.urlopen(req, timeout=10.0) as r:
+            if 200 <= r.status < 300:
+                return True, ""
+            return False, f"HTTP {r.status}"
+    except (HTTPError, URLError, OSError) as e:
+        return False, str(e)
 
 
 def notify_async(report, webhook_url: str, threshold: str = "high",

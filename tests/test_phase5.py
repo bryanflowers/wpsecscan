@@ -346,6 +346,76 @@ def test_cmd_portfolio_no_sites_exits_two(monkeypatch, capsys):
     assert ei.value.code == 2
 
 
+# ============================== #38 / #40 / #41 ================================
+
+def test_notify_post_json_includes_signature_header(monkeypatch):
+    """When signing_secret is set, _post_json adds X-WPSecScan-Signature."""
+    from wpsecscan import notify as _n
+    seen_headers = {}
+    class _FakeResp:
+        status = 204
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self): return b""
+    def _fake_urlopen(req, timeout=4.0):
+        seen_headers.update(dict(req.header_items()))
+        return _FakeResp()
+    monkeypatch.setattr(_n.urllib.request, "urlopen", _fake_urlopen)
+    ok, err = _n._post_json("https://hooks.slack.com/services/aaa/bbb/ccc",
+                              {"text": "hello"}, signing_secret="topsecret")
+    assert ok, err
+    # Header names are title-cased by urllib's header_items()
+    keys = {k.lower() for k in seen_headers}
+    assert "x-wpsecscan-signature" in keys
+    assert "x-wpsecscan-timestamp" in keys
+
+
+def test_policy_severity_overrides(monkeypatch, tmp_path):
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    import json as _json
+    (tmp_path / "policy.json").write_text(_json.dumps({
+        "severity_overrides": {"headers": {"Missing CSP": "critical"}},
+    }), encoding="utf-8")
+    from wpsecscan.models import Finding, CheckResult, ScanReport
+    from wpsecscan import policy as _p
+    report = ScanReport(target="x", scanned_at="t", duration_ms=1, results=[
+        CheckResult(check_id="headers", check_name="x", findings=[
+            Finding(severity="medium", title="Missing CSP header"),
+            Finding(severity="low", title="Something else"),
+        ]),
+    ])
+    pol = _p.load()
+    n = _p.apply_severity_overrides(report, pol)
+    assert n == 1
+    assert report.results[0].findings[0].severity == "critical"
+    assert report.results[0].findings[1].severity == "low"
+
+
+def test_policy_suppression(monkeypatch, tmp_path):
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    import json as _json
+    (tmp_path / "policy.json").write_text(_json.dumps({
+        "suppress": {
+            "https://x.com": [
+                {"check_id": "cors", "title_regex": "Wildcard CORS",
+                 "reason": "REST API is intentionally public"},
+            ],
+        },
+    }), encoding="utf-8")
+    from wpsecscan.models import Finding, CheckResult, ScanReport
+    from wpsecscan import policy as _p
+    report = ScanReport(target="https://x.com", scanned_at="t", duration_ms=1, results=[
+        CheckResult(check_id="cors", check_name="x", findings=[
+            Finding(severity="high", title="Wildcard CORS origin"),
+            Finding(severity="medium", title="Something else"),
+        ]),
+    ])
+    n = _p.apply_suppressions(report, _p.load())
+    assert n == 1
+    assert len(report.results[0].findings) == 1
+    assert report.results[0].findings[0].title == "Something else"
+
+
 # ============================== #36 pr_inspector ===============================
 
 def test_pr_inspector_parse_url():

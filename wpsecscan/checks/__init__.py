@@ -79,6 +79,7 @@ from .page_builder_cve import check as page_builder_cve
 from .wp_fork_detection import check as wp_fork_detection
 from .tls_modern import check as tls_modern
 from .companion_advanced import check as companion_advanced
+from .waf_lockout_guard import check as waf_lockout_guard
 from .github_leak_search import check as github_leak_search
 from .path_bypass import check as path_bypass
 from .race_condition import check as race_condition
@@ -335,6 +336,7 @@ ALL_CHECKS = [
     ("wp_fork_detection", "WP fork detection (ClassicPress / Bedrock / headless)", wp_fork_detection, False),
     ("tls_modern", "TLS modern features: 0-RTT replay-risk + OCSP stapling + must-staple", tls_modern, False),
     ("companion_advanced", "Companion v1.1 endpoints: failed-login geo, Tor admin, backups, perms, 2FA", companion_advanced, False),
+    ("waf_lockout_guard", "Early-abort guard: avoid IP-ban escalation when WAF blocks the first probe", waf_lockout_guard, False),
     ("github_leak_search", "GitHub leaked-token search (opt-in)", github_leak_search, False),
     ("jwt_audit",          "JWT audit (alg=none + weak HS256)", jwt_audit,        False),
     # ---- CVE matching ----

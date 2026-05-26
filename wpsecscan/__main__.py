@@ -168,6 +168,44 @@ async def _scan_one(target: str, args, console: Console):
             except Exception:  # noqa: BLE001
                 pass
 
+    # Item #39 — fan-out to PagerDuty + Opsgenie via env vars (no CLI flags;
+    # only fires when WPSECSCAN_PAGERDUTY_KEY / WPSECSCAN_OPSGENIE_KEY are set).
+    try:
+        from . import notify as _n_post
+        pd_key = os.environ.get("WPSECSCAN_PAGERDUTY_KEY", "")
+        if pd_key:
+            ok_pd, _ = _n_post.notify_pagerduty(report, routing_key=pd_key)
+            if ok_pd and not args.no_console:
+                console.print("[green]✓[/green] PagerDuty incident triggered.")
+        og_key = os.environ.get("WPSECSCAN_OPSGENIE_KEY", "")
+        if og_key:
+            og_region = os.environ.get("WPSECSCAN_OPSGENIE_REGION", "us")
+            ok_og, _ = _n_post.notify_opsgenie(report, api_key=og_key, region=og_region)
+            if ok_og and not args.no_console:
+                console.print("[green]✓[/green] Opsgenie alert created.")
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Items #40 + #41 — apply per-site policy (severity overrides + suppressions)
+    # BEFORE the console render so what the user sees matches what the
+    # reporters write.
+    try:
+        from . import policy as _policy
+        pol = _policy.load()
+        if pol and not pol.get("_error"):
+            n_overrides = _policy.apply_severity_overrides(report, pol)
+            n_suppressed = _policy.apply_suppressions(report, pol)
+            if (n_overrides or n_suppressed) and not args.no_console:
+                console.print(
+                    f"[yellow]Policy applied: "
+                    f"{n_overrides} severity override(s), "
+                    f"{n_suppressed} finding(s) suppressed.[/yellow]"
+                )
+        elif pol.get("_error") and not args.no_console:
+            console.print(f"[yellow]policy.yml: {pol['_error']}[/yellow]")
+    except Exception:  # noqa: BLE001 — policy failures must not break the scan
+        pass
+
     if not args.no_console:
         console_reporter.render(report, console)
 

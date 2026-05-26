@@ -137,6 +137,7 @@
   "wp_fork_detection":     {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-RAC"},
   "tls_modern":            {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1573.002", "attack_label": "Encrypted Channel: Asymmetric Cryptography", "cwe": "CWE-326", "d3fend": "D3-CH"},
   "companion_advanced":    {"owasp": "A07:2021", "owasp_label": "Identification & Authentication Failures", "attack": "T1110.001", "attack_label": "Brute Force: Password Guessing", "cwe": "CWE-307", "d3fend": "D3-AL"},
+  "waf_lockout_guard":     {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1499", "attack_label": "Endpoint Denial of Service", "cwe": "CWE-693", "d3fend": "D3-DR"},
   "github_leak_search":    {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552.001", "attack_label": "Credentials in Files", "cwe": "CWE-798", "d3fend": "D3-CR"},
   "jwt_audit":             {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552.001", "attack_label": "Credentials in Files", "cwe": "CWE-347", "d3fend": "D3-CH"},
   "ssti":                  {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-1336", "d3fend": "D3-IVA"},
