@@ -611,6 +611,8 @@ class App:
         self.tree.pack(side="left", fill="both", expand=True)
         tree_scroll.pack(side="right", fill="y")
         self.tree.bind("<<TreeviewSelect>>", self._on_select)
+        # #43 — double-click a finding row opens its URL in the system browser.
+        self.tree.bind("<Double-Button-1>", self._on_tree_double_click)
         # Right-click context menu (Windows uses Button-3)
         self.tree.bind("<Button-3>", self._on_tree_right_click)
 
@@ -1602,6 +1604,15 @@ class App:
         self.status_var.set(
             f"{'Scan cancelled' if cancelled else 'Scan complete'} for {report.target}"
         )
+        # #45 — scan-completion notification. System toast (Windows) /
+        # libnotify (Linux) / NSUserNotificationCenter (macOS) when the
+        # main window is minimized OR has lost focus. Beeps once on
+        # Windows so the user knows the long-running scan finished.
+        if not cancelled:
+            try:
+                self._notify_scan_complete(report)
+            except Exception:  # noqa: BLE001 — never let notifications break the scan
+                pass
         self.progress.configure(value=100)
         self.scan_btn.configure(state=NORMAL, text="Scan")
         self.cancel_btn.configure(state=DISABLED)
@@ -2898,6 +2909,52 @@ class App:
                 self.tree.move(parent_iid, "", idx)
 
     # ---------- Right-click context menu ----------
+
+    def _notify_scan_complete(self, report) -> None:
+        """#45 — best-effort OS-level notification when a scan finishes.
+        Tries the cross-platform `plyer` package; falls back to a Windows
+        winsound beep + Tk window-flash; on macOS / Linux, prints a bell
+        char as a last resort."""
+        title = f"WPSecScan: {report.target}"
+        score = getattr(report, "risk_score", "?")
+        s = report.summary if hasattr(report, "summary") else {}
+        body = (f"Risk {score}/100  ·  "
+                f"crit {s.get('critical',0)} / high {s.get('high',0)} / med {s.get('medium',0)}")
+        # Cross-platform notification via plyer if installed.
+        try:
+            from plyer import notification as _pn  # type: ignore[import-not-found]
+            _pn.notify(title=title, message=body, app_name="WPSecScan", timeout=8)
+            return
+        except (ImportError, Exception):  # noqa: BLE001
+            pass
+        # Windows fallback: beep + flash window if it's minimized.
+        try:
+            import winsound  # type: ignore[import-not-found]
+            winsound.MessageBeep(winsound.MB_ICONASTERISK)
+        except (ImportError, RuntimeError):
+            pass
+        # Flash the window if minimized so the user notices.
+        try:
+            self.root.bell()
+            if self.root.state() == "iconic":
+                # On Windows, deiconify + lift draws attention.
+                self.root.deiconify()
+                self.root.lift()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _on_tree_double_click(self, event) -> None:
+        """#43 — double-click a finding row opens its URL in the system browser."""
+        iid = self.tree.identify_row(event.y)
+        if not iid:
+            return
+        finding = self._finding_for_iid.get(iid)
+        if finding is None or not finding.url:
+            return
+        try:
+            webbrowser.open(finding.url)
+        except Exception:  # noqa: BLE001
+            pass
 
     def _on_tree_right_click(self, event) -> None:
         iid = self.tree.identify_row(event.y)
