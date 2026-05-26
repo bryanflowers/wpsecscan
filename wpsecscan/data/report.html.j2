@@ -318,6 +318,8 @@
           {% if f.url %}<div><a href="{{ f.url }}" target="_blank" rel="noopener">{{ f.url }}</a></div>{% endif %}
           {% if f.evidence %}<pre>{{ f.evidence }}</pre>{% endif %}
           {% if f.remediation %}<div class="fix"><strong>Fix:</strong> {{ f.remediation }}</div>{% endif %}
+          {% set vid = videos.get(r.check_id ~ "::" ~ finding_idx) if videos else None %}
+          {% if vid %}<div class="vidlink" style="margin-top:8px;font-size:12px;color:var(--muted)">📺 <a href="{{ vid.url }}" target="_blank" rel="noopener noreferrer">{{ vid.duration_min }} min remediation walkthrough — {{ vid.source }}</a></div>{% endif %}
 
           {% set proof = f.extra.get('proof') if f.extra else None %}
           {% if proof %}

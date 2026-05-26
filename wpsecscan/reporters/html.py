@@ -121,6 +121,20 @@ def render(report: ScanReport) -> str:
         heatmap_svg = _hm.render_svg(report, _build_check_tags())
     except (ImportError, ValueError, TypeError, KeyError):
         heatmap_svg = ""
+
+    # #47 Build a {check_id::title : video_dict} map so the template can
+    # render a "Watch a 5-min remediation video" link beneath each finding.
+    try:
+        from .. import remediation_videos as _rv
+        videos_map: dict[str, dict] = {}
+        for r in report.results:
+            for i, f in enumerate(r.findings):
+                vid = _rv.video_for(r.check_id, f.title)
+                if vid:
+                    videos_map[f"{r.check_id}::{i}"] = vid
+    except ImportError:
+        videos_map = {}
+
     return tmpl.render(
         report=report,
         quick_fixes=guidance["fixes"],
@@ -136,6 +150,7 @@ def render(report: ScanReport) -> str:
         risk_label=risk_label(score),
         risk_grade=risk_grade(score),
         heatmap_svg=heatmap_svg,
+        videos=videos_map,
     )
 
 

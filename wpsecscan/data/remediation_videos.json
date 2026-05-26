@@ -1,0 +1,86 @@
+{
+  "_about": "Item #47 — curated map: check_id -> remediation video. Community-contributable. Entries are referenced by HTML + Markdown reporters when present.",
+  "_format": {
+    "check_id_pattern": "Regex against the finding's check_id (re.IGNORECASE).",
+    "title_pattern":    "Optional regex against the finding's title.",
+    "url":              "Video URL (YouTube / Loom / Vimeo).",
+    "duration_min":     "Approximate length in minutes.",
+    "source":           "Author/channel attribution."
+  },
+  "videos": [
+    {
+      "check_id_pattern": "^headers$",
+      "title_pattern":    "(?i)missing.*content[- ]security[- ]policy",
+      "url":              "https://www.youtube.com/watch?v=2-3HU3kjcvg",
+      "duration_min":     14,
+      "source":           "PortSwigger Web Security Academy — CSP fundamentals"
+    },
+    {
+      "check_id_pattern": "^xss$|^reflected_xss$|^stored_xss$",
+      "url":              "https://www.youtube.com/watch?v=EoaDgUgS6QA",
+      "duration_min":     8,
+      "source":           "OWASP — XSS in 8 minutes"
+    },
+    {
+      "check_id_pattern": "^sql_injection$|^sqli$",
+      "url":              "https://www.youtube.com/watch?v=2OPVViV-GQk",
+      "duration_min":     12,
+      "source":           "PortSwigger — SQL injection essentials"
+    },
+    {
+      "check_id_pattern": "^tls_modern$|^tls_deep$",
+      "url":              "https://www.youtube.com/watch?v=AlE5X1NlHgg",
+      "duration_min":     9,
+      "source":           "Hardening nginx TLS — Cloudflare Engineering"
+    },
+    {
+      "check_id_pattern": "^cors$",
+      "url":              "https://www.youtube.com/watch?v=4KHiSt0oLJ0",
+      "duration_min":     10,
+      "source":           "PortSwigger — CORS misconfiguration"
+    },
+    {
+      "check_id_pattern": "^plugin_cves$|^plugin_cves_premium$",
+      "url":              "https://www.youtube.com/watch?v=jKAfyzS-uZQ",
+      "duration_min":     6,
+      "source":           "WPBeginner — How to safely update WordPress plugins"
+    },
+    {
+      "check_id_pattern": "^xmlrpc",
+      "url":              "https://www.youtube.com/watch?v=oR2-CxAYfYE",
+      "duration_min":     5,
+      "source":           "WPLearningLab — Disabling XML-RPC the right way"
+    },
+    {
+      "check_id_pattern": "^app_passwords$",
+      "url":              "https://www.youtube.com/watch?v=4xMYbHpDXxs",
+      "duration_min":     7,
+      "source":           "Anders Norén — WordPress Application Passwords explained"
+    },
+    {
+      "check_id_pattern": "^login_throttle",
+      "url":              "https://www.youtube.com/watch?v=Phh9j-rDcjE",
+      "duration_min":     6,
+      "source":           "Wordfence — Rate-limit configuration walkthrough"
+    },
+    {
+      "check_id_pattern": "^object_cache_dropin$",
+      "url":              "https://www.youtube.com/watch?v=jBwj2VbmGOg",
+      "duration_min":     11,
+      "source":           "WP Engine — Object cache best practices"
+    },
+    {
+      "check_id_pattern": "^cloudflare_origin_leak$",
+      "url":              "https://www.youtube.com/watch?v=DXkOmpDX3OM",
+      "duration_min":     8,
+      "source":           "Cloudflare — Locking down your origin"
+    },
+    {
+      "check_id_pattern": "^companion_advanced$",
+      "title_pattern":    "(?i)2fa is configured but administrators are exempt",
+      "url":              "https://www.youtube.com/watch?v=DGYbo3WGocs",
+      "duration_min":     5,
+      "source":           "WordPress.tv — Enforcing 2FA on admin roles"
+    }
+  ]
+}

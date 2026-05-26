@@ -346,6 +346,66 @@ def test_cmd_portfolio_no_sites_exits_two(monkeypatch, capsys):
     assert ei.value.code == 2
 
 
+# ============================== #46 / #47 / #48 ================================
+
+def test_snapshot_compare_renders_fixed_new_unchanged():
+    from wpsecscan.reporters.snapshot_compare import render
+    old = {
+        "target": "https://x.com", "scanned_at": "2026-05-25", "risk_score": 50,
+        "results": [{"check_id": "h", "findings": [
+            {"severity": "high", "title": "Missing CSP"},
+            {"severity": "medium", "title": "Stable issue"},
+        ]}],
+    }
+    new = {
+        "target": "https://x.com", "scanned_at": "2026-05-26", "risk_score": 35,
+        "results": [{"check_id": "h", "findings": [
+            {"severity": "medium", "title": "Stable issue"},
+            {"severity": "critical", "title": "New problem"},
+        ]}],
+    }
+    html = render(old, new)
+    assert "Fixed (1)" in html
+    assert "Missing CSP" in html
+    assert "New problem" in html
+    assert "Stable issue" in html
+    # Score delta rendered
+    assert ">-15<" in html or "delta-dn" in html
+
+
+def test_remediation_videos_lookup():
+    from wpsecscan.remediation_videos import video_for
+    v = video_for("xss", "Reflected XSS in /search")
+    assert v is not None
+    assert "youtube" in v["url"]
+    assert video_for("nonexistent_check_id_xxxx") is None
+
+
+def test_docx_report_rtf_fallback_writes_valid_rtf(monkeypatch, tmp_path):
+    """When python-docx isn't installed, we fall back to an .rtf file with
+    a valid RTF header."""
+    from wpsecscan.reporters import docx_report as _dx
+    from wpsecscan.models import Finding, CheckResult, ScanReport
+    # Force the ImportError path: monkeypatch _write_docx to raise ImportError
+    def _explode(*a, **kw): raise ImportError("python-docx not installed (test stub)")
+    monkeypatch.setattr(_dx, "_write_docx", _explode)
+    report = ScanReport(target="https://x.com", scanned_at="2026-05-26",
+                          duration_ms=1, results=[
+                              CheckResult(check_id="h", check_name="Headers", findings=[
+                                  Finding(severity="high", title="Missing CSP",
+                                            evidence="GET / → no CSP",
+                                            remediation="Add a CSP header"),
+                              ]),
+                          ])
+    out = tmp_path / "report.docx"
+    _dx.write(report, out)
+    rtf = tmp_path / "report.rtf"
+    assert rtf.exists()
+    text = rtf.read_text(encoding="utf-8")
+    assert text.startswith("{\\rtf1")
+    assert "Missing CSP" in text
+
+
 # ============================== #38 / #40 / #41 ================================
 
 def test_notify_post_json_includes_signature_header(monkeypatch):
