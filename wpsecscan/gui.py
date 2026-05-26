@@ -296,6 +296,10 @@ class App:
         file_menu.add_cascade(label="Profiles", menu=self._profiles_menu)
         file_menu.add_separator()
         file_menu.add_command(label="Save current settings as profile...", command=self._save_profile_prompt)
+        # #55: open a saved JSON report. Tk has no portable drag-drop, so we
+        # expose this via menu + Ctrl-O instead.
+        file_menu.add_command(label="Open saved JSON report... (Ctrl+O)",
+                                command=self._open_saved_report)
         file_menu.add_separator()
         # #13: bulk export of all findings as one markdown document
         file_menu.add_command(label="Export all findings as Markdown...", command=self._export_markdown)
@@ -400,6 +404,11 @@ class App:
         # Tab-cycle through findings (Ctrl+Down / Ctrl+Up)
         self.root.bind_all("<Control-Down>", lambda _e: self._cycle_finding(+1))
         self.root.bind_all("<Control-Up>", lambda _e: self._cycle_finding(-1))
+        # #57: complete the keyboard set so the GUI is usable mouse-free.
+        self.root.bind_all("<Control-o>", lambda _e: self._open_saved_report())
+        self.root.bind_all("<Control-s>", lambda _e: self._save_profile_prompt())
+        self.root.bind_all("<Control-Shift-E>", lambda _e: self._export_markdown())
+        self.root.bind_all("<Control-d>", lambda _e: self._open_snapshot_diff())
 
         # --- Top bar: URL + scan + options ---
         top = ttk.Frame(self.root, padding=(16, 14, 16, 8))
@@ -2010,6 +2019,69 @@ class App:
     def _open_snapshot_diff(self) -> None:
         from . import gui_windows as _gw
         _gw.open_snapshot_diff_pane(self)
+
+    def _open_saved_report(self) -> None:
+        """#55: open a saved JSON report from disk into the current view."""
+        from tkinter import filedialog
+        import json as _json
+        from .reporters import json_out as _jo  # noqa: PLC0415
+
+        path = filedialog.askopenfilename(
+            title="Open saved WPSecScan JSON report",
+            filetypes=[("JSON", "*.json"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        try:
+            data = _json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            messagebox.showerror(APP_NAME, f"Cannot read report: {e}")
+            return
+        if not isinstance(data, dict) or "target" not in data or "results" not in data:
+            messagebox.showerror(APP_NAME, "Not a WPSecScan JSON report.")
+            return
+        # Rebuild a ScanReport from the JSON so the existing rendering paths
+        # work without modification.
+        try:
+            report = _jo.from_dict(data) if hasattr(_jo, "from_dict") else None
+        except Exception:  # noqa: BLE001
+            report = None
+        if report is None:
+            # Fallback: build it manually.
+            from .models import Finding, CheckResult, ScanReport
+            results = []
+            for r in data.get("results", []) or []:
+                findings = []
+                for f in (r.get("findings") or []):
+                    try:
+                        findings.append(Finding(
+                            severity=f.get("severity", "info"),
+                            title=f.get("title", ""),
+                            evidence=f.get("evidence", ""),
+                            remediation=f.get("remediation", ""),
+                            url=f.get("url", ""),
+                            extra=f.get("extra") or {},
+                        ))
+                    except ValueError:
+                        continue
+                results.append(CheckResult(
+                    check_id=r.get("check_id", ""),
+                    check_name=r.get("check_name", r.get("check_id", "")),
+                    findings=findings,
+                    error=r.get("error"),
+                    duration_ms=int(r.get("duration_ms") or 0),
+                ))
+            report = ScanReport(
+                target=data.get("target", ""),
+                scanned_at=data.get("scanned_at", ""),
+                duration_ms=int(data.get("duration_ms") or 0),
+                results=results,
+            )
+        self._current_report = report
+        if hasattr(self, "_populate_tree"):
+            self._populate_tree(report)
+        self.status_var.set(f"Opened: {Path(path).name} — {len(report.all_findings)} findings.")
+        self._toast(f"✓ Loaded {Path(path).name}", duration_ms=4000)
 
     def _open_diff_viewer(self) -> None:
         """E4: launch the standalone two-report HTML viewer in the browser."""
