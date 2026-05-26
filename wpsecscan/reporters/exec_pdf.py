@@ -119,6 +119,22 @@ def _render_pdf_reportlab(report: ScanReport, path: Path) -> None:
         flow.append(t)
         flow.append(Spacer(1, 0.2 * inch))
 
+    # #49 — risk-score history sparkline (when prior snapshots exist)
+    try:
+        scores = _load_recent_scores(report.target, limit=12)
+    except Exception:  # noqa: BLE001
+        scores = []
+    if len(scores) >= 2:
+        flow.append(Paragraph("Risk-score trend", h2))
+        from reportlab.platypus import Image as _RLImage  # noqa: PLC0415
+        chart_path = path.with_name(path.stem + "-trend.png")
+        try:
+            _render_trend_png(scores, chart_path)
+            flow.append(_RLImage(str(chart_path), width=5.5 * inch, height=1.6 * inch))
+            flow.append(Spacer(1, 0.15 * inch))
+        except Exception:  # noqa: BLE001 — chart is decorative
+            pass
+
     flow.append(Paragraph("What to do next", h2))
     if score < 50:
         next_text = ("Significant exposure detected. Triage all critical and high findings within 24-48h. "
@@ -138,6 +154,94 @@ def _render_pdf_reportlab(report: ScanReport, path: Path) -> None:
         "remediation guidance.</i>", body))
 
     doc.build(flow)
+
+
+def _load_recent_scores(target: str, limit: int = 12) -> list[int]:
+    """Item #49 — pull the last N risk_score values from saved snapshots."""
+    from .. import history as _h
+    import json as _json
+    snaps = _h.snapshot_history(target)
+    out: list[int] = []
+    for sp in snaps[-limit:]:
+        try:
+            data = _json.loads(sp.read_text(encoding="utf-8"))
+            score = data.get("risk_score")
+            if isinstance(score, int):
+                out.append(score)
+        except (OSError, ValueError, TypeError):
+            continue
+    return out
+
+
+def _render_trend_png(scores: list[int], path: Path) -> None:
+    """Render a minimal line-chart PNG of risk-score history. Uses
+    PIL when present; falls back to silently doing nothing (caller
+    catches and skips embedding)."""
+    from PIL import Image, ImageDraw  # type: ignore[import-not-found]
+    w, h = 640, 180
+    pad_l, pad_r, pad_t, pad_b = 36, 12, 12, 24
+    img = Image.new("RGB", (w, h), "white")
+    draw = ImageDraw.Draw(img)
+    # axes
+    draw.rectangle([(pad_l, pad_t), (w - pad_r, h - pad_b)], outline="#cccccc")
+    n = max(2, len(scores))
+    x_step = (w - pad_l - pad_r) / (n - 1)
+    y_top = pad_t
+    y_bot = h - pad_b
+
+    def _y(score: int) -> int:
+        score = max(0, min(100, int(score)))
+        return int(y_bot - (score / 100.0) * (y_bot - y_top))
+
+    # Y reference lines (50 + 80)
+    draw.line([(pad_l, _y(50)), (w - pad_r, _y(50))], fill="#eeeeee")
+    draw.line([(pad_l, _y(80)), (w - pad_r, _y(80))], fill="#eeeeee")
+    draw.text((4, _y(100) - 6), "100", fill="#888888")
+    draw.text((4, _y(50) - 6), " 50", fill="#888888")
+    draw.text((4, _y(0) - 6), "  0", fill="#888888")
+
+    # line
+    pts = [(int(pad_l + i * x_step), _y(score)) for i, score in enumerate(scores)]
+    for a, b in zip(pts, pts[1:]):
+        draw.line([a, b], fill="#2c7be5", width=2)
+    for p in pts:
+        draw.ellipse([(p[0] - 3, p[1] - 3), (p[0] + 3, p[1] + 3)], fill="#2c7be5")
+    img.save(path, "PNG")
+
+
+def _trend_svg_block(target: str) -> str:
+    """Inline SVG line-chart of the last 12 risk_score values.
+    Returns "" when fewer than 2 prior snapshots exist."""
+    scores = _load_recent_scores(target, limit=12)
+    if len(scores) < 2:
+        return ""
+    w, h = 640, 140
+    pad_l, pad_r, pad_t, pad_b = 36, 12, 8, 18
+    inner_w = w - pad_l - pad_r
+    inner_h = h - pad_t - pad_b
+    n = len(scores)
+    x_step = inner_w / (n - 1)
+
+    def _y(score: int) -> float:
+        return pad_t + (1 - max(0, min(100, score)) / 100.0) * inner_h
+
+    pts = [(pad_l + i * x_step, _y(s)) for i, s in enumerate(scores)]
+    line = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+    dots = "".join(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="#2c7be5"/>'
+                     for x, y in pts)
+    return (
+        f'<h2>Risk-score trend ({n} recent scans)</h2>'
+        f'<svg viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg" '
+        'style="background:#fff;border:1px solid #ddd">'
+        f'<line x1="{pad_l}" y1="{_y(50):.1f}" x2="{w-pad_r}" y2="{_y(50):.1f}" stroke="#eee"/>'
+        f'<line x1="{pad_l}" y1="{_y(80):.1f}" x2="{w-pad_r}" y2="{_y(80):.1f}" stroke="#eee"/>'
+        f'<text x="4" y="{_y(100):.1f}" font-size="9" fill="#888">100</text>'
+        f'<text x="4" y="{_y(50):.1f}" font-size="9" fill="#888"> 50</text>'
+        f'<text x="4" y="{_y(0):.1f}" font-size="9" fill="#888">  0</text>'
+        f'<polyline points="{line}" fill="none" stroke="#2c7be5" stroke-width="2"/>'
+        f'{dots}'
+        '</svg>'
+    )
 
 
 def _render_pdf_html_fallback(report: ScanReport, path: Path) -> None:
@@ -212,6 +316,8 @@ For a true PDF export, install reportlab (<code>pip install reportlab</code>) an
   <div class="box box-low"><span class="n">{s.get('low', 0)}</span><span class="l">Low</span></div>
   <div class="box box-info"><span class="n">{s.get('info', 0)}</span><span class="l">Info</span></div>
 </div>
+
+{_trend_svg_block(report.target)}
 
 <h2>Top issues</h2>
 <table><tr><th>Severity</th><th>Issue</th></tr>{top_rows}</table>

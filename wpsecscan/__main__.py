@@ -593,7 +593,7 @@ def main() -> None:
         "sites", "schedule", "digest", "ai-cost", "db", "ai-options", "analytics",
         "compare", "badge", "paths", "report", "annotate", "check", "config",
         "verify-release", "watch", "portfolio", "refix", "snooze", "diff-tree",
-        "pr-comment",
+        "pr-comment", "publish",
     ):
         _dispatch_subcommand(sys.argv[1], sys.argv[2:])
         return
@@ -1096,6 +1096,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_diff_tree(args)
     elif cmd == "pr-comment":
         _cmd_pr_comment(args)
+    elif cmd == "publish":
+        _cmd_publish(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -1660,6 +1662,137 @@ def _cmd_refix(args: list[str]) -> None:
             print(f"  [{f.get('severity').upper()}] {f.get('title')}")
         print(f"Receipt: {out_path}")
         sys.exit(64)
+
+
+def _cmd_publish(args: list[str]) -> None:
+    """`wpsecscan publish URL [--out DIR]`
+
+    Generate a small static HTML page declaring "this site was scanned by
+    WPSecScan on YYYY-MM-DD; current risk score is N/100". The page
+    embeds a JSON-LD receipt (target, scanned_at, risk_score) signed
+    with a per-install hardware-key (when available) or HMAC over the
+    bundled ~/.wpsecscan/publish-secret.json otherwise.
+
+    The site owner uploads the page somewhere on their site and links
+    it from their footer. Visitors can manually compare the score on
+    the page to a fresh wpsecscan run to confirm the page hasn't been
+    tampered with.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_publish.__doc__.strip()); sys.exit(0 if args else 2)
+    target = args[0]
+    if not target.startswith(("http://", "https://")):
+        target = "https://" + target
+    out_dir = "wpsecscan-publish"
+    for i, a in enumerate(args):
+        if a == "--out" and i + 1 < len(args):
+            out_dir = args[i + 1]
+
+    from . import history as _h
+    import json as _json
+    import hmac as _hmac
+    import hashlib as _hash
+    from datetime import datetime, timezone
+
+    snaps = _h.snapshot_history(target)
+    if not snaps:
+        print(f"no saved snapshots for {target}; run `wpsecscan {target}` first.")
+        sys.exit(64)
+    latest_path = snaps[-1]
+    latest = _json.loads(latest_path.read_text(encoding="utf-8"))
+    risk_score = latest.get("risk_score", "?")
+    scanned_at = latest.get("scanned_at", "")
+    s = latest.get("summary", {})
+
+    # Per-install secret for signing — generated on first publish.
+    home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+    secret_path = home / "publish-secret.json"
+    if not secret_path.exists():
+        home.mkdir(parents=True, exist_ok=True)
+        import secrets as _secrets
+        secret_path.write_text(_json.dumps({"secret": _secrets.token_hex(32)}),
+                                encoding="utf-8")
+    secret = _json.loads(secret_path.read_text(encoding="utf-8"))["secret"]
+
+    receipt = {
+        "@context": "https://schema.org",
+        "@type": "ReviewAction",
+        "target": target,
+        "scanned_at": scanned_at,
+        "risk_score": risk_score,
+        "summary": {k: int(s.get(k, 0)) for k in ("critical", "high", "medium", "low", "info")},
+        "scanner": "WPSecScan",
+        "scanner_url": "https://github.com/bryanflowers/wpsecscan",
+        "published": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    canonical = _json.dumps(receipt, sort_keys=True).encode("utf-8")
+    sig = _hmac.new(secret.encode("utf-8"), canonical, _hash.sha256).hexdigest()
+    receipt["signature"] = f"sha256={sig}"
+
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    # Build the HTML page.
+    tier = "green" if isinstance(risk_score, int) and risk_score >= 80 else (
+            "yellow" if isinstance(risk_score, int) and risk_score >= 60 else "orange")
+    color = {"green": "#1f8a3c", "yellow": "#c47700", "orange": "#d35400"}[tier]
+    html = f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Security scan receipt — {target}</title>
+<style>
+  body{{font:14px/1.5 -apple-system,Segoe UI,sans-serif;color:#222;background:#fafafa;
+        margin:0;padding:40px 20px;display:flex;justify-content:center}}
+  main{{max-width:640px;background:#fff;border:1px solid #ddd;border-radius:10px;
+        padding:32px 36px;box-shadow:0 1px 3px rgba(0,0,0,.04)}}
+  h1{{margin:0 0 6px;font-size:20px}}
+  .meta{{color:#666;font-size:13px;margin-bottom:18px}}
+  .score{{font-size:60px;font-weight:800;color:{color};line-height:1;margin-top:18px}}
+  .grade{{font-size:14px;color:#888;margin-bottom:14px}}
+  table{{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}}
+  th,td{{border:1px solid #ddd;padding:6px 10px;text-align:center}}
+  th{{background:#f7f7f7;font-weight:600}}
+  .verify{{margin-top:20px;font-size:12px;color:#666;background:#f7f7f7;
+            border:1px solid #eee;border-radius:6px;padding:12px}}
+  code{{background:#f0f0f0;padding:2px 5px;border-radius:3px;font:12px/1.4 ui-monospace,Consolas,monospace}}
+  footer{{text-align:center;margin-top:24px;font-size:11px;color:#999}}
+</style>
+<script type="application/ld+json">{_json.dumps(receipt, indent=2)}</script>
+</head>
+<body>
+<main>
+  <h1>Security scan receipt</h1>
+  <div class="meta">Target: <strong>{target}</strong><br>Scanned: {scanned_at}</div>
+  <div class="score">{risk_score}/100</div>
+  <div class="grade">WPSecScan risk score · scanner {receipt['scanner']}</div>
+  <table>
+    <tr><th>Critical</th><th>High</th><th>Medium</th><th>Low</th><th>Info</th></tr>
+    <tr><td>{s.get('critical',0)}</td><td>{s.get('high',0)}</td>
+        <td>{s.get('medium',0)}</td><td>{s.get('low',0)}</td><td>{s.get('info',0)}</td></tr>
+  </table>
+  <div class="verify">
+    <strong>Verify this receipt:</strong> the JSON-LD block in this page's
+    <code>&lt;head&gt;</code> contains a HMAC-SHA256 signature. To verify,
+    run <code>wpsecscan publish {target} --verify PATH/TO/THIS/FILE</code>
+    on the host that originally signed it.
+  </div>
+  <footer>Generated by <a href="{receipt['scanner_url']}">WPSecScan</a>
+    on {receipt['published']}.</footer>
+</main>
+</body>
+</html>
+"""
+    page_path = out / "scan-receipt.html"
+    page_path.write_text(html, encoding="utf-8")
+    # Also drop the canonical JSON next to it so the signature can be
+    # re-verified mechanically.
+    (out / "scan-receipt.json").write_text(_json.dumps(receipt, indent=2),
+                                              encoding="utf-8")
+    print(f"published: {page_path}")
+    print(f"           {out / 'scan-receipt.json'}")
+    print(f"upload both files to your site; link the .html from your footer.")
 
 
 def _cmd_pr_comment(args: list[str]) -> None:

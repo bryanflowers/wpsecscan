@@ -346,6 +346,56 @@ def test_cmd_portfolio_no_sites_exits_two(monkeypatch, capsys):
     assert ei.value.code == 2
 
 
+# ============================== #49 / #50 ======================================
+
+def test_exec_pdf_trend_svg_empty_when_no_snapshots(monkeypatch, tmp_path):
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    from wpsecscan.reporters.exec_pdf import _trend_svg_block
+    assert _trend_svg_block("https://no-snaps.example") == ""
+
+
+def test_exec_pdf_trend_svg_renders_polyline(monkeypatch, tmp_path):
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    import json as _json, time as _t
+    from wpsecscan import history as _h
+    url = "https://trendsvg.example"
+    for s in (40, 55, 70):
+        _h.save_report_snapshot(url, _json.dumps({"risk_score": s, "summary": {}}))
+        _t.sleep(1.05)
+    from wpsecscan.reporters.exec_pdf import _trend_svg_block
+    svg = _trend_svg_block(url)
+    assert "<polyline" in svg
+    assert "Risk-score trend" in svg
+
+
+def test_cmd_publish_writes_signed_pages(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    import json as _json
+    from wpsecscan import history as _h
+    url = "https://publish.example"
+    _h.save_report_snapshot(url, _json.dumps({
+        "risk_score": 78,
+        "scanned_at": "2026-05-26T10:00:00Z",
+        "summary": {"critical": 0, "high": 1, "medium": 2, "low": 5, "info": 0},
+    }))
+    from wpsecscan.__main__ import _cmd_publish
+    out_dir = tmp_path / "publish-out"
+    _cmd_publish([url, "--out", str(out_dir)])
+    html = (out_dir / "scan-receipt.html").read_text(encoding="utf-8")
+    receipt = _json.loads((out_dir / "scan-receipt.json").read_text(encoding="utf-8"))
+    assert "78/100" in html
+    assert "publish.example" in html
+    assert receipt["risk_score"] == 78
+    assert receipt["signature"].startswith("sha256=")
+    # Verify the signature is genuine: recompute with the secret on disk.
+    import hmac as _hmac, hashlib as _h2
+    secret = _json.loads((tmp_path / "publish-secret.json").read_text())["secret"]
+    canonical = _json.dumps({k: v for k, v in receipt.items() if k != "signature"},
+                              sort_keys=True).encode("utf-8")
+    expected = _hmac.new(secret.encode(), canonical, _h2.sha256).hexdigest()
+    assert receipt["signature"] == f"sha256={expected}"
+
+
 # ============================== #46 / #47 / #48 ================================
 
 def test_snapshot_compare_renders_fixed_new_unchanged():
