@@ -157,18 +157,25 @@ async def _probe_boolean(client: Client, param: str, baseline: str, desc: str, n
 
 
 async def _probe_time(client: Client, param: str, baseline: str, desc: str) -> Finding | None:
-    # Two warm-up requests to establish baseline
-    t0 = time.perf_counter()
-    await client.get("/", params={param: baseline})
-    base_a = time.perf_counter() - t0
-    t0 = time.perf_counter()
-    await client.get("/", params={param: baseline})
-    base_b = time.perf_counter() - t0
-    base = max(base_a, base_b)
+    # Cache-bypass headers so the baseline reflects the same code path as the
+    # payload (which is different params and therefore not cache-hit). Previously
+    # a CDN-cached baseline + origin-fetched payload made every site behind a
+    # CDN look vulnerable when the cold-cache latency exceeded the 2.5 s
+    # threshold.
+    no_cache = {"Cache-Control": "no-cache", "Pragma": "no-cache"}
+
+    # Three warm-up requests; use median to absorb a single network blip.
+    times: list[float] = []
+    for _ in range(3):
+        t0 = time.perf_counter()
+        await client.get("/", params={param: baseline}, headers=no_cache)
+        times.append(time.perf_counter() - t0)
+    times.sort()
+    base = times[1]  # median
 
     payload = baseline + QUOTE + " AND (SELECT 1 FROM(SELECT(SLEEP(3)))a)-- -"
     t0 = time.perf_counter()
-    r = await client.get("/", params={param: payload})
+    r = await client.get("/", params={param: payload}, headers=no_cache)
     delta = time.perf_counter() - t0
     if r is None:
         return None

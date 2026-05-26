@@ -79,6 +79,13 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     # Try an obviously bad request and see if it gets blocked by a WAF rule
     step("sending a benign WAF tripwire request...")
     tripwire = await client.get("/", params={"q": "<script>alert(1)</script>"})
+    # Sucuri occasionally returns 200 with a JS-redirect challenge page rather
+    # than 403. Detect that pattern explicitly before falling through to the
+    # status-code-only block logic.
+    if tripwire is not None and tripwire.status_code == 200 and tripwire.text:
+        body200 = tripwire.text[:2000].lower()
+        if "sucuri website firewall" in body200 or "sucuri/cloudproxy" in body200:
+            detected.setdefault("Sucuri", "tripwire returned 200 with Sucuri block-page body")
     if tripwire is not None and tripwire.status_code in (403, 406, 419, 429, 503):
         # Heuristic: a clean install returns 200; mid-3xx if redirect.
         body = (tripwire.text or "")[:2000].lower()

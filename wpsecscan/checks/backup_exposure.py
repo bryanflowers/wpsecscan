@@ -73,12 +73,14 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         body = r.text or ""
         ct = r.headers.get("content-type", "")
 
-        # Heuristic: HTML body with "Index of" or backup-file extensions in <a href=> = directory listing
+        # Apache/Nginx autoindex pages are reliably identified by the title;
+        # the previous `href=… AND ext` heuristic false-positived on WooCommerce
+        # product pages with .zip download links and on any catch-all rewrite
+        # returning HTML that incidentally mentioned `.zip`.
+        body_lower = body.lower()
         is_listing = (
-            "<title>index of" in body.lower()
-            or 'href="' in body.lower() and any(
-                ext in body.lower() for ext in (".sql", ".zip", ".tar.gz", ".wpress", ".sqlite")
-            )
+            "<title>index of" in body_lower
+            or "<h1>index of" in body_lower
         )
         # Heuristic: actual backup file (non-HTML response) downloaded
         is_blob = ct and ("application/" in ct or "octet-stream" in ct or "zip" in ct or "sql" in ct)

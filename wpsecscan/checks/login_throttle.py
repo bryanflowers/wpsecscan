@@ -40,6 +40,31 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     findings: list[Finding] = []
     step = ctx.get("step") or (lambda _s: None)
 
+    # Lockout-risk gate — same protection as default_creds. Sending 6 wrong
+    # passwords in 12 seconds is well above Wordfence's default 5-fails-in-4-
+    # minutes threshold and will permanently ban the scanner IP. Override with
+    # `--ignore-lockout-risk` once your IP is allowlisted in the security plugin.
+    waf_shared = ctx.get("shared", {}).get("waf") or []
+    LOCKOUT_WAFS = {"Wordfence", "Sucuri", "Imperva (Incapsula)"}
+    if not ctx.get("ignore_lockout_risk") and any(w in LOCKOUT_WAFS for w in waf_shared):
+        blocking = [w for w in waf_shared if w in LOCKOUT_WAFS]
+        findings.append(
+            Finding(
+                severity="info",
+                title=f"Login-throttle test skipped — {', '.join(blocking)} can ban scanner IP",
+                evidence=(
+                    f"Detected: {', '.join(blocking)}. Sending {ATTEMPTS} wrong logins would trigger "
+                    "their IP ban policy before the test could conclude."
+                ),
+                remediation=(
+                    "Allowlist your scanner IP in the security plugin, then re-run with "
+                    "--ignore-lockout-risk."
+                ),
+                url=client.url("/wp-login.php"),
+            )
+        )
+        return findings
+
     # Pre-check
     step("checking /wp-login.php reachability before throttle test...")
     pre = await client.get("/wp-login.php")

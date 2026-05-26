@@ -54,24 +54,27 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         try:
             data = rest.json()
             if isinstance(data, list) and data:
-                names = [u.get("slug") or u.get("name") for u in data if isinstance(u, dict)]
-                for n in names:
-                    if n:
+                names = [u.get("slug") or u.get("name") for u in data
+                         if isinstance(u, dict) and (u.get("slug") or u.get("name"))]
+                # Require at least one real string slug/name. A plugin returning
+                # [null] or [{}] at this path used to fire a false finding.
+                if names:
+                    for n in names:
                         shared["users"].add(n)
-                lines = "\n".join(f"  - {n}" for n in names if n)
-                findings.append(
-                    Finding(
-                        severity="medium",
-                        title=f"REST /wp-json/wp/v2/users exposes {len(data)} user(s)",
-                        evidence=f"Public REST endpoint returned:\n{lines}",
-                        remediation=(
-                            "Restrict the users REST endpoint. In functions.php:\n"
-                            "  add_filter('rest_endpoints', function($e){ unset($e['/wp/v2/users']); unset($e['/wp/v2/users/(?P<id>[\\d]+)']); return $e; });\n"
-                            "Or use a security plugin's REST hardening rule."
-                        ),
-                        url=client.url("/wp-json/wp/v2/users"),
+                    lines = "\n".join(f"  - {n}" for n in names)
+                    findings.append(
+                        Finding(
+                            severity="medium",
+                            title=f"REST /wp-json/wp/v2/users exposes {len(names)} user(s)",
+                            evidence=f"Public REST endpoint returned:\n{lines}",
+                            remediation=(
+                                "Restrict the users REST endpoint. In functions.php:\n"
+                                "  add_filter('rest_endpoints', function($e){ unset($e['/wp/v2/users']); unset($e['/wp/v2/users/(?P<id>[\\d]+)']); return $e; });\n"
+                                "Or use a security plugin's REST hardening rule."
+                            ),
+                            url=client.url("/wp-json/wp/v2/users"),
+                        )
                     )
-                )
         except ValueError:
             pass
 
@@ -81,15 +84,19 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         try:
             data = rest2.json()
             if isinstance(data, list) and data:
-                findings.append(
-                    Finding(
-                        severity="medium",
-                        title="REST users endpoint exposed via ?rest_route= query",
-                        evidence=f"/?rest_route=/wp/v2/users returned {len(data)} user(s).",
-                        remediation="Same fix as /wp-json/wp/v2/users — filter out the users endpoint via rest_endpoints.",
-                        url=client.url("/?rest_route=/wp/v2/users"),
+                # Same validity gate as the canonical path above
+                valid_users = [u for u in data
+                               if isinstance(u, dict) and (u.get("slug") or u.get("name"))]
+                if valid_users:
+                    findings.append(
+                        Finding(
+                            severity="medium",
+                            title=f"REST users endpoint exposed via ?rest_route= query ({len(valid_users)} user(s))",
+                            evidence=f"/?rest_route=/wp/v2/users returned {len(valid_users)} user(s).",
+                            remediation="Same fix as /wp-json/wp/v2/users — filter out the users endpoint via rest_endpoints.",
+                            url=client.url("/?rest_route=/wp/v2/users"),
+                        )
                     )
-                )
         except ValueError:
             pass
 

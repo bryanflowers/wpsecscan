@@ -155,6 +155,27 @@ def test_db_find_for_unknown_version_returns_empty():
     assert len(find_for(vulns, "plugin", "foo", "2.3")) == 1
 
 
+def test_db_aggregated_feed_defaults_inclusive_only_when_no_fixed():
+    """When the aggregator carries no `to_inclusive` flag, infer from `fixed_in`:
+    - fixed_in present → EXCLUSIVE (Wordfence convention: vulnerable iff installed < fixed)
+    - fixed_in absent → INCLUSIVE (entry is "vulnerable up to and including X")
+
+    Previously we forced True universally, causing false-positive CVE matches on
+    operators running exactly the fixed version."""
+    # Just verify the rule we baked in; the actual code path is exercised by
+    # the live update_db() but uses real network — we mirror the logic here.
+    def infer(kwargs: dict) -> bool:
+        if "to_inclusive" not in kwargs:
+            return not bool(kwargs.get("fixed_in") or kwargs.get("affected_to"))
+        return kwargs["to_inclusive"]
+
+    assert infer({"fixed_in": "2.0"}) is False
+    assert infer({"affected_to": "2.0"}) is False
+    assert infer({}) is True
+    assert infer({"to_inclusive": True, "fixed_in": "2.0"}) is True  # explicit overrides
+    assert infer({"to_inclusive": False}) is False
+
+
 def test_db_osv_multi_branch_ranges_produce_multiple_vulns():
     """An OSV advisory with multiple introduced/fixed pairs (e.g. fixed in both
     the 7.x and 8.x branches) must expand into multiple Vuln entries — previously

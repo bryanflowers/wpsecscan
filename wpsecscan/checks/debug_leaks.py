@@ -6,16 +6,22 @@ from ..http import Client
 from ..models import Finding
 
 EMOJI_VER_RE = re.compile(r"wp-emoji-release\.min\.js\?ver=([0-9.]+)", re.IGNORECASE)
-STACK_TRACE_MARKERS = (
+
+# High-confidence markers: any of these alone is a strong PHP-error signal.
+HIGH_CONF_PHP_MARKERS = (
     "Fatal error",
     "Stack trace:",
     "Uncaught Error",
     "Uncaught Exception",
-    "Warning: ",
-    "Notice: ",
-    "in /home/",
-    "in /var/www/",
-    "on line ",
+)
+
+# Low-confidence markers: "on line", "Warning:", "Notice:" etc. appear in
+# legitimate page content (poetry, legal text, recipes). Only fire when they
+# co-occur in adjacent contexts that look like an actual PHP error line, e.g.
+# "Warning: X in /home/user/file.php on line 42".
+PHP_ERROR_LINE_RE = re.compile(
+    r"(?:Warning|Notice|Deprecated|Strict standards)\s*:\s*.+?\s+in\s+/(?:home|var|usr|opt)/\S+\.\S+\s+on\s+line\s+\d+",
+    re.IGNORECASE,
 )
 
 
@@ -47,9 +53,24 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     # 2. Triggered error → check for stack traces in 500-ish responses
     weird = await client.get("/?p[]=1")
     if weird is not None and weird.status_code in (200, 500) and weird.text:
-        if any(m in weird.text for m in STACK_TRACE_MARKERS):
-            preview_lines = [l for l in weird.text.splitlines() if any(m in l for m in STACK_TRACE_MARKERS)][:3]
-            preview = "\n".join(preview_lines)
+        text = weird.text
+        # Fire on either:
+        #   - any HIGH_CONF marker present (these are PHP-specific phrases that
+        #     don't appear in legitimate content), OR
+        #   - a full PHP error line shape (Warning/Notice + "in /path/file" +
+        #     "on line N"). Previously bare "Warning:" or "on line" matches
+        #     fired on disclaimers, poetry, and recipe pages.
+        high_conf_hits = [m for m in HIGH_CONF_PHP_MARKERS if m in text]
+        error_line_hits = PHP_ERROR_LINE_RE.findall(text)
+        if high_conf_hits or error_line_hits or weird.status_code == 500:
+            preview_lines: list[str] = []
+            if high_conf_hits:
+                preview_lines.extend(
+                    [l for l in text.splitlines() if any(m in l for m in HIGH_CONF_PHP_MARKERS)][:3]
+                )
+            if error_line_hits:
+                preview_lines.extend(error_line_hits[:3])
+            preview = "\n".join(preview_lines) or f"HTTP {weird.status_code} on /?p[]=1"
             findings.append(
                 Finding(
                     severity="medium",

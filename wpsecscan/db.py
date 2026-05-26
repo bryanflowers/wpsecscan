@@ -437,7 +437,14 @@ def update_db(verbose: bool = True, patchstack_token: str = "") -> tuple[int, Pa
                 kwargs.setdefault("fixed_in", "")
                 kwargs.setdefault("affected_from", "")
                 kwargs.setdefault("affected_to", "")
-                kwargs.setdefault("to_inclusive", True)
+                # If the aggregator didn't carry inclusivity explicitly, default
+                # to EXCLUSIVE upper bound when `fixed_in` is set (Wordfence
+                # convention: "patched_versions" means "first patched version",
+                # so vulnerable iff installed < fixed). Default INCLUSIVE only
+                # when there's no fixed_in (entry says "vulnerable up to and
+                # including affected_to").
+                if "to_inclusive" not in kwargs:
+                    kwargs["to_inclusive"] = not bool(kwargs.get("fixed_in") or kwargs.get("affected_to"))
                 kwargs.setdefault("references", [])
                 kwargs.setdefault("description", "")
                 merged.append(Vuln(**kwargs))

@@ -44,6 +44,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     discovered_namespaces: list[str] = []
     exposed: list[tuple[str, str, str]] = []  # (endpoint, severity, marker_present?)
 
+    import json as _json
     for path, desc, sev, marker in REST_ENDPOINTS:
         step(f"probing REST endpoint {path}...")
         r = await client.get(path)
@@ -53,16 +54,29 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
             continue
         body = r.text or ""
 
-        # /wp-json/ root: extract namespaces for context
-        if path == "/wp-json/":
-            try:
-                import json as _json
-                data = _json.loads(body)
-                discovered_namespaces = list(data.get("namespaces") or [])
-            except (ValueError, AttributeError):
-                pass
-
-        if marker.lower() in body.lower():
+        # Endpoints only count as "exposed" if the body is real JSON AND the
+        # marker key actually appears in the parsed structure. Previously a
+        # substring match on `body.lower()` flagged HTML pages that
+        # incidentally contained the marker word (a tutorial page caching at
+        # the endpoint URL, a maintenance plugin returning a snippet, etc.).
+        try:
+            data = _json.loads(body)
+        except (ValueError, TypeError):
+            continue
+        # /wp-json/ root: extract namespaces for context (always interesting)
+        if path == "/wp-json/" and isinstance(data, dict):
+            discovered_namespaces = list(data.get("namespaces") or [])
+            continue
+        # `marker` is the JSON-key text e.g. '"title"' or '"id"' — search in
+        # the re-serialised JSON to ensure we matched a structural element,
+        # not user content. Lists of dicts use `len(data) > 0` as the
+        # "non-empty" gate to avoid firing on `[]`.
+        if not data:
+            continue
+        # Drop the surrounding quotes from the marker (it's a JSON key chunk)
+        key_text = marker.strip('"')
+        serialized = _json.dumps(data)
+        if f'"{key_text}"' in serialized:
             exposed.append((path, sev, "marker present"))
 
     if discovered_namespaces:
