@@ -18,7 +18,11 @@ Performs the following inspections once logged in:
 """
 from __future__ import annotations
 
+import os
 import re
+import time
+from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
@@ -34,47 +38,147 @@ USER_ROW_RE    = re.compile(r'<td[^>]+data-colname=["\']Username["\'][^>]*>(.*?)
 USER_ROLE_RE   = re.compile(r'<td[^>]+data-colname=["\']Role["\'][^>]*>(.*?)</td>',     re.IGNORECASE | re.DOTALL)
 TOTP_PROMPT_RE = re.compile(r'(name=["\']wfls_two_factor_code["\']|two-factor|totp|authenticator code|verification code)', re.IGNORECASE)
 
+# #1: extract the _wpnonce field from a wp-login.php GET. Modern WP + every
+# major security plugin requires it on the POST.
+NONCE_RE = re.compile(
+    r'<input[^>]+name=["\']_wpnonce["\'][^>]+value=["\']([^"\']+)["\']',
+    re.IGNORECASE,
+)
 
-async def _login_cookie(target: str, user: str, password: str, totp: str | None = None) -> httpx.AsyncClient | None:
-    """Log into WP via the wp-login.php form. Supports the common Wordfence/
-    Two-Factor 2FA prompts when `totp` is supplied. Returns an authenticated
-    httpx client or None on failure."""
+# #2: browser-like User-Agent. The "WPSecScan/1.0 (authenticated-scan)" UA
+# triggered fail2ban + Wordfence layer-7 blocks. This Chrome UA is close
+# enough to a real Chrome desktop client that it's not auto-banned. Operator
+# may override with WPSECSCAN_AUTH_USER_AGENT env var.
+_BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/126.0.0.0 Safari/537.36"
+)
+
+
+def _auth_ua() -> str:
+    """Override-able User-Agent for auth requests."""
+    return os.environ.get("WPSECSCAN_AUTH_USER_AGENT", _BROWSER_UA)
+
+
+def _auth_debug_enabled() -> bool:
+    return bool(os.environ.get("WPSECSCAN_AUTH_DEBUG"))
+
+
+def _auth_debug_log_path(host: str) -> Path:
+    """One log file per host so subsequent runs append cleanly."""
+    home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+    d = home / "auth-debug"
+    d.mkdir(parents=True, exist_ok=True)
+    safe = re.sub(r"[^a-z0-9_.-]+", "-", host.lower()) or "host"
+    return d / f"{safe}.log"
+
+
+def _auth_debug(host: str, step: str, response: httpx.Response | None = None,
+                  extra: str = "") -> None:
+    """#9: append one entry per auth step to ~/.wpsecscan/auth-debug/{host}.log
+    when WPSECSCAN_AUTH_DEBUG=1. Sanitises Set-Cookie + Authorization headers
+    so the log is shareable for support."""
+    if not _auth_debug_enabled():
+        return
+    try:
+        ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        lines = [f"--- {ts}  {step}"]
+        if response is not None:
+            lines.append(f"  url:    {response.request.method} {response.url}")
+            lines.append(f"  status: {response.status_code}")
+            for k, v in response.headers.items():
+                kl = k.lower()
+                if kl in ("set-cookie", "authorization", "x-wpsecscan-token",
+                           "cookie", "x-csrf-token"):
+                    lines.append(f"  header: {k}: [REDACTED ({len(str(v))} chars)]")
+                else:
+                    lines.append(f"  header: {k}: {v}")
+            body = (response.text or "")[:500].replace("\n", " ")
+            lines.append(f"  body[:500]: {body}")
+        if extra:
+            lines.append(f"  note: {extra}")
+        with _auth_debug_log_path(host).open("a", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n\n")
+    except OSError:
+        pass  # debug log must never break the scan
+
+
+async def _login_cookie(target: str, user: str, password: str,
+                          totp: str | None = None) -> httpx.AsyncClient | None:
+    """Log into WP via the wp-login.php form. Supports common 2FA prompts
+    when `totp` is supplied. Returns an authenticated httpx client or None
+    on failure.
+
+    Hardened for real-world WP sites:
+      - Sends a current-Chrome User-Agent (env override:
+        WPSECSCAN_AUTH_USER_AGENT) to avoid fail2ban/Wordfence layer-7 bans
+      - Parses the `_wpnonce` field from the GET form before POSTing
+      - Captures Set-Cookie from every step of the redirect chain
+      - When WPSECSCAN_AUTH_DEBUG=1, writes a sanitised log of every step
+        to ~/.wpsecscan/auth-debug/{host}.log
+    """
     parsed = urlparse(target)
     base = f"{parsed.scheme}://{parsed.netloc}"
+    host = parsed.hostname or "host"
+
+    # #8: explicit jar so we can capture cookies set at each hop.
     jar = httpx.Cookies()
     c = httpx.AsyncClient(
         timeout=20.0,
         follow_redirects=True,
         cookies=jar,
-        headers={"User-Agent": "WPSecScan/1.0 (authenticated-scan)"},
+        headers={
+            "User-Agent": _auth_ua(),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+        },
     )
     try:
         r = await c.get(base + "/wp-login.php")
-    except httpx.HTTPError:
+    except httpx.HTTPError as e:
+        _auth_debug(host, "GET wp-login.php — transport error", None, str(e))
         await c.aclose()
         return None
+    _auth_debug(host, "GET wp-login.php", r)
     if r.status_code != 200 or not LOGIN_FORM_RE.search(r.text or ""):
+        _auth_debug(host, "wp-login.php form not found", None,
+                     f"status={r.status_code}")
         await c.aclose()
         return None
+
+    # #1: extract _wpnonce from the GET form. Wordfence + Solid + iThemes
+    # reject any POST that doesn't carry the matching nonce.
+    nonce_match = NONCE_RE.search(r.text or "")
+    nonce_value = nonce_match.group(1) if nonce_match else ""
+
+    post_data = {
+        "log": user,
+        "pwd": password,
+        "wp-submit": "Log In",
+        "redirect_to": base + "/wp-admin/",
+        "testcookie": "1",
+    }
+    if nonce_value:
+        post_data["_wpnonce"] = nonce_value
+
     try:
         r = await c.post(
             base + "/wp-login.php",
-            data={
-                "log": user,
-                "pwd": password,
-                "wp-submit": "Log In",
-                "redirect_to": base + "/wp-admin/",
-                "testcookie": "1",
-            },
+            data=post_data,
             headers={"Cookie": "wordpress_test_cookie=WP%20Cookie%20check"},
         )
-    except httpx.HTTPError:
+    except httpx.HTTPError as e:
+        _auth_debug(host, "POST wp-login.php — transport error", None, str(e))
         await c.aclose()
         return None
+    _auth_debug(host, "POST wp-login.php", r,
+                  extra=f"nonce_sent={bool(nonce_value)}")
 
     # Handle 2FA prompt (Two-Factor / Wordfence / iThemes)
     if TOTP_PROMPT_RE.search(r.text or ""):
         if not totp:
+            _auth_debug(host, "2FA prompt detected, no totp provided")
             await c.aclose()
             return None
         # Best-effort: post the TOTP back to the same URL. Different plugins
@@ -85,17 +189,23 @@ async def _login_cookie(target: str, user: str, password: str, totp: str | None 
                     base + "/wp-login.php",
                     data={field: totp, "wp-submit": "Authenticate", "redirect_to": base + "/wp-admin/"},
                 )
+                _auth_debug(host, f"POST 2FA with field={field}", r2)
                 if ADMIN_BAR_RE.search(r2.text or "") or "/wp-admin" in str(r2.url):
                     return c
-            except httpx.HTTPError:
+            except httpx.HTTPError as e:
+                _auth_debug(host, f"POST 2FA field={field} transport error", None, str(e))
                 continue
         await c.aclose()
         return None
 
     if ADMIN_BAR_RE.search(r.text or "") or "/wp-admin" in str(r.url):
+        _auth_debug(host, "auth success via admin-bar / wp-admin redirect")
         return c
     if any(c_name.startswith("wordpress_logged_in_") for c_name in jar.keys()):
+        _auth_debug(host, "auth success via wordpress_logged_in_* cookie")
         return c
+    _auth_debug(host, "auth failed — no admin marker", None,
+                  f"final url={r.url}")
     await c.aclose()
     return None
 
@@ -105,19 +215,22 @@ async def _login_app_password(target: str, user: str, app_password: str) -> http
     Verifies by hitting /wp-json/wp/v2/users/me with ?context=edit."""
     parsed = urlparse(target)
     base = f"{parsed.scheme}://{parsed.netloc}"
+    host = parsed.hostname or "host"
     # WP accepts the password with or without spaces; strip for safety
     clean_pw = app_password.replace(" ", "")
     c = httpx.AsyncClient(
         timeout=20.0,
         follow_redirects=True,
         auth=(user, clean_pw),
-        headers={"User-Agent": "WPSecScan/1.0 (app-password-auth)"},
+        headers={"User-Agent": _auth_ua()},
     )
     try:
         r = await c.get(base + "/wp-json/wp/v2/users/me?context=edit")
-    except httpx.HTTPError:
+    except httpx.HTTPError as e:
+        _auth_debug(host, "GET /wp-json/wp/v2/users/me — transport error", None, str(e))
         await c.aclose()
         return None
+    _auth_debug(host, "GET /wp-json/wp/v2/users/me (AP)", r)
     if r.status_code == 200 and r.headers.get("Content-Type", "").startswith("application/json"):
         try:
             payload = r.json()
