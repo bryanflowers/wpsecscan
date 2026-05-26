@@ -13,6 +13,49 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Register the route.
  */
 function wpsecscan_companion_register_routes() {
+    // #24: each route honours wpsecscan_companion_endpoint_enabled() so
+    // admins can disable specific endpoints from the Settings page. Slug
+    // (left column) MUST match the keys in wpsecscan_companion_all_endpoints().
+    $routes = [
+        'diagnostics'              => 'wpsecscan_companion_diagnostics_callback',
+        'file-monitor'             => 'wpsecscan_companion_file_monitor_callback',
+        'app-passwords-policy'     => 'wpsecscan_companion_app_passwords_policy_callback',
+        'slow-query-log'           => 'wpsecscan_companion_slow_query_log_callback',
+        'failed-login-geo'         => 'wpsecscan_companion_failed_login_geo_callback',
+        'admin-login-sources'      => 'wpsecscan_companion_admin_login_sources_callback',
+        'backups'                  => 'wpsecscan_companion_backups_callback',
+        'file-perms'               => 'wpsecscan_companion_file_perms_callback',
+        '2fa-enforcement'          => 'wpsecscan_companion_2fa_enforcement_callback',
+        'active-sessions'          => 'wpsecscan_companion_active_sessions_callback',
+        'recent-admin-actions'     => 'wpsecscan_companion_recent_admin_actions_callback',
+        'db-size-by-table'         => 'wpsecscan_companion_db_size_by_table_callback',
+        'log-files'                => 'wpsecscan_companion_log_files_callback',
+        'php-error-log-tail'       => 'wpsecscan_companion_php_error_log_tail_callback',
+        'wp-cron-failures'         => 'wpsecscan_companion_wp_cron_failures_callback',
+        'scheduled-task-anomalies' => 'wpsecscan_companion_scheduled_task_anomalies_callback',
+        'cron-shell-commands'      => 'wpsecscan_companion_cron_shell_commands_callback',
+        'object-cache-info'        => 'wpsecscan_companion_object_cache_info_callback',
+        'transient-cache-size'     => 'wpsecscan_companion_transient_cache_size_callback',
+        'wp-mail-deliverability'   => 'wpsecscan_companion_wp_mail_deliverability_callback',
+        'multisite-network-info'   => 'wpsecscan_companion_multisite_network_info_callback',
+    ];
+    foreach ( $routes as $slug => $callback ) {
+        if ( function_exists( 'wpsecscan_companion_endpoint_enabled' )
+                && ! wpsecscan_companion_endpoint_enabled( $slug ) ) {
+            continue;
+        }
+        register_rest_route( 'wpsecscan/v1', '/' . $slug, [
+            'methods'             => 'GET',
+            'callback'            => $callback,
+            'permission_callback' => 'wpsecscan_companion_check_token',
+        ] );
+    }
+    return;
+
+    // Legacy block below kept as historical reference; remains unreachable
+    // because of the return above. Once the data-driven loop has shipped
+    // for a release and no operator reports issues, the block can be
+    // deleted entirely.
     register_rest_route( 'wpsecscan/v1', '/diagnostics', [
         'methods'             => 'GET',
         'callback'            => 'wpsecscan_companion_diagnostics_callback',

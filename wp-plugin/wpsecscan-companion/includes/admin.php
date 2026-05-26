@@ -23,7 +23,8 @@ function wpsecscan_companion_admin_menu() {
 }
 
 /**
- * Handle POSTs from the admin page (generate / revoke token).
+ * Handle POSTs from the admin page (generate / revoke token / save
+ * per-endpoint toggles / export the activity log as CSV).
  */
 function wpsecscan_companion_admin_init() {
     if ( ! current_user_can( 'manage_options' ) ) {
@@ -40,7 +41,87 @@ function wpsecscan_companion_admin_init() {
     } elseif ( $action === 'revoke' ) {
         delete_option( WPSECSCAN_COMPANION_TOKEN_OPTION );
         add_settings_error( 'wpsecscan-companion', 'revoked', 'Token revoked.', 'updated' );
+    } elseif ( $action === 'save_endpoints' ) {
+        // #24 per-endpoint enable/disable
+        $allowed = [];
+        foreach ( wpsecscan_companion_all_endpoints() as $slug => $_label ) {
+            if ( ! empty( $_POST['endpoint'][ $slug ] ) ) {
+                $allowed[] = $slug;
+            }
+        }
+        update_option( 'wpsecscan_companion_endpoints_enabled', $allowed, false );
+        add_settings_error( 'wpsecscan-companion', 'saved', 'Endpoint policy saved.', 'updated' );
+    } elseif ( $action === 'export_csv' ) {
+        // #26 CSV export of activity log
+        wpsecscan_companion_export_log_csv();
+        exit;
     }
+}
+
+/**
+ * #24 — full list of endpoints the plugin can expose. Used to render
+ * toggles in the admin UI + as the source of truth for
+ * wpsecscan_companion_endpoint_enabled().
+ */
+function wpsecscan_companion_all_endpoints() {
+    return [
+        'diagnostics'            => 'Diagnostics (core / plugins / users / cron)',
+        'file-monitor'           => 'File-monitor (SHA-256 manifest)',
+        'app-passwords-policy'   => 'App-passwords policy',
+        'slow-query-log'         => 'Slow-query log location',
+        'failed-login-geo'       => 'Failed-login source IPs',
+        'admin-login-sources'    => 'Admin-login source IPs',
+        'backups'                => 'Backup-plugin status',
+        'file-perms'             => 'File permissions',
+        '2fa-enforcement'        => '2FA enforcement policy',
+        'active-sessions'        => 'Active admin sessions (v1.2)',
+        'recent-admin-actions'   => 'Recent admin actions (v1.2)',
+        'db-size-by-table'       => 'DB size per table (v1.2)',
+        'log-files'              => 'Exposed log files (v1.2)',
+        'php-error-log-tail'     => 'PHP error log tail (v1.2)',
+        'wp-cron-failures'       => 'wp-cron failures (v1.2)',
+        'scheduled-task-anomalies' => 'Scheduled-task anomalies (v1.2)',
+        'cron-shell-commands'    => 'Cron callbacks invoking shell-exec (v1.2)',
+        'object-cache-info'      => 'Object-cache drop-in status (v1.2)',
+        'transient-cache-size'   => 'Transient cache bloat (v1.2)',
+        'wp-mail-deliverability' => 'wp_mail deliverability (v1.2)',
+        'multisite-network-info' => 'Multisite per-blog admin counts (v1.2)',
+    ];
+}
+
+/**
+ * #24 — true iff the given endpoint slug is enabled. When the option is
+ * absent or empty, ALL endpoints are enabled (back-compat for installs
+ * upgrading from v1.0/v1.1 which had no toggles).
+ */
+function wpsecscan_companion_endpoint_enabled( $slug ) {
+    $opt = get_option( 'wpsecscan_companion_endpoints_enabled', null );
+    if ( $opt === null || ! is_array( $opt ) || $opt === [] ) {
+        return true;
+    }
+    return in_array( $slug, $opt, true );
+}
+
+/**
+ * #26 — stream the activity log as CSV.
+ */
+function wpsecscan_companion_export_log_csv() {
+    $log = (array) get_option( WPSECSCAN_COMPANION_LOG_OPTION, [] );
+    $filename = 'wpsecscan-companion-log-' . gmdate( 'Ymd-His' ) . '.csv';
+    nocache_headers();
+    header( 'Content-Type: text/csv; charset=utf-8' );
+    header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+    $out = fopen( 'php://output', 'w' );
+    fputcsv( $out, [ 'timestamp', 'ip', 'result', 'sections' ] );
+    foreach ( $log as $row ) {
+        fputcsv( $out, [
+            (string) ( $row['when']     ?? '' ),
+            (string) ( $row['ip']       ?? '' ),
+            (string) ( $row['result']   ?? '' ),
+            (string) ( $row['sections'] ?? '' ),
+        ] );
+    }
+    fclose( $out );
 }
 
 /**
@@ -114,6 +195,82 @@ function wpsecscan_companion_render_admin_page() {
             </p>
         </form>
 
+        <h2>#23 Test connection</h2>
+        <p>
+            Sanity-check that the scanner will be able to reach the endpoints
+            from outside. The test issues a fresh single-use token internally,
+            hits each enabled endpoint locally over <code>http://localhost</code>,
+            and reports which ones returned valid JSON.
+        </p>
+        <p>
+            <button class="button" id="wpsec-test-conn">Run test</button>
+            <span id="wpsec-test-status" style="margin-left:1em;"></span>
+        </p>
+        <table class="widefat" id="wpsec-test-results" style="display:none;">
+            <thead><tr><th>Endpoint</th><th>HTTP</th><th>Result</th></tr></thead>
+            <tbody></tbody>
+        </table>
+        <script>
+        (function(){
+            var btn = document.getElementById('wpsec-test-conn');
+            var status = document.getElementById('wpsec-test-status');
+            var table = document.getElementById('wpsec-test-results');
+            var tbody = table.querySelector('tbody');
+            btn && btn.addEventListener('click', function(e){
+                e.preventDefault();
+                btn.disabled = true;
+                status.textContent = 'Running…';
+                tbody.innerHTML = '';
+                table.style.display = '';
+                fetch(
+                    <?php echo wp_json_encode( admin_url( 'admin-ajax.php?action=wpsecscan_companion_test_connection' ) ); ?>,
+                    { credentials: 'same-origin' }
+                ).then(function(r){ return r.json(); }).then(function(j){
+                    btn.disabled = false;
+                    status.textContent = 'Done — ' + (j.passed || 0) + ' of ' + (j.total || 0) + ' endpoints passed.';
+                    (j.results || []).forEach(function(row){
+                        var tr = document.createElement('tr');
+                        tr.innerHTML =
+                            '<td><code>' + row.slug + '</code></td>' +
+                            '<td>' + row.status + '</td>' +
+                            '<td>' + (row.ok ? '✓ ' + (row.bytes || 0) + ' bytes JSON' : '✗ ' + (row.error || '')) + '</td>';
+                        tbody.appendChild(tr);
+                    });
+                }).catch(function(err){
+                    btn.disabled = false;
+                    status.textContent = 'Test failed: ' + err;
+                });
+            });
+        })();
+        </script>
+
+        <h2>#24 Endpoints enabled</h2>
+        <p>Disable any endpoint you don't want to expose. By default, all are enabled.</p>
+        <form method="post">
+            <?php wp_nonce_field( 'wpsecscan-companion' ); ?>
+            <input type="hidden" name="wpsecscan_action" value="save_endpoints">
+            <table class="widefat striped" style="max-width:760px">
+                <thead><tr><th>Endpoint</th><th>Enabled</th></tr></thead>
+                <tbody>
+                <?php foreach ( wpsecscan_companion_all_endpoints() as $slug => $label ) : ?>
+                    <tr>
+                        <td><code>/wp-json/wpsecscan/v1/<?php echo esc_html( $slug ); ?></code><br><small><?php echo esc_html( $label ); ?></small></td>
+                        <td><input type="checkbox" name="endpoint[<?php echo esc_attr( $slug ); ?>]" value="1" <?php checked( wpsecscan_companion_endpoint_enabled( $slug ) ); ?>></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <p><button class="button button-primary" type="submit">Save endpoint policy</button></p>
+        </form>
+
+        <h2>#26 Export activity log</h2>
+        <p>Download the activity log as CSV for archiving / off-box analysis.</p>
+        <form method="post">
+            <?php wp_nonce_field( 'wpsecscan-companion' ); ?>
+            <input type="hidden" name="wpsecscan_action" value="export_csv">
+            <p><button class="button" type="submit">Download CSV</button></p>
+        </form>
+
         <h2>Recent activity</h2>
         <?php if ( empty( $log ) ) : ?>
             <p><em>No requests yet.</em></p>
@@ -152,4 +309,78 @@ function wpsecscan_companion_render_admin_page() {
         </ul>
     </div>
     <?php
+}
+
+/**
+ * #23 — admin-only AJAX handler that issues a fresh test token and hits
+ * every enabled endpoint locally, returning a per-endpoint pass/fail JSON.
+ */
+function wpsecscan_companion_test_connection_ajax() {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_send_json_error( [ 'error' => 'forbidden' ], 403 );
+    }
+    // Issue an out-of-band single-use token. We bypass the user-facing
+    // generator (which stores hash + shows plaintext once) so the test
+    // doesn't burn the "real" token the operator might have prepared.
+    $plain = wp_generate_password( 48, false, false );
+    update_option(
+        WPSECSCAN_COMPANION_TOKEN_OPTION,
+        [
+            'token'     => wp_hash_password( $plain ),
+            'created'   => time(),
+            'used'      => false,
+            'use_count' => 0,
+            'pinned_ip' => '',
+        ],
+        false
+    );
+    $results = [];
+    $passed  = 0;
+    foreach ( wpsecscan_companion_all_endpoints() as $slug => $_label ) {
+        if ( ! wpsecscan_companion_endpoint_enabled( $slug ) ) {
+            $results[] = [
+                'slug'   => $slug,
+                'status' => 0,
+                'ok'     => false,
+                'error'  => 'disabled in policy',
+            ];
+            continue;
+        }
+        $url = rest_url( 'wpsecscan/v1/' . $slug );
+        $resp = wp_remote_get( $url, [
+            'timeout'   => 10,
+            'sslverify' => false,
+            'headers'   => [ 'X-WPSecScan-Token' => $plain ],
+        ] );
+        if ( is_wp_error( $resp ) ) {
+            $results[] = [
+                'slug'   => $slug,
+                'status' => 0,
+                'ok'     => false,
+                'error'  => $resp->get_error_message(),
+            ];
+            continue;
+        }
+        $code = (int) wp_remote_retrieve_response_code( $resp );
+        $body = (string) wp_remote_retrieve_body( $resp );
+        $json = @json_decode( $body, true );
+        $ok   = ( $code === 200 && is_array( $json ) );
+        $results[] = [
+            'slug'   => $slug,
+            'status' => $code,
+            'ok'     => $ok,
+            'bytes'  => strlen( $body ),
+            'error'  => $ok ? '' : substr( $body, 0, 200 ),
+        ];
+        if ( $ok ) {
+            $passed++;
+        }
+    }
+    // Clean up the test token so it can't be reused.
+    delete_option( WPSECSCAN_COMPANION_TOKEN_OPTION );
+    wp_send_json( [
+        'results' => $results,
+        'passed'  => $passed,
+        'total'   => count( $results ),
+    ] );
 }

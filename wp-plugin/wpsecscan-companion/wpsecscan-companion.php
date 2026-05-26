@@ -36,6 +36,9 @@ add_action( 'plugins_loaded', 'wpsecscan_companion_load_textdomain' );
 add_action( 'admin_menu',     'wpsecscan_companion_admin_menu' );
 add_action( 'admin_init',     'wpsecscan_companion_admin_init' );
 add_action( 'rest_api_init',  'wpsecscan_companion_register_routes' );
+// #23: AJAX endpoint that powers the "Test connection" button on the
+// admin page. Admin-only; doesn't expose anything an admin can't already see.
+add_action( 'wp_ajax_wpsecscan_companion_test_connection', 'wpsecscan_companion_test_connection_ajax' );
 
 /**
  * Load translations from /languages/<text-domain>-<locale>.mo
