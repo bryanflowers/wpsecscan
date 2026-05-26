@@ -1048,8 +1048,11 @@ def mark_tutorial_seen() -> None:
         pass
 
 
-def open_tutorial(app) -> None:
-    """E10: 5-step guided tour shown on first run (or via Help menu)."""
+def open_tutorial(app):
+    """E10: 5-step guided tour shown on first run (or via Help menu).
+
+    Returns the opened Toplevel so first-run callers can chain off its
+    ``<Destroy>`` event."""
     steps = [
         ("1 of 5 - Enter a URL",
          "Paste the WordPress site URL into the URL field at the top.\n\n"
@@ -1128,6 +1131,7 @@ def open_tutorial(app) -> None:
     _show(0)
     win.bind("<Right>", lambda _e: next_btn.invoke())
     win.bind("<Left>", lambda _e: back_btn.invoke())
+    return win
 
 
 # ----------------------- E4 helper: launch the diff viewer in browser -----------------------
@@ -1241,11 +1245,12 @@ def open_marketplace(app) -> None:
 
 # ----------------------- O49 Onboarding wizard -----------------------
 
-def open_onboarding_wizard(app) -> None:
+def open_onboarding_wizard(app):
     """O49: first-run setup wizard — collects API tokens (HIBP, Wordfence,
     Patchstack, GitHub, VT, AbuseIPDB) and writes them to a per-user
     settings file. All fields are optional; the wizard works even if the
-    user skips every step."""
+    user skips every step. Returns the opened Toplevel so first-run callers
+    can chain off its ``<Destroy>`` event."""
     from . import history as _h
 
     win = tk.Toplevel(app.root)
@@ -1302,6 +1307,7 @@ def open_onboarding_wizard(app) -> None:
         win.destroy()
 
     ttk.Button(btns, text="Save", command=_save_and_close).pack(side="right", padx=(0, 8))
+    return win
 
 
 def _setup_tokens_path() -> Path:

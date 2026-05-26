@@ -741,17 +741,11 @@ class App:
         except Exception:  # noqa: BLE001
             pass
 
-        # Defender false-positive: show the first-run safety dialog once.
-        # Scheduled via `after(0,...)` so the main window renders first.
-        self.root.after(200, self._maybe_show_defender_first_run)
-        # E10 tutorial — show 5-step guided tour on first run (after the Defender dialog so
-        # they don't overlap; the guide is more useful AFTER they've seen the safety note).
-        self.root.after(600, self._maybe_show_tutorial_first_run)
-        # O49 onboarding wizard — first-run token setup (after tutorial closes naturally).
-        self.root.after(1200, self._maybe_show_onboarding_wizard_first_run)
-        # Round-57: silently check GitHub releases on launch — show a click-to-download
-        # popup if an update is available. Runs after the other first-run dialogs.
-        self.root.after(2000, self._maybe_show_update_notice)
+        # UX-036: chain first-run dialogs via <Destroy> instead of fixed
+        # after() delays — keeps Defender → Tutorial → Wizard → Update
+        # in strict order regardless of how long the user spends on each
+        # popup.
+        self._run_first_run_chain()
         # E9 voice readout — opt-in via preference; default off.
         self.tts_enabled = self._load_pref("tts_enabled", False)
 
@@ -2349,39 +2343,80 @@ class App:
         import threading
         threading.Thread(target=_worker, daemon=True).start()
 
-    def _maybe_show_defender_first_run(self) -> None:
+    def _maybe_show_defender_first_run(self):
         """First-launch dialog explaining the Defender false positive.
 
         Tracked via ~/.wpsecscan/first_run_acknowledged.json so it only shows once.
+        Returns the opened Toplevel (or None when skipped) so the first-run
+        chain can wait for it to close before opening the next dialog.
         """
         try:
             if self._defender_ack_path().exists():
-                return
+                return None
         except (OSError, Exception):  # noqa: BLE001
-            return
-        self._open_defender_dialog(is_first_run=True)
+            return None
+        return self._open_defender_dialog(is_first_run=True)
 
-    def _maybe_show_tutorial_first_run(self) -> None:
+    def _maybe_show_tutorial_first_run(self):
         """E10: show the 5-step tutorial once on first launch."""
         try:
             from . import gui_windows as _gw
             if _gw.has_seen_tutorial():
-                return
-            _gw.open_tutorial(self)
+                return None
+            return _gw.open_tutorial(self)
         except Exception:  # noqa: BLE001
-            # GUI must not die because a tutorial fails to render
-            pass
+            return None
 
-    def _maybe_show_onboarding_wizard_first_run(self) -> None:
+    def _maybe_show_onboarding_wizard_first_run(self):
         """O49: show the token-setup wizard once on first launch."""
         try:
             from . import gui_windows as _gw
             if _gw.has_seen_wizard():
-                return
+                return None
             _gw.mark_wizard_seen()  # mark BEFORE opening so close/cancel still counts
-            _gw.open_onboarding_wizard(self)
+            return _gw.open_onboarding_wizard(self)
         except Exception:  # noqa: BLE001
-            pass
+            return None
+
+    def _run_first_run_chain(self) -> None:
+        """UX-036: open the first-run dialogs sequentially, each kicking off
+        the next on its ``<Destroy>`` event. Previously the three dialogs were
+        fired by hard-coded ``after(200/600/1200ms)`` delays — on a slow PC
+        the tutorial could open behind the wizard and the Defender popup
+        would steal focus mid-form. Chaining via <Destroy> makes the
+        ordering deterministic regardless of how long the user spends on
+        any one dialog."""
+        steps = [
+            self._maybe_show_defender_first_run,
+            self._maybe_show_tutorial_first_run,
+            self._maybe_show_onboarding_wizard_first_run,
+            lambda: self._maybe_show_update_notice() or None,
+        ]
+
+        def _run_step(idx: int) -> None:
+            if idx >= len(steps):
+                return
+            try:
+                win = steps[idx]()
+            except Exception:  # noqa: BLE001 — first-run chain must never crash the app
+                win = None
+            if win is not None and hasattr(win, "bind"):
+                # When this dialog closes, fire the next step.
+                win.bind("<Destroy>",
+                          lambda _e, _i=idx: (
+                              # Tk dispatches <Destroy> for *every* child
+                              # widget of the Toplevel as it's torn down;
+                              # only act on the Toplevel's own destruction.
+                              self.root.after_idle(lambda: _run_step(_i + 1))
+                              if str(_e.widget) == str(win) else None
+                          ),
+                          add="+")
+            else:
+                # Step was skipped (marker already set) — proceed immediately.
+                self.root.after(0, _run_step, idx + 1)
+
+        # Defer the first step until the main window has rendered.
+        self.root.after(200, _run_step, 0)
 
     def _maybe_show_update_notice(self, *, force: bool = False) -> None:
         """Round-57: check GitHub releases on launch. If a newer version is
@@ -2449,7 +2484,7 @@ class App:
         ttk.Button(btns, text="Later", command=_later).pack(side="left", padx=(8, 0))
         ttk.Button(btns, text="Close", command=win.destroy).pack(side="right")
 
-    def _open_defender_dialog(self, is_first_run: bool = False) -> None:
+    def _open_defender_dialog(self, is_first_run: bool = False):  # returns Toplevel or None
         """Dialog explaining why Windows Defender may flag this binary and offering
         a one-click 'add exclusion' button + a 'copy command' button."""
         win = _tk_mod.Toplevel(self.root)
@@ -2546,6 +2581,7 @@ class App:
         x = self.root.winfo_rootx() + (self.root.winfo_width() // 2) - (win.winfo_width() // 2)
         y = self.root.winfo_rooty() + 100
         win.geometry(f"+{x}+{y}")
+        return win
 
     @staticmethod
     def _ps_single_quote(s: str) -> str:
