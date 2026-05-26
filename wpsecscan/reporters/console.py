@@ -69,7 +69,26 @@ def render(report: ScanReport, console=None) -> None:
         return
     console = console or Console()
     console.rule(f"[bold]WPSecScan[/bold]  {report.target}")
-    console.print(f"[dim]Scanned at {report.scanned_at} • duration {report.duration_ms} ms[/dim]\n")
+    console.print(f"[dim]Scanned at {report.scanned_at} • duration {report.duration_ms} ms[/dim]")
+
+    # Executive summary at the TOP — a CI log tail or a quick glance shouldn't
+    # have to scroll past every finding to learn the verdict.
+    from ..risk import risk_grade, risk_label
+    s = report.summary
+    score = report.risk_score
+    sev_parts = []
+    for sev, color in (("critical", "red"), ("high", "red"), ("medium", "yellow"),
+                       ("low", "cyan"), ("info", "dim")):
+        n = s.get(sev, 0)
+        if n:
+            sev_parts.append(f"[{color}]{n} {sev}[/{color}]")
+    sev_line = " · ".join(sev_parts) if sev_parts else "[green]no findings[/green]"
+    grade = risk_grade(score)
+    grade_color = {"A": "green", "B": "green", "C": "yellow", "D": "yellow", "F": "red"}.get(grade, "white")
+    console.print(
+        f"[bold]Risk: {score}/100[/bold]  ·  grade [{grade_color}]{grade}[/{grade_color}]  ·  "
+        f"{sev_line}  ·  [dim]{risk_label(score)}[/dim]\n"
+    )
 
     for r in report.results:
         if r.error:

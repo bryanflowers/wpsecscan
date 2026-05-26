@@ -426,14 +426,18 @@ def open_trend(app) -> None:
     body = ttk.Frame(win, padding=14)
     body.pack(fill="both", expand=True)
 
-    # Look for any snapshot files matching this URL — use the same _safe_filename
-    # helper that history.save_report_snapshot uses, so the glob actually matches.
+    # Look for snapshot files matching this URL. history.save_report_snapshot
+    # writes exactly `{safe}.json`; the previous `*{safe}*.json` glob was
+    # over-broad and matched sibling sites (e.g. safe='test.com' also matched
+    # 'bigtest.com.json'). Match the exact file plus any timestamped variants
+    # the codebase might add later (`{safe}-{date}.json`).
     from . import history as _h
     safe = _h._safe_filename(url)
     reports_dir = Path.home() / ".wpsecscan" / "reports"
     snapshots: list[tuple[str, int]] = []
     if reports_dir.exists():
-        for p in sorted(reports_dir.glob(f"*{safe}*.json")):
+        candidates = list(reports_dir.glob(f"{safe}.json")) + list(reports_dir.glob(f"{safe}-*.json"))
+        for p in sorted(candidates):
             try:
                 d = json.loads(p.read_text(encoding="utf-8"))
                 snapshots.append((d.get("scanned_at", p.stem), int(d.get("risk_score", 0))))

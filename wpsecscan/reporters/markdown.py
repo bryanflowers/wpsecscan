@@ -11,8 +11,16 @@ from pathlib import Path
 from ..models import ScanReport
 
 
-def render(report: ScanReport) -> str:
+def render(report: ScanReport, top_n: int | None = None) -> str:
+    """Render the report as Markdown.
+
+    Pass `top_n` to keep only the top-N findings by severity (useful for
+    posting into Slack/Discord where 4000-character messages are the limit).
+    Severity ordering is critical > high > medium > low > info; within a
+    severity, scan-execution order is preserved.
+    """
     s = report.summary
+    from ..models import SEVERITY_RANK
     from ..risk import risk_grade, risk_label
     from .. import confidence as _conf
     score = report.risk_score
@@ -21,6 +29,31 @@ def render(report: ScanReport) -> str:
         for r in report.results if r.check_id == "waf"
         for f in r.findings
     )
+
+    # Truncate to top-N when requested. Sort all (check, finding) pairs by
+    # severity desc, keep the first N, then group back into per-check sections
+    # so the existing rendering loop still produces clean output.
+    if top_n is not None and top_n > 0:
+        ranked: list[tuple[int, object, object]] = []
+        for res in report.results:
+            for f in res.findings:
+                ranked.append((SEVERITY_RANK.get(f.severity, -1), res, f))
+        ranked.sort(key=lambda t: t[0], reverse=True)
+        keep_pairs = ranked[:top_n]
+        from collections import defaultdict
+        keep_per_res: dict = defaultdict(list)
+        for _r, res, f in keep_pairs:
+            keep_per_res[id(res)].append((res, f))
+        # Build a filtered report.results-shaped list preserving original order
+        from dataclasses import replace
+        filtered: list = []
+        for res in report.results:
+            kept = [f for r, f in keep_per_res.get(id(res), []) if r is res]
+            if kept:
+                filtered.append(replace(res, findings=kept))
+        # Mutate locally — we don't touch the caller's report object
+        report = replace(report, results=filtered)
+        s = report.summary
     lines: list[str] = [
         f"# WPSecScan — {report.target}",
         "",
@@ -65,8 +98,8 @@ def render(report: ScanReport) -> str:
     return "\n".join(lines)
 
 
-def write(report: ScanReport, path: Path) -> None:
-    path.write_text(render(report), encoding="utf-8")
+def write(report: ScanReport, path: Path, top_n: int | None = None) -> None:
+    path.write_text(render(report, top_n=top_n), encoding="utf-8")
     try:
         from .. import activity as _act
         _act.emit("reporter", f"Markdown: {path.name} ({path.stat().st_size // 1024} KB)")

@@ -178,7 +178,7 @@ async def _scan_one(target: str, args, console: Console):
 
     if args.md:
         md_p = out_dir / f"{stem}.md"
-        md_reporter.write(report, md_p)
+        md_reporter.write(report, md_p, top_n=args.md_top)
         if not args.no_console:
             console.print(f"[green]✓[/green] Markdown report: [bold]{md_p}[/bold]")
 
@@ -343,7 +343,9 @@ async def _amain(args) -> int:
 def main() -> None:
     # ---- Subcommand dispatch (round-60): keep before argparse so existing
     # `wpsecscan <url>` invocations stay backward-compatible.
-    if len(sys.argv) >= 2 and sys.argv[1] in ("sites", "schedule", "digest", "ai-cost", "db"):
+    if len(sys.argv) >= 2 and sys.argv[1] in (
+        "sites", "schedule", "digest", "ai-cost", "db", "ai-options", "analytics",
+    ):
         _dispatch_subcommand(sys.argv[1], sys.argv[2:])
         return
 
@@ -385,12 +387,20 @@ def main() -> None:
     p.add_argument("--password-audit", default=None, metavar="WP_USERS.csv", help="Offline: read a CSV or SQL dump of wp_users and emit a hashcat-ready file. NO network calls.")
 
     p.add_argument("--insecure", action="store_true", help="Don't verify TLS certs")
-    p.add_argument("--no-console", action="store_true", help="Suppress console output")
+    # --quiet / -q is the conventional name; --no-console is kept for back-compat.
+    p.add_argument("--quiet", "-q", "--no-console", dest="no_console", action="store_true",
+                   help="Suppress console output (still writes report files)")
+    p.add_argument("-v", "--verbose", action="count", default=0,
+                   help="Increase console verbosity (-v shows per-check progress, -vv shows HTTP-level detail). "
+                        "Independent of --debug (which writes a log file).")
     p.add_argument("--no-color", action="store_true", help="Disable colored console output")
 
     p.add_argument("--csv", action="store_true", help="Also write CSV report (formula-injection neutralised)")
     p.add_argument("--sarif", action="store_true", help="Also write SARIF 2.1.0 report")
     p.add_argument("--md", action="store_true", help="Also write a Markdown report (handy for tickets / PRs / Slack)")
+    p.add_argument("--md-top", type=int, default=None, metavar="N",
+                   help="Truncate the Markdown report to the top-N findings by severity "
+                        "(useful for Slack/Discord's 4000-char message limit).")
     p.add_argument("--xlsx", action="store_true", help="Also write an Excel workbook with per-OWASP-category sheets")
     p.add_argument("--har", default=None, metavar="HAR_FILE", help="Record every HTTP request/response into a HAR file for debugging or replay")
     p.add_argument("--parallel-groups", action="store_true", help="Run within-group checks concurrently (~30%% faster on typical scans; default sequential)")
@@ -399,7 +409,10 @@ def main() -> None:
     p.add_argument("--abuseipdb-token", default=None, help="AbuseIPDB API token for IP-reputation lookup (free tier: 1000/day at abuseipdb.com)")
     p.add_argument("--vt-token", default=None, help="VirusTotal API key (free tier: 4 req/min)")
     p.add_argument("--github-search-token", default=None, help="GitHub PAT (public_repo scope) for the leaked-token search check (--diff-against alternative)")
-    p.add_argument("--diff-against", default=None, metavar="BASELINE.json", help="After scan, compute diff vs a saved JSON baseline and emit NEW/RESOLVED to stdout")
+    # --baseline is the clearer name; --diff-against kept for back-compat
+    # (and to distinguish from --diff which compares two arbitrary files).
+    p.add_argument("--baseline", "--diff-against", dest="diff_against", default=None, metavar="BASELINE.json",
+                   help="After scan, compute diff vs a saved JSON baseline and emit NEW/RESOLVED to stdout")
     p.add_argument("--shell", action="store_true", help="After scan, drop into an interactive Python REPL with `report`, `client`, `ctx` pre-bound (for power users)")
     p.add_argument("--replay-har", default=None, metavar="HAR_FILE", help="F2: replay every request from a previously-recorded HAR file (use --target to override the origin). Prints per-request status + body-size delta.")
     # ---- Round-55 CLI additions ----
@@ -441,6 +454,23 @@ def main() -> None:
         print(generate(args.completion))
         sys.exit(0)
 
+    # Read --auth-pass from stdin when the user passes `-`. Stops the
+    # password showing up in `ps aux` / shell history.
+    if args.auth_pass == "-":
+        import getpass
+        try:
+            args.auth_pass = getpass.getpass("WordPress admin password: ")
+        except (EOFError, KeyboardInterrupt):
+            print("aborted: no password provided", file=sys.stderr)
+            sys.exit(130)
+
+    # --timeout below 5s reliably causes false-positive timeout findings
+    # (TLS handshake alone can take 1-2s; a slow plugin can take 3s).
+    if args.timeout < 5 and not args.no_console:
+        print(f"[warn] --timeout {args.timeout:.1f}s is very short; "
+              "expect false-positive timeout findings on real sites.",
+              file=sys.stderr)
+
     log_path = logmod.configure(args.debug)
     if log_path:
         print(f"[debug] log: {log_path}", file=sys.stderr)
@@ -460,7 +490,9 @@ def main() -> None:
                 f"account. You can supply --wpscan-token for per-plugin lookups instead.",
                 file=sys.stderr,
             )
-            sys.exit(0)
+            # Exit 75 (EX_TEMPFAIL) so CI / update scripts can detect the
+            # network-fetch failure. Previously returned 0, hiding the error.
+            sys.exit(75)
 
     if args.diff:
         old, new = args.diff

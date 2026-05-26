@@ -86,6 +86,33 @@ def test_markdown_reporter_render():
     assert "````" in text
 
 
+def test_markdown_reporter_top_n_keeps_highest_severities():
+    """--md-top N must keep the N most-severe findings (cross-check), preserving
+    their per-check grouping. Slack-style truncation."""
+    from wpsecscan.reporters import markdown as md
+    from wpsecscan.models import Finding, CheckResult, ScanReport
+    r = ScanReport(
+        target="https://example.com",
+        scanned_at="2026-05-23T00:00:00Z",
+        duration_ms=0,
+        results=[
+            CheckResult(check_id="a", check_name="check a", findings=[
+                Finding(severity="info", title="A-info"),
+                Finding(severity="critical", title="A-crit"),
+            ]),
+            CheckResult(check_id="b", check_name="check b", findings=[
+                Finding(severity="medium", title="B-med"),
+                Finding(severity="high", title="B-high"),
+            ]),
+        ],
+    )
+    text = md.render(r, top_n=2)
+    assert "A-crit" in text
+    assert "B-high" in text
+    assert "A-info" not in text
+    assert "B-med" not in text
+
+
 # ---- A6 Patchstack: function exists ----
 
 def test_patchstack_function_exists_and_handles_no_token():

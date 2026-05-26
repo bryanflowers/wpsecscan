@@ -102,6 +102,16 @@ def render(report: ScanReport) -> str:
     from .. import recommend as _rec
     waf_rules_map = {r.check_id: _wr.get_rule(r.check_id) for r in report.results if _wr.get_rule(r.check_id)}
     recommendations = _rec.recommendations_for(report)
+
+    # Sort checks by worst finding severity (descending) so the HTML opens with
+    # the most-actionable items at the top. The template iterates report.results,
+    # so we replace the report's list rather than passing a separate view.
+    from ..models import SEVERITY_RANK
+    def _worst_rank(check_result):
+        if not check_result.findings:
+            return -1
+        return max(SEVERITY_RANK.get(f.severity, -1) for f in check_result.findings)
+    report.results = sorted(report.results, key=_worst_rank, reverse=True)
     # E2 heatmap — render once, embed inline
     try:
         from .. import heatmap as _hm
