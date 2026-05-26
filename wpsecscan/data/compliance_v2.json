@@ -68,6 +68,7 @@
   "core_version":    {"hitrust": "06.h", "cmmc": "CM.L2-3.4.1", "nist_csf": "ID.AM-02", "cis_v8": "2.1", "iso_27001_2022": "A.8.8"},
   "core_cves":       {"hitrust": "06.i", "cmmc": "RA.L2-3.11.2","nist_csf": "ID.RA-01", "cis_v8": "7.1", "iso_27001_2022": "A.8.8"},
   "plugin_cves":     {"hitrust": "06.i", "cmmc": "RA.L2-3.11.2","nist_csf": "ID.RA-01", "cis_v8": "7.1", "iso_27001_2022": "A.8.8"},
+  "plugin_cemetery": {"hitrust": "06.i", "cmmc": "RA.L2-3.11.2","nist_csf": "ID.RA-01", "cis_v8": "7.1", "iso_27001_2022": "A.8.8"},
   "theme_cves":      {"hitrust": "06.i", "cmmc": "RA.L2-3.11.2","nist_csf": "ID.RA-01", "cis_v8": "7.1", "iso_27001_2022": "A.8.8"},
   "core_tampering":  {"hitrust": "10.j", "cmmc": "SI.L2-3.14.7","nist_csf": "PR.DS-06", "cis_v8": "11.5","iso_27001_2022": "A.8.32"},
   "waf":             {"hitrust": "01.o", "cmmc": "SC.L2-3.13.6","nist_csf": "PR.IR-01", "cis_v8": "13.10","iso_27001_2022": "A.8.20"},

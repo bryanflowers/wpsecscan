@@ -121,12 +121,20 @@ def _safe_filename(url: str) -> str:
 
 
 def save_report_snapshot(url: str, report_json_text: str) -> None:
-    """Persist the latest JSON for a URL so the GUI diff can find it next scan."""
+    """Persist the latest JSON for a URL. Writes two files:
+      - `{safe}.json` (canonical "latest", overwritten each run — back-compat)
+      - `{safe}-{YYYYmmdd-HHMMSS}.json` (timestamped history for trend / compare)
+    Old timestamped snapshots are retained; pruning is the caller's job.
+    """
     if not url or not report_json_text:
         return
-    name = _safe_filename(url) + ".json"
+    from datetime import datetime as _dt
+    safe = _safe_filename(url)
+    ts = _dt.utcnow().strftime("%Y%m%d-%H%M%S")
     try:
-        (_reports_dir() / name).write_text(report_json_text, encoding="utf-8")
+        d = _reports_dir()
+        (d / f"{safe}.json").write_text(report_json_text, encoding="utf-8")
+        (d / f"{safe}-{ts}.json").write_text(report_json_text, encoding="utf-8")
     except OSError:
         pass
 
@@ -135,6 +143,14 @@ def previous_report_path(url: str) -> Path | None:
     """Returns the previous-scan JSON path for this URL, or None."""
     p = _reports_dir() / (_safe_filename(url) + ".json")
     return p if p.exists() else None
+
+
+def snapshot_history(url: str) -> list[Path]:
+    """Return all timestamped snapshots for a URL, sorted oldest-to-newest.
+    Excludes the canonical `{safe}.json` (the "latest" alias). Used by
+    `wpsecscan compare URL` to diff consecutive scans."""
+    safe = _safe_filename(url)
+    return sorted(_reports_dir().glob(f"{safe}-*.json"))
 
 
 # --------------- Finding annotations (#3) ---------------

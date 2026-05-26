@@ -345,6 +345,7 @@ def main() -> None:
     # `wpsecscan <url>` invocations stay backward-compatible.
     if len(sys.argv) >= 2 and sys.argv[1] in (
         "sites", "schedule", "digest", "ai-cost", "db", "ai-options", "analytics",
+        "compare", "badge",
     ):
         _dispatch_subcommand(sys.argv[1], sys.argv[2:])
         return
@@ -664,9 +665,74 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_ai_options(args)
     elif cmd == "analytics":
         _cmd_analytics(args)
+    elif cmd == "compare":
+        _cmd_compare(args)
+    elif cmd == "badge":
+        _cmd_badge(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
+
+
+def _cmd_compare(args: list[str]) -> None:
+    """`wpsecscan compare URL` — diff the two most recent snapshots of URL.
+
+    Snapshots are auto-saved under ~/.wpsecscan/reports/{safe}-{ts}.json by
+    every scan. Exits 0 if no new findings, 1 if any added since prior scan.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print("usage: wpsecscan compare <URL>", file=sys.stderr)
+        sys.exit(64)
+    url = args[0]
+    from . import history as _h
+    snaps = _h.snapshot_history(url)
+    if len(snaps) < 2:
+        msg = ("Need at least 2 saved snapshots to compare; "
+               f"found {len(snaps)} for {url}. "
+               "Run `wpsecscan {URL}` a couple of times first.")
+        print(msg, file=sys.stderr)
+        sys.exit(64)
+    old, new = snaps[-2], snaps[-1]
+    print(f"Comparing:\n  before: {old.name}\n  after:  {new.name}\n", file=sys.stderr)
+    d = diff_mod.diff(old, new)
+    print(diff_mod.render_text(d))
+    sys.exit(0 if not d.get("new") else 1)
+
+
+def _cmd_badge(args: list[str]) -> None:
+    """`wpsecscan badge URL [--out badge.svg]` — emit a shields.io-style SVG
+    of the most recent scan's grade. Reads the canonical
+    `~/.wpsecscan/reports/{safe}.json`."""
+    if not args or args[0] in ("-h", "--help"):
+        print("usage: wpsecscan badge <URL> [--out badge.svg]", file=sys.stderr)
+        sys.exit(64)
+    url = args[0]
+    out_path: Path | None = None
+    for i, a in enumerate(args[1:], 1):
+        if a == "--out" and i + 1 <= len(args) - 1:
+            out_path = Path(args[i + 1])
+            break
+    from . import history as _h
+    from .reporters import badge_svg as _bs
+    snap = _h.previous_report_path(url)
+    if snap is None:
+        print(f"No saved snapshot for {url}. Run `wpsecscan {url}` first.",
+              file=sys.stderr)
+        sys.exit(64)
+    import json as _json
+    try:
+        data = _json.loads(snap.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        print(f"Could not read snapshot: {e}", file=sys.stderr)
+        sys.exit(1)
+    summary = data.get("summary") or {}
+    svg = _bs.render_badge_svg(summary)
+    if out_path:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(svg, encoding="utf-8")
+        print(f"Wrote badge: {out_path}", file=sys.stderr)
+    else:
+        print(svg)
 
 
 def _cmd_ai_options(args: list[str]) -> None:

@@ -245,6 +245,11 @@
     "nist_800_53": "SI-2",
     "iso_27001": "A.8.8"
   },
+  "plugin_cemetery": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
   "theme_cves": {
     "pci_dss": "6.3.3",
     "nist_800_53": "SI-2",

@@ -58,6 +58,7 @@
   "wp_rest_methods":       {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application"},
   "core_cves":             {"owasp": "A06:2021", "owasp_label": "Vulnerable & Outdated Components", "attack": "T1190", "attack_label": "Exploit Public-Facing Application"},
   "plugin_cves":           {"owasp": "A06:2021", "owasp_label": "Vulnerable & Outdated Components", "attack": "T1190", "attack_label": "Exploit Public-Facing Application"},
+  "plugin_cemetery":       {"owasp": "A06:2021", "owasp_label": "Vulnerable & Outdated Components", "attack": "T1195", "attack_label": "Supply Chain Compromise"},
   "theme_cves":            {"owasp": "A06:2021", "owasp_label": "Vulnerable & Outdated Components", "attack": "T1190", "attack_label": "Exploit Public-Facing Application"},
   "sqli":                  {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1190", "attack_label": "Exploit Public-Facing Application"},
   "xss_reflected":         {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1059.007", "attack_label": "JavaScript Execution"},

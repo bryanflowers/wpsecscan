@@ -154,6 +154,7 @@ from .wp_cli_inject import check as wp_cli_inject
 # CVE matching (uses the Wordfence DB; runs whenever DB is present)
 from .core_cves import check as core_cves
 from .plugin_cves import check as plugin_cves
+from .plugin_cemetery import check as plugin_cemetery
 from .theme_cves import check as theme_cves
 
 # Aggressive (active payloads) — opt-in
@@ -286,6 +287,7 @@ ALL_CHECKS = [
     ("hibp",               "HaveIBeenPwned lookup",      hibp,               False),
     ("core_cves",          "Core CVE matching",          core_cves,          False),
     ("plugin_cves",        "Plugin CVE matching",        plugin_cves,        False),
+    ("plugin_cemetery",    "Abandoned-plugin detector (wp.org last_updated)", plugin_cemetery, False),
     ("theme_cves",         "Theme CVE matching",         theme_cves,         False),
     # ---- Aggressive ----
     ("sqli",               "SQL injection probes",       sqli,               True),

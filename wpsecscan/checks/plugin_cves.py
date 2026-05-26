@@ -76,8 +76,36 @@ def _next_steps(slug: str, ver: str | None, vuln: vulndb.Vuln) -> list[str]:
     return steps
 
 
+def _dwell_time_note(cve: str) -> tuple[str, int | None]:
+    """Estimate attacker dwell-time window from the CVE-YYYY-NNNN year.
+
+    Not exact (CVE-YYYY identifies the YEAR ASSIGNED, not the disclosure
+    date), but close enough to convey urgency: a CVE assigned 4 years ago
+    has been "publicly known and exploitable since at least YYYY" — every
+    day on an unpatched plugin is a day of accumulated risk.
+
+    Returns ("...", years) or ("", None) if no parseable CVE year.
+    """
+    import re as _re
+    m = _re.match(r"CVE-(\d{4})-", cve or "", _re.IGNORECASE)
+    if not m:
+        return "", None
+    year = int(m.group(1))
+    from datetime import datetime as _dt
+    now_year = _dt.utcnow().year
+    yrs = max(0, now_year - year)
+    if yrs == 0:
+        note = "Publicly known since this year — patch immediately to limit dwell time."
+    elif yrs == 1:
+        note = f"Publicly known since CVE-{year}-XXX (~1 year of accumulated exposure)."
+    else:
+        note = f"Publicly known since CVE-{year}-XXX (~{yrs} years of accumulated exposure)."
+    return note, yrs
+
+
 def _vuln_to_finding(slug: str, ver: str | None, vuln: vulndb.Vuln, client: Client) -> Finding:
     refs = "\n".join(f"  - {r}" for r in vuln.references[:5])
+    dwell_note, dwell_yrs = _dwell_time_note(vuln.cve)
     evidence = (
         f"{vuln.title}\n"
         f"  Plugin:        {slug}\n"
@@ -86,6 +114,7 @@ def _vuln_to_finding(slug: str, ver: str | None, vuln: vulndb.Vuln, client: Clie
         + (f"  Fixed in:      {vuln.fixed_in}\n" if vuln.fixed_in else "")
         + (f"  CVE:           {vuln.cve}\n" if vuln.cve else "")
         + (f"  CVSS:          {vuln.cvss}\n" if vuln.cvss is not None else "")
+        + (f"  Dwell time:    {dwell_note}\n" if dwell_note else "")
         + (f"  References:\n{refs}\n" if refs else "")
         + (f"  Description:   {vuln.description[:300]}\n" if vuln.description else "")
     )
@@ -104,6 +133,7 @@ def _vuln_to_finding(slug: str, ver: str | None, vuln: vulndb.Vuln, client: Clie
             "cvss": vuln.cvss,
             "affected_range": _affected_range(vuln),
             "fixed_in": vuln.fixed_in,
+            "dwell_years": dwell_yrs,
             "references": vuln.references[:10],
             "next_steps": _next_steps(slug, ver, vuln),
         },
