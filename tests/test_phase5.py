@@ -142,3 +142,143 @@ def test_plugin_cemetery_year_parser():
     # Junk
     assert _years_since("") is None
     assert _years_since("not-a-date") is None
+
+
+# ============================== compare subcommand ==============================
+
+def test_cmd_compare_exits_64_when_no_snapshots(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    from wpsecscan.__main__ import _cmd_compare
+    import pytest as _pytest
+    with _pytest.raises(SystemExit) as exc:
+        _cmd_compare(["https://nonexistent.example.com"])
+    assert exc.value.code == 64
+    err = capsys.readouterr().err
+    assert "found 0" in err or "Need at least 2" in err
+
+
+def test_cmd_compare_diffs_two_snapshots(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    from wpsecscan.__main__ import _cmd_compare
+    from wpsecscan import history as _h
+    import time as _time, pytest as _pytest
+    # Snapshot 1: clean
+    _h.save_report_snapshot("https://x.example.com",
+        '{"target":"https://x.example.com","scanned_at":"2026-01-01","results":[]}')
+    _time.sleep(1.1)  # distinct timestamp
+    # Snapshot 2: has a new finding
+    _h.save_report_snapshot("https://x.example.com",
+        '{"target":"https://x.example.com","scanned_at":"2026-01-02",'
+        '"results":[{"check_name":"sqli","findings":[{"severity":"high","title":"new","url":"u"}]}]}')
+    with _pytest.raises(SystemExit) as exc:
+        _cmd_compare(["https://x.example.com"])
+    # Exit 1 because of the new finding
+    assert exc.value.code == 1
+    out = capsys.readouterr().out
+    assert "NEW" in out and "new" in out
+
+
+# ============================== badge subcommand ==============================
+
+def test_cmd_badge_no_snapshot_exits_64(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    from wpsecscan.__main__ import _cmd_badge
+    import pytest as _pytest
+    with _pytest.raises(SystemExit) as exc:
+        _cmd_badge(["https://no-snapshot.example.com"])
+    assert exc.value.code == 64
+
+
+def test_cmd_badge_emits_svg_from_snapshot(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    from wpsecscan.__main__ import _cmd_badge
+    from wpsecscan import history as _h
+    _h.save_report_snapshot("https://x.example.com",
+        '{"target":"https://x.example.com","summary":{"critical":0,"high":1,"medium":2,"low":3,"info":0}}')
+    _cmd_badge(["https://x.example.com"])
+    out = capsys.readouterr().out
+    assert "<svg" in out and "wpsecscan" in out and "high" in out
+
+
+def test_cmd_badge_writes_to_out_file(monkeypatch, tmp_path):
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    from wpsecscan.__main__ import _cmd_badge
+    from wpsecscan import history as _h
+    _h.save_report_snapshot("https://x.example.com",
+        '{"target":"https://x.example.com","summary":{"critical":0,"high":0,"medium":0,"low":0,"info":0}}')
+    out_file = tmp_path / "badge.svg"
+    _cmd_badge(["https://x.example.com", "--out", str(out_file)])
+    assert out_file.exists()
+    text = out_file.read_text()
+    assert "<svg" in text
+
+
+# ============================== _embed author-leak in users.py =================
+
+def test_users_embed_author_leak_detected():
+    """REST _embed exposes author slugs even when /users endpoint is locked."""
+    from wpsecscan.checks.users import check
+    from tests.conftest import FakeClient, FakeResponse
+    import json as _json
+    body = _json.dumps([{"id": 1, "title": {"rendered": "Hi"},
+                         "_embedded": {"author": [{"id": 1, "slug": "admin"}]}}])
+    client = FakeClient(responses={
+        "/wp-json/wp/v2/posts?per_page=20&_embed=1": FakeResponse(
+            text=body, headers={"content-type": "application/json"}),
+    })
+    ctx = {"target": "https://x.com", "shared": {}, "step": lambda _s: None}
+    findings = run(check(client, ctx))
+    assert any("_embed" in f.title and "user(s)" in f.title for f in findings)
+
+
+def test_users_embed_no_authors_no_finding():
+    """If _embedded is missing, the _embed branch must not fire a finding."""
+    from wpsecscan.checks.users import check
+    from tests.conftest import FakeClient, FakeResponse
+    import json as _json
+    body = _json.dumps([{"id": 1, "title": {"rendered": "Hi"}}])  # no _embedded
+    client = FakeClient(responses={
+        "/wp-json/wp/v2/posts?per_page=20&_embed=1": FakeResponse(
+            text=body, headers={"content-type": "application/json"}),
+    })
+    ctx = {"target": "https://x.com", "shared": {}, "step": lambda _s: None}
+    findings = run(check(client, ctx))
+    assert not any("_embed" in f.title for f in findings)
+
+
+# ============================== --auth-pass - stdin path ============================
+
+def test_auth_pass_stdin_reads_password(monkeypatch):
+    """`--auth-pass -` triggers getpass.getpass instead of a literal `-`."""
+    from wpsecscan.__main__ import _read_auth_pass_from_stdin
+    captured = {}
+    def fake_getpass(prompt=""):
+        captured["prompt"] = prompt
+        return "s3cret-from-stdin"
+    monkeypatch.setattr("getpass.getpass", fake_getpass)
+    assert _read_auth_pass_from_stdin() == "s3cret-from-stdin"
+    assert "prompt" in captured
+
+
+def test_auth_pass_stdin_aborts_on_eof(monkeypatch, capsys):
+    """EOFError from getpass exits 130 with a helpful message."""
+    from wpsecscan.__main__ import _read_auth_pass_from_stdin
+    def raises_eof(prompt=""): raise EOFError
+    monkeypatch.setattr("getpass.getpass", raises_eof)
+    import pytest as _pytest
+    with _pytest.raises(SystemExit) as exc:
+        _read_auth_pass_from_stdin()
+    assert exc.value.code == 130
+    assert "aborted" in capsys.readouterr().err.lower()
+
+
+# ============================== _parse_rdap_expiry ==============================
+
+def test_parse_rdap_expiry_high_severity_under_30d():
+    """The full _whois_expiry_finding pipeline emits 'high' < 30 days."""
+    from wpsecscan.checks.dns_security import _parse_rdap_expiry
+    from datetime import datetime, timezone, timedelta
+    future = (datetime.now(timezone.utc) + timedelta(days=20)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    _, days = _parse_rdap_expiry({"events": [{"eventAction": "expiration", "eventDate": future}]})
+    assert days is not None
+    assert 0 < days < 30

@@ -41,6 +41,20 @@ def _safe_host(target: str) -> str:
     return re.sub(r"[^a-z0-9.-]+", "_", host.lower())
 
 
+def _read_auth_pass_from_stdin() -> str:
+    """Prompt for the admin password via getpass. Exits 130 on Ctrl+C/EOF.
+
+    Extracted from main() so the stdin path is directly testable without
+    needing to drive the full argparse pipeline.
+    """
+    import getpass
+    try:
+        return getpass.getpass("WordPress admin password: ")
+    except (EOFError, KeyboardInterrupt):
+        print("aborted: no password provided", file=sys.stderr)
+        sys.exit(130)
+
+
 def _outdir(arg: str | None) -> Path:
     if not arg:
         return Path.cwd()
@@ -495,14 +509,10 @@ def main() -> None:
         sys.exit(0)
 
     # Read --auth-pass from stdin when the user passes `-`. Stops the
-    # password showing up in `ps aux` / shell history.
+    # password showing up in `ps aux` / shell history. Extracted to a
+    # helper so it's directly unit-testable.
     if args.auth_pass == "-":
-        import getpass
-        try:
-            args.auth_pass = getpass.getpass("WordPress admin password: ")
-        except (EOFError, KeyboardInterrupt):
-            print("aborted: no password provided", file=sys.stderr)
-            sys.exit(130)
+        args.auth_pass = _read_auth_pass_from_stdin()
 
     # --timeout below 5s reliably causes false-positive timeout findings
     # (TLS handshake alone can take 1-2s; a slow plugin can take 3s).
