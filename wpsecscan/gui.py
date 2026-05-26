@@ -901,6 +901,11 @@ class App:
             dt_pacing = float(self.deep_throttle_pacing_var.get())
         except (_tk_mod.TclError, TypeError, ValueError):
             dt_pacing = 10.0
+        # Pick up tokens saved by the onboarding wizard so a "Settings → Setup
+        # wizard" flow actually enriches the next scan (previously the tokens
+        # were saved but never read at scan time).
+        from .gui_windows import _load_setup_tokens
+        tokens = _load_setup_tokens()
         try:
             report = asyncio.run(
                 scan(
@@ -916,6 +921,11 @@ class App:
                     deep_throttle_pacing_s=dt_pacing,
                     on_progress=progress_cb,
                     is_cancelled=lambda: self._cancel_requested,
+                    wpscan_token=tokens.get("wpscan_token") or None,
+                    hibp_token=tokens.get("hibp_token") or None,
+                    abuseipdb_token=tokens.get("abuseipdb_token") or None,
+                    vt_token=tokens.get("vt_token") or None,
+                    github_search_token=tokens.get("github_search_token") or None,
                 )
             )
             self._queue.put(("done", report))
@@ -1019,7 +1029,9 @@ class App:
         if not path:
             return
         sarif_reporter.write(self._current_report, Path(path))
-        self.status_var.set(f"SARIF exported to {path}")
+        # Use the toast system instead of status_var (which gets overwritten
+        # on the next progress event) so the user actually sees confirmation.
+        self._toast(f"✓ SARIF exported to {Path(path).name}")
 
     def _refresh_db_status(self) -> None:
         vulns, age, source = vulndb.load_local()

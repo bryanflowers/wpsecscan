@@ -190,9 +190,12 @@ def open_multitarget(app) -> None:
                command=lambda: _mt_load_file(url_text)).pack(side="left")
     ttk.Button(btn_row, text="Clear",
                command=lambda: url_text.delete("1.0", "end")).pack(side="left", padx=(6, 0))
-    ttk.Button(btn_row, text="Start scanning queue",
-               style="Accent.TButton",
-               command=lambda: _mt_start(app, win, url_text, results_tv)).pack(side="right")
+    # Capture a reference to the start button so we can disable it while the
+    # worker runs (prevents double-clicks spawning duplicate threads).
+    start_btn = ttk.Button(btn_row, text="Start scanning queue",
+                           style="Accent.TButton")
+    start_btn.configure(command=lambda: _mt_start(app, win, url_text, results_tv, start_btn))
+    start_btn.pack(side="right")
 
     ttk.Separator(body, orient="horizontal").pack(fill="x", pady=(8, 6))
     ttk.Label(body, text="Results:", foreground=MUTED).pack(anchor="w")
@@ -250,8 +253,14 @@ def _mt_load_file(url_text: tk.Text) -> None:
     url_text.insert("end", content)
 
 
-def _mt_start(app, win, url_text: tk.Text, results_tv: ttk.Treeview) -> None:
-    """Start scanning each URL in turn (background thread)."""
+def _mt_start(app, win, url_text: tk.Text, results_tv: ttk.Treeview,
+              start_btn=None) -> None:
+    """Start scanning each URL in turn (background thread).
+
+    Disables `start_btn` for the duration of the worker so a second click
+    can't spawn a parallel scan worker against the same queue (previously
+    double-clicking produced duplicate rows in the Treeview).
+    """
     raw = url_text.get("1.0", "end").strip()
     urls = [line.strip() for line in raw.splitlines() if line.strip() and not line.strip().startswith("#")]
     if not urls:
@@ -260,12 +269,14 @@ def _mt_start(app, win, url_text: tk.Text, results_tv: ttk.Treeview) -> None:
     # Clear any prior rows
     for c in results_tv.get_children():
         results_tv.delete(c)
+    if start_btn is not None:
+        start_btn.configure(state="disabled")
     import threading
-    t = threading.Thread(target=_mt_worker, args=(app, urls, results_tv), daemon=True)
+    t = threading.Thread(target=_mt_worker, args=(app, urls, results_tv, start_btn), daemon=True)
     t.start()
 
 
-def _mt_worker(app, urls: list[str], results_tv: ttk.Treeview) -> None:
+def _mt_worker(app, urls: list[str], results_tv: ttk.Treeview, start_btn=None) -> None:
     """Background scan loop. Updates the Treeview via after() per URL."""
     import asyncio
     from .scanner import scan as _scan
@@ -298,6 +309,12 @@ def _mt_worker(app, urls: list[str], results_tv: ttk.Treeview) -> None:
         app.root.after(0, lambda u=url, r=report, d=delta, s=s: results_tv.insert(
             "", "end", text=u, values=(r.risk_score, d, s.get("critical", 0), s.get("high", 0), s.get("medium", 0))
         ))
+    # Re-enable the start button on the main thread once the worker finishes.
+    if start_btn is not None:
+        try:
+            app.root.after(0, lambda: start_btn.configure(state="normal"))
+        except Exception:  # noqa: BLE001
+            pass
 
 
 # ----------------------- #2 Schedule recurring scan -----------------------
@@ -431,12 +448,16 @@ def open_trend(app) -> None:
     # over-broad and matched sibling sites (e.g. safe='test.com' also matched
     # 'bigtest.com.json'). Match the exact file plus any timestamped variants
     # the codebase might add later (`{safe}-{date}.json`).
+    # Only use the timestamped snapshots — including the canonical `{safe}.json`
+    # would duplicate the latest data point in the sparkline (it's just an alias
+    # for the most recent timestamped file).
+    import glob as _glob
     from . import history as _h
     safe = _h._safe_filename(url)
     reports_dir = Path.home() / ".wpsecscan" / "reports"
     snapshots: list[tuple[str, int]] = []
     if reports_dir.exists():
-        candidates = list(reports_dir.glob(f"{safe}.json")) + list(reports_dir.glob(f"{safe}-*.json"))
+        candidates = list(reports_dir.glob(f"{_glob.escape(safe)}-*.json"))
         for p in sorted(candidates):
             try:
                 d = json.loads(p.read_text(encoding="utf-8"))

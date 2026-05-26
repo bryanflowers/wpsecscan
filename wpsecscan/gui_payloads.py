@@ -1,4 +1,4 @@
-﻿"""Payload Tester window â€” opens as a Toplevel from gui.py's Tools menu.
+﻿"""Payload Tester window — opens as a Toplevel from gui.py's Tools menu.
 
 Single-shot: one Send button click = one HTTP request via wpsecscan.http.Client.
 High-risk payloads (e.g. AWS metadata SSRF) require a confirm dialog before send.
@@ -262,7 +262,7 @@ class PayloadTesterWindow:
         self.detail.insert(END, p.risk.upper(), f"risk_{p.risk}")
         self.detail.insert(END, "   ")
         self.detail.insert(END, p.title + "\n", "h1")
-        self.detail.insert(END, CATEGORY_LABELS.get(p.category, p.category) + " Â· " + p.id + "\n", "muted")
+        self.detail.insert(END, CATEGORY_LABELS.get(p.category, p.category) + " · " + p.id + "\n", "muted")
         if p.tags:
             self.detail.insert(END, "Tags: " + ", ".join(p.tags) + "\n", "muted")
         self.detail.insert(END, "\n" + p.description + "\n\n")
@@ -397,13 +397,13 @@ class PayloadTesterWindow:
         self.send_btn.configure(state=NORMAL)
         self.save_btn.configure(state=NORMAL)
         triggered = result["triggered"]
-        self.status_var.set(f"Done â€” {'TRIGGERED' if triggered else 'no trigger'} Â· {result['duration_ms']} ms")
+        self.status_var.set(f"Done — {'TRIGGERED' if triggered else 'no trigger'} · {result['duration_ms']} ms")
 
         self.response.delete("1.0", END)
         if triggered:
             self.response.insert(END, "âœ“ TRIGGERED\n", "ok")
         else:
-            self.response.insert(END, "Â· not triggered\n", "warn")
+            self.response.insert(END, "· not triggered\n", "warn")
         self.response.insert(END, f"  {result['detect_detail']}\n\n")
         self.response.insert(END, f"{result['method']} {result['url']}\n")
         if result['params']:
@@ -438,7 +438,7 @@ class PayloadTesterWindow:
         replay = build_replay_curl(r["method"], r["url"], params=r["params"], headers=r["headers"], body=None)
         finding = Finding(
             severity=severity,
-            title=("[PAYLOAD TESTER] " + p.title + (" â€” TRIGGERED" if r["triggered"] else " â€” no trigger")),
+            title=("[PAYLOAD TESTER] " + p.title + (" — TRIGGERED" if r["triggered"] else " — no trigger")),
             evidence=(
                 f"Payload library: {p.id}\n"
                 f"{r['method']} {r['url']}\n"
@@ -447,7 +447,7 @@ class PayloadTesterWindow:
                 f"  -> HTTP {r['status_code']}\n"
                 f"  detection: {r['detect_detail']}\n"
             ),
-            remediation=("Triggered â€” investigate and patch." if r["triggered"]
+            remediation=("Triggered — investigate and patch." if r["triggered"]
                          else "No trigger from this payload."),
             url=r["url"],
             extra={"replay": replay, "payload_id": p.id, "category": p.category, "risk": p.risk},
@@ -458,9 +458,9 @@ class PayloadTesterWindow:
             self.status_var.set("Saved to the main scan report.")
         else:
             messagebox.showinfo("Payload Tester",
-                "No active scan report â€” run a scan first, then come back to this window to save findings into it.")
+                "No active scan report — run a scan first, then come back to this window to save findings into it.")
 
 
 def open_payload_tester(parent_app, default_url: str = "") -> None:
-    """Entry point â€” called from gui.py's Tools menu."""
+    """Entry point — called from gui.py's Tools menu."""
     PayloadTesterWindow(parent_app, default_url=default_url)
