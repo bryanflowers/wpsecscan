@@ -346,6 +346,36 @@ def test_cmd_portfolio_no_sites_exits_two(monkeypatch, capsys):
     assert ei.value.code == 2
 
 
+# ============================== #36 pr_inspector ===============================
+
+def test_pr_inspector_parse_url():
+    from wpsecscan.pr_inspector import _parse_pr_url
+    assert _parse_pr_url("https://github.com/owner/repo/pull/123") == ("owner", "repo", 123)
+    assert _parse_pr_url("https://gitlab.com/owner/repo/-/merge_requests/1") is None
+    assert _parse_pr_url("https://github.com/owner/repo") is None
+
+
+def test_pr_inspector_build_comment_no_touches():
+    from wpsecscan.pr_inspector import build_comment
+    out = build_comment({"plugins": [], "themes": []}, [])
+    assert "No WordPress plugins or themes touched" in out
+    assert "wpsecscan-pr-comment" in out  # marker
+
+
+def test_pr_inspector_build_comment_with_cves():
+    from wpsecscan.pr_inspector import build_comment
+    touched = {"plugins": ["woocommerce", "yoast-seo"], "themes": []}
+    findings = [
+        {"slug": "woocommerce", "type": "plugin",
+         "cves": [{"cve_id": "CVE-2026-12345", "severity": "high"},
+                  {"cve_id": "CVE-2026-67890", "severity": "medium"}]},
+    ]
+    out = build_comment(touched, findings)
+    assert "woocommerce" in out
+    assert "CVE-2026-12345" in out
+    assert "1 touched slug" in out
+
+
 # ============================== #35 issue_push =================================
 
 def test_idempotency_key_is_stable():

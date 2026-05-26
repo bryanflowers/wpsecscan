@@ -547,6 +547,7 @@ def main() -> None:
         "sites", "schedule", "digest", "ai-cost", "db", "ai-options", "analytics",
         "compare", "badge", "paths", "report", "annotate", "check", "config",
         "verify-release", "watch", "portfolio", "refix", "snooze", "diff-tree",
+        "pr-comment",
     ):
         _dispatch_subcommand(sys.argv[1], sys.argv[2:])
         return
@@ -1035,6 +1036,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_snooze(args)
     elif cmd == "diff-tree":
         _cmd_diff_tree(args)
+    elif cmd == "pr-comment":
+        _cmd_pr_comment(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -1599,6 +1602,49 @@ def _cmd_refix(args: list[str]) -> None:
             print(f"  [{f.get('severity').upper()}] {f.get('title')}")
         print(f"Receipt: {out_path}")
         sys.exit(64)
+
+
+def _cmd_pr_comment(args: list[str]) -> None:
+    """`wpsecscan pr-comment PR_URL`
+
+    Inspect a GitHub PR's file list and post (or update) a comment listing
+    currently-open CVEs for any plugin/theme slug under `wp-content/`
+    that the PR touches. The comment is keyed by an HTML marker so
+    repeat runs update the same comment rather than spamming.
+
+    Uses $GITHUB_TOKEN. Pass --dry-run to print the would-be-comment
+    without contacting GitHub.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_pr_comment.__doc__.strip()); sys.exit(0 if args else 2)
+    pr_url = args[0]
+    dry = "--dry-run" in args[1:]
+
+    from . import pr_inspector as _pi
+    parsed = _pi._parse_pr_url(pr_url)
+    if not parsed:
+        print(f"not a recognized GitHub PR URL: {pr_url}", file=sys.stderr)
+        sys.exit(2)
+    owner, repo, pr_n = parsed
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("WPSECSCAN_GITHUB_TOKEN", "")
+    if not token and not dry:
+        print("set $GITHUB_TOKEN to post comments; or pass --dry-run", file=sys.stderr)
+        sys.exit(2)
+
+    touched = _pi.list_changed_slugs(owner, repo, pr_n, token) if token else {"plugins": [], "themes": []}
+    findings = _pi.find_known_cves(touched.get("plugins", []), touched.get("themes", []))
+    body = _pi.build_comment(touched, findings)
+
+    if dry:
+        print("--- DRY RUN ---")
+        print(body)
+        return
+    ok, msg = _pi.post_or_update(owner, repo, pr_n, token, body)
+    if ok:
+        print(f"✓ {msg}")
+    else:
+        print(f"FAILED: {msg}", file=sys.stderr)
+        sys.exit(1)
 
 
 def _cmd_diff_tree(args: list[str]) -> None:
