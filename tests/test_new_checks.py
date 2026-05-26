@@ -366,8 +366,40 @@ def test_all_new_checks_registered():
     for required in ("rest_api", "cors", "js_libraries", "secret_leak",
                       "referenced_buckets", "cloudflare_origin_leak",
                       "crlf_location_injection", "host_header_validation",
-                      "woocommerce_storefront"):
+                      "woocommerce_storefront", "page_builder_cve"):
         assert required in ids, f"check {required!r} not registered in ALL_CHECKS"
+
+
+# ============================== item 18 — page builder CVE ==============================
+
+def test_page_builder_cve_flags_bricks():
+    import asyncio as _asyncio
+    from wpsecscan.checks.page_builder_cve import check
+    body = '<html><meta name="generator" content="Bricks 1.9.5"><body class="brxe-section"></body></html>'
+    client = FakeClient(responses={"/": FakeResponse(text=body)})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any("Bricks" in f.title for f in findings)
+
+
+def test_page_builder_cve_flags_divi():
+    import asyncio as _asyncio
+    from wpsecscan.checks.page_builder_cve import check
+    body = '<html><body><div class="et_pb_section et_pb_section_0">divi</div></body></html>'
+    client = FakeClient(responses={"/": FakeResponse(text=body)})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any("Divi" in f.title for f in findings)
+
+
+def test_page_builder_cve_none_when_clean():
+    import asyncio as _asyncio
+    from wpsecscan.checks.page_builder_cve import check
+    body = "<html><body>vanilla site</body></html>"
+    client = FakeClient(responses={"/": FakeResponse(text=body)})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any("none detected" in f.title.lower() for f in findings)
 
 
 # ============================== items 15 + 16 — WC storefront ==============================

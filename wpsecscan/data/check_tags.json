@@ -133,6 +133,7 @@
   "crlf_location_injection":{"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-93", "d3fend": "D3-IAA"},
   "host_header_validation":{"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-20", "d3fend": "D3-IAA"},
   "woocommerce_storefront":{"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-307", "d3fend": "D3-RAC"},
+  "page_builder_cve":      {"owasp": "A06:2021", "owasp_label": "Vulnerable and Outdated Components", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-1395", "d3fend": "D3-SVCDM"},
   "github_leak_search":    {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552.001", "attack_label": "Credentials in Files", "cwe": "CWE-798", "d3fend": "D3-CR"},
   "jwt_audit":             {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552.001", "attack_label": "Credentials in Files", "cwe": "CWE-347", "d3fend": "D3-CH"},
   "ssti":                  {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-1336", "d3fend": "D3-IVA"},

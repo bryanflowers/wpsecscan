@@ -499,6 +499,11 @@
     "nist_800_53": "AC-7",
     "iso_27001": "A.8.5"
   },
+  "page_builder_cve": {
+    "pci_dss": "6.3.3",
+    "nist_800_53": "SI-2",
+    "iso_27001": "A.8.8"
+  },
   "github_leak_search": {
     "pci_dss": "8.2.1",
     "nist_800_53": "IA-5",
