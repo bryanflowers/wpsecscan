@@ -282,13 +282,34 @@ class Client:
                 pass
         async with self._sem:
             t0 = time.perf_counter()
-            try:
-                r = await self._client.request(
-                    method, url, follow_redirects=follow_redirects, **kwargs
-                )
-            except (httpx.TimeoutException, httpx.TransportError, httpx.RequestError, httpx.HTTPStatusError):
-                # HTTPStatusError can only raise if a caller sets follow_redirects=True
-                # AND a check explicitly calls .raise_for_status() on the response.
+            # #58: retry transient errors up to 3 attempts with jittered
+            # exponential backoff. Only timeouts and connect errors are
+            # retried; protocol errors (RequestError/HTTPStatusError) fail
+            # immediately. Safe across GET/HEAD/POST because the retry
+            # happens BEFORE any response is observed — there's no risk
+            # of double-applying a state change.
+            import random as _rand
+            r = None
+            last_err: Exception | None = None
+            attempts = 3 if method.upper() in ("GET", "HEAD") else 1
+            for attempt in range(attempts):
+                try:
+                    r = await self._client.request(
+                        method, url, follow_redirects=follow_redirects, **kwargs
+                    )
+                    last_err = None
+                    break
+                except (httpx.TimeoutException, httpx.ConnectError) as e:
+                    last_err = e
+                    if attempt + 1 >= attempts:
+                        break
+                    # Backoff: 250ms / 500ms / 1s with ±25% jitter.
+                    base = 0.25 * (2 ** attempt)
+                    await asyncio.sleep(base * (1.0 + _rand.uniform(-0.25, 0.25)))
+                except (httpx.TransportError, httpx.RequestError, httpx.HTTPStatusError) as e:
+                    last_err = e
+                    break
+            if r is None:
                 self._record_har(method, url, kwargs, None, (time.perf_counter() - t0) * 1000)
                 return None
             elapsed_ms = (time.perf_counter() - t0) * 1000

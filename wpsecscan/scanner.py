@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -178,7 +179,28 @@ async def scan(
         companion_token or
         (auth_user and (auth_pass or auth_app_password))
     )
-    checks = select_checks(aggressive, authenticated_enabled=auth_enabled)
+    # #60: pre-flight WAF auto-derate. If --aggressive is set BUT a WAF is
+    # clearly fronting the site, automatically downgrade to passive scanning
+    # to avoid an IP-ban escalation cycle. The user can override by setting
+    # the env var WPSECSCAN_OVERRIDE_WAF_DERATE=1.
+    effective_aggressive = aggressive
+    if aggressive and not os.environ.get("WPSECSCAN_OVERRIDE_WAF_DERATE"):
+        try:
+            head = await client.head("/")
+            if head is not None:
+                hdr = {k.lower(): str(v).lower() for k, v in head.headers.items()}
+                waf_signals = ("cf-ray" in hdr, "x-sucuri-id" in hdr, "x-sucuri-cache" in hdr,
+                                "x-wordfence-disp" in hdr,
+                                "akamai" in hdr.get("server", ""),
+                                "imperva" in hdr.get("set-cookie", ""))
+                if any(waf_signals):
+                    effective_aggressive = False
+                    _emit_step("WAF detected — auto-derating to passive scanning "
+                                "(set WPSECSCAN_OVERRIDE_WAF_DERATE=1 to override).")
+        except Exception:  # noqa: BLE001
+            pass
+    checks = select_checks(effective_aggressive, authenticated_enabled=auth_enabled)
+    ctx["aggressive"] = effective_aggressive  # reflect the derated value in the shared context
     # Proof extraction needs sequential ordering — silently force it on.
     if prove:
         sequential = True
