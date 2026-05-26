@@ -163,5 +163,8 @@
 {% if agency and brand and brand.footer_text %}
 <footer>{{ brand.footer_text }}</footer>
 {% endif %}
+{# #55 — machine-readable manifest so `wpsecscan diff-agency` can compare
+   two dashboards without scraping the rendered table. #}
+<script type="application/json" id="wpsecscan-dashboard-data">{{ manifest_json }}</script>
 </body>
 </html>

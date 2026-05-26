@@ -341,6 +341,18 @@ async def _scan_one(target: str, args, console: Console):
         if not args.no_console:
             console.print(f"[green]✓[/green] Board 1-pager: [bold]{bp_p}[/bold]")
 
+    # #54 — user-supplied Jinja2 template
+    if getattr(args, "report_template", None):
+        try:
+            from .reporters import user_template as _ut
+            tpl_path = Path(args.report_template).expanduser()
+            ut_p = out_dir / f"{stem}-branded.html"
+            _ut.write(report, tpl_path, ut_p)
+            if not args.no_console:
+                console.print(f"[green]✓[/green] Branded report (custom template): [bold]{ut_p}[/bold]")
+        except (FileNotFoundError, OSError, Exception) as e:  # noqa: BLE001
+            console.print(f"[yellow]--report-template failed: {e}[/yellow]")
+
     # N40 attestation
     if getattr(args, "attestation", None):
         from .reporters import attestation as _att
@@ -894,6 +906,10 @@ def main() -> None:
                    help="#53: print the OpenAPI 3.1 schema for the WPSecScan JSON output to "
                         "stdout, then exit. Pipe to openapi-typescript / openapi-generator to "
                         "build typed SDKs.")
+    p.add_argument("--report-template", default=None, metavar="TEMPLATE.html.j2",
+                   help="#54: render a user-supplied Jinja2 template (lets agencies fully "
+                        "white-label the output). Receives `report`, `summary`, `findings`, "
+                        "`results`, `target`, `scanned_at`, `risk_score`, `worst`, `now`.")
     p.add_argument("--redact-evidence", action="store_true",
                    help="#61: mask JWTs / session cookies / bearer tokens / PII in finding evidence before any reporter writes. Recommended when sharing reports externally.")
     p.add_argument("--diff-html", nargs=2, metavar=("OLD.json", "NEW.json"),
@@ -1303,6 +1319,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_only(args)
     elif cmd == "doctor":
         _cmd_doctor(args)
+    elif cmd == "diff-agency":
+        _cmd_diff_agency(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -2032,6 +2050,40 @@ def _cmd_doctor(args: list[str]) -> None:
     else:
         print("All optional components detected.")
     sys.exit(0)
+
+
+def _cmd_diff_agency(args: list[str]) -> None:
+    """`wpsecscan diff-agency OLD.html NEW.html [--out diff.html]` —
+    item #55: compare two agency dashboards side by side. Reads the
+    embedded JSON manifest from each dashboard; falls back to scraping
+    the rendered table for pre-#55 dashboards. Useful for month-over-
+    month portfolio review.
+    """
+    if not args or args[0] in ("-h", "--help") or len(args) < 2:
+        print("usage: wpsecscan diff-agency OLD.html NEW.html [--out diff.html]",
+              file=sys.stderr)
+        sys.exit(64)
+    old_p = Path(args[0]).expanduser()
+    new_p = Path(args[1]).expanduser()
+    out_p = Path("agency-diff.html")
+    for i, a in enumerate(args[2:]):
+        if a == "--out" and i + 3 < len(args) + 2:
+            out_p = Path(args[i + 3]).expanduser()
+    if not old_p.exists():
+        print(f"OLD dashboard not found: {old_p}", file=sys.stderr); sys.exit(2)
+    if not new_p.exists():
+        print(f"NEW dashboard not found: {new_p}", file=sys.stderr); sys.exit(2)
+    from .reporters import diff_agency as _da
+    d = _da.write(old_p, new_p, out_p)
+    print(f"Sites: {d['site_count_old']} → {d['site_count_new']} "
+           f"({len(d['added'])} added, {len(d['removed'])} removed, "
+           f"{len(d['changed'])} changed)")
+    print(f"Diff written: {out_p}")
+    # Exit 1 if anything regressed (any new critical/high or score drop), 0 otherwise.
+    regressed = any((c.get("delta") or 0) < 0 for c in d["changed"])
+    regressed = regressed or (d["totals_delta"].get("critical", 0) > 0
+                              or d["totals_delta"].get("high", 0) > 0)
+    sys.exit(1 if regressed else 0)
 
 
 def _cmd_publish(args: list[str]) -> None:

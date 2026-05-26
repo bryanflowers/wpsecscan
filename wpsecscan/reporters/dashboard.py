@@ -118,12 +118,35 @@ def render(reports: list[tuple[ScanReport, str]], *, agency: bool = False) -> st
         except ImportError:
             brand = {}
 
+    generated_at = datetime.now().isoformat(timespec="seconds")
+
+    # #55 — machine-readable manifest embedded in the rendered page so
+    # `wpsecscan diff-agency old.html new.html` can compare two dashboards
+    # without re-scraping the HTML table.
+    manifest = {
+        "generated_at": generated_at,
+        "totals": totals,
+        "sites": [
+            {
+                "target": r["target"],
+                "risk_score": r["risk_score"],
+                "worst": r["worst"],
+                "summary": r["summary"],
+                "prior_score": r.get("prior_score"),
+                "delta_score": r.get("delta_score"),
+            }
+            for r in rows
+        ],
+    }
+    manifest_json = json.dumps(manifest, default=str)
+
     return tmpl.render(
         reports=rows,
         totals=totals,
         agency=agency,
         brand=brand,
-        generated_at=datetime.now().isoformat(timespec="seconds"),
+        generated_at=generated_at,
+        manifest_json=manifest_json,
     )
 
 
