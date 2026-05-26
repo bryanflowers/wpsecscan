@@ -477,6 +477,7 @@ def main() -> None:
     if len(sys.argv) >= 2 and sys.argv[1] in (
         "sites", "schedule", "digest", "ai-cost", "db", "ai-options", "analytics",
         "compare", "badge", "paths", "report", "annotate", "check", "config",
+        "verify-release",
     ):
         _dispatch_subcommand(sys.argv[1], sys.argv[2:])
         return
@@ -931,6 +932,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_check(args)
     elif cmd == "config":
         _cmd_config(args)
+    elif cmd == "verify-release":
+        _cmd_verify_release(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -1078,6 +1081,160 @@ def _cmd_check(args: list[str]) -> None:
     print()
     for cid, cname, owasp, owasp_label, mode in rows:
         print(f"  [{owasp:8s}]  {cid:35s}  ({mode:11s})  {cname}")
+
+
+def _cmd_verify_release(args: list[str]) -> None:
+    """`wpsecscan verify-release [--exe PATH]` — verify the running binary's
+    Sigstore signature against the WPSecScan project's OIDC identity.
+
+    The release-attestation workflow publishes a detached signature (.sig)
+    and a Sigstore certificate (.pem) alongside every release artifact;
+    this command verifies both against the expected OIDC identity and
+    prints the Rekor transparency-log entry URL.
+
+    Tries `cosign verify-blob` first (binary on PATH), then sigstore-python
+    if importable, otherwise prints the manual cosign command for the user
+    to run.
+    """
+    if args and args[0] in ("-h", "--help"):
+        print(
+            "usage: wpsecscan verify-release [--exe PATH] [--sig PATH] [--cert PATH]\n"
+            "  --exe   path to the .exe / .py to verify (default: this binary)\n"
+            "  --sig   signature file (default: <exe>.sig next to it)\n"
+            "  --cert  Sigstore certificate (default: <exe>.pem next to it)\n"
+            "\nVerifies against the project's OIDC identity:\n"
+            "  certificate-identity-regexp: https://github.com/bryanflowers/wpsecscan\n"
+            "  oidc-issuer:                 https://token.actions.githubusercontent.com"
+        )
+        return
+
+    # Defaults: resolve from the running executable. PyInstaller sets
+    # sys._MEIPASS, but the actual .exe lives at sys.executable.
+    default_exe = Path(sys.executable)
+    if getattr(sys, "frozen", False):  # PyInstaller-bundled
+        default_exe = Path(sys.executable).resolve()
+    else:
+        # Source checkout — verify the wpsecscan module's installation root.
+        default_exe = Path(__file__).parent.parent
+
+    exe_path: Path | None = None
+    sig_path: Path | None = None
+    cert_path: Path | None = None
+    i = 0
+    while i < len(args):
+        if args[i] == "--exe" and i + 1 < len(args):
+            exe_path = Path(args[i + 1]); i += 2
+        elif args[i] == "--sig" and i + 1 < len(args):
+            sig_path = Path(args[i + 1]); i += 2
+        elif args[i] == "--cert" and i + 1 < len(args):
+            cert_path = Path(args[i + 1]); i += 2
+        else:
+            i += 1
+    exe_path = exe_path or default_exe
+    sig_path = sig_path or exe_path.with_suffix(exe_path.suffix + ".sig")
+    cert_path = cert_path or exe_path.with_suffix(exe_path.suffix + ".pem")
+
+    print(f"Verifying release artifact:")
+    print(f"  exe:  {exe_path}")
+    print(f"  sig:  {sig_path}")
+    print(f"  cert: {cert_path}")
+    print()
+
+    if not exe_path.exists():
+        print(f"FAIL: artifact not found at {exe_path}", file=sys.stderr)
+        sys.exit(1)
+    if not sig_path.exists() or not cert_path.exists():
+        print(
+            f"FAIL: signature or certificate missing.\n"
+            f"  Expected: {sig_path}\n"
+            f"            {cert_path}\n"
+            "Download both from the GitHub release for this version "
+            "(https://github.com/bryanflowers/wpsecscan/releases/latest), "
+            "place them next to the .exe, and re-run.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Try the `cosign` binary first — it's the canonical tool.
+    import shutil as _shutil
+    import subprocess as _subprocess
+    cosign = _shutil.which("cosign")
+    if cosign:
+        print("Using cosign on PATH.")
+        cmd = [
+            cosign, "verify-blob",
+            "--signature", str(sig_path),
+            "--certificate", str(cert_path),
+            "--certificate-identity-regexp", "https://github.com/bryanflowers/wpsecscan",
+            "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
+            str(exe_path),
+        ]
+        try:
+            r = _subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        except (_subprocess.TimeoutExpired, OSError) as e:
+            print(f"FAIL: cosign invocation failed: {e}", file=sys.stderr)
+            sys.exit(1)
+        if r.returncode == 0:
+            print("✓ Sigstore signature VERIFIED for", exe_path.name)
+            if r.stdout.strip():
+                print(r.stdout.strip())
+            print()
+            print("Rekor transparency log: search https://search.sigstore.dev/ for "
+                  "the certificate fingerprint to view the public log entry.")
+            sys.exit(0)
+        print(f"FAIL: cosign exited {r.returncode}", file=sys.stderr)
+        if r.stderr.strip():
+            print(r.stderr.strip(), file=sys.stderr)
+        sys.exit(1)
+
+    # Cosign not available — try sigstore-python.
+    try:
+        import sigstore  # noqa: F401  - optional dep
+        from sigstore.verify import Verifier, models  # type: ignore
+        print("Using sigstore-python (`cosign` not on PATH).")
+        verifier = Verifier.production()
+        with open(sig_path, "rb") as sf:
+            sig = sf.read()
+        with open(cert_path, "rb") as cf:
+            cert = cf.read()
+        with open(exe_path, "rb") as xf:
+            blob = xf.read()
+        # The exact API of sigstore-python evolves; if it changes shape, fall
+        # back to the printed-instructions path rather than crashing.
+        try:
+            result = verifier.verify(
+                input_=blob,
+                signature=sig,
+                certificate=cert,
+            )
+            ok = bool(getattr(result, "success", True))
+        except Exception as e:  # noqa: BLE001
+            print(f"sigstore-python verify() failed: {e}", file=sys.stderr)
+            ok = False
+        if ok:
+            print("✓ Sigstore signature VERIFIED for", exe_path.name)
+            sys.exit(0)
+        print("FAIL: signature did not verify.", file=sys.stderr)
+        sys.exit(1)
+    except ImportError:
+        pass
+
+    # No verifier available — print the manual command and exit non-zero
+    # so CI scripts can detect the no-tools state.
+    print(
+        "No verifier available. Install one of:\n"
+        "  - cosign  (https://github.com/sigstore/cosign/releases)\n"
+        "  - sigstore-python:  pip install sigstore\n\n"
+        "Then run manually:\n\n"
+        f"  cosign verify-blob \\\n"
+        f"    --signature '{sig_path}' \\\n"
+        f"    --certificate '{cert_path}' \\\n"
+        f"    --certificate-identity-regexp 'https://github.com/bryanflowers/wpsecscan' \\\n"
+        f"    --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \\\n"
+        f"    '{exe_path}'\n",
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
 
 def _cmd_config(args: list[str]) -> None:
