@@ -6,6 +6,133 @@ For install instructions, see [README.md](README.md).
 
 ---
 
+## Round-66 — second forward-audit (66 items) + deferred GUI items → v2.4.0
+
+Tests: **665 → 667 passing**. Checks: **216 → 226**. First PyPI release:
+`pip install wpsecscan`. See [CHANGELOG.md](CHANGELOG.md) for the
+per-item breakdown.
+
+### New detection checks (10)
+
+- **referenced_buckets** — probe S3/GCS/R2/DigitalOcean-Spaces URLs
+  referenced in HTML/JS for open listings.
+- **cloudflare_origin_leak** — crt.sh + DNS bypass-prefix + MX
+  cross-checks against Cloudflare's published IP ranges. Free
+  sources only (no Censys/Shodan).
+- **crlf_location_injection** — passive CRLF probe at common WP
+  redirect parameters; inspects response Location + Set-Cookie
+  headers only.
+- **host_header_validation** — DNS-rebinding susceptibility on
+  admin endpoints; distinct from outbound-SSRF `dns_rebinding`.
+- **woocommerce_storefront** — coupon-enumeration throttle probe
+  + fragments-endpoint cacheability inspection.
+- **page_builder_cve** — Bricks / Beaver / Divi / WPBakery / Oxygen
+  / Brizy fingerprint + per-builder CVE family hint.
+- **wp_fork_detection** — classifies ClassicPress / Bedrock /
+  headless (Next/Gatsby/Frontity) so downstream checks adjust.
+- **tls_modern** — TLS 1.3 0-RTT replay risk + OCSP stapling +
+  must-staple via `openssl s_client`.
+- **companion_advanced** — consumes the v1.1 companion endpoints:
+  failed-login geo, Tor-admin-logins, backup status, file-perms,
+  2FA enforcement.
+- **waf_lockout_guard** — early-abort + critical finding when the
+  WAF blocks the first probe (prevents IP-ban escalation cycle).
+
+### New CLI subcommands (7)
+
+- **`wpsecscan watch URL`** — polling daemon, delta-only notify
+  (Slack webhook + `--exit-on-new` CI tripwire).
+- **`wpsecscan refix CHECK_ID URL`** — re-run one check and write
+  a fix-attested receipt to `~/.wpsecscan/refix/`.
+- **`wpsecscan portfolio [--tag FOO]`** — bulk-scan every site in
+  `sites.json` with one agency dashboard + per-site exec PDFs.
+- **`wpsecscan snooze {list|import|clear}`** — surface FEAT-006
+  snooze data model + bulk-import from CSV.
+- **`wpsecscan diff-tree URL`** — ASCII chronology of finding
+  deltas across the last N snapshots.
+- **`wpsecscan pr-comment PR_URL`** — GitHub PR file-list walker +
+  CVE-summary comment poster (uses `$GITHUB_TOKEN`).
+- **`wpsecscan publish URL`** — generate a static HTML scan-
+  receipt with HMAC-signed JSON-LD for the site footer.
+
+### New flags
+
+- `--ai-explain-for {client,dev,exec}` — plain-English LLM rewrites.
+- `--agency-dashboard` — branded MSP-style dashboard with
+  Δ-vs-prior + Unicode-block sparklines.
+- `--docx` — Word-compatible report (python-docx; RTF fallback).
+- `--diff-html OLD.json NEW.json` — three-column side-by-side HTML.
+- `--push-jira` / `--push-linear` / `--push-servicenow` /
+  `--push-github` — direct REST push with sha256-keyed
+  idempotency cache so re-scans don't dup tickets.
+- `--redact-evidence` — mask JWTs / session cookies / bearer
+  tokens / PII before any reporter writes.
+
+### Operator + report polish
+
+- HMAC-SHA256 webhook signing (`X-WPSecScan-Signature`).
+- PagerDuty Events v2 + Opsgenie Alerts integrations.
+- `~/.wpsecscan/policy.yml` — per-site severity overrides +
+  suppression rules; applied after scan, before reporters.
+- HTTP retry-with-backoff for transient errors on GET/HEAD.
+- WAF auto-derate: `--aggressive` downgrades to passive when CF /
+  Sucuri / Wordfence fingerprint detected (override:
+  `WPSECSCAN_OVERRIDE_WAF_DERATE=1`).
+- Signed snapshots: `history.save_report_snapshot()` writes
+  `{snap}.json.sig` with HMAC; `history.verify_snapshot()` detects
+  tampering.
+- Mobile-responsive + print-perfect HTML reports.
+- OS `prefers-color-scheme` honoured in HTML output.
+- Snapshot diff (same site, two scans) — three-column HTML.
+- Curated remediation videos (`data/remediation_videos.json`)
+  embedded inline per finding.
+- Risk-score trend chart in the executive PDF (PIL PNG in
+  reportlab path; inline SVG in HTML-fallback path).
+
+### GUI
+
+- **Pause / Resume** — Pause button + Ctrl+P. Coarse pause between
+  checks via shared `is_paused` callback.
+- **Minimize to tray** — pystray + procedurally-drawn PIL icon
+  (no bundled asset). Right-click → Show / Quit.
+- Right-click → "Never run this check again" — adds to
+  `~/.wpsecscan/disabled_checks.json`.
+- Tools → Snapshot diff Toplevel.
+- File → Open saved JSON report (Ctrl+O).
+- DPI-aware Tk scaling.
+- Show/Hide toggles on token-entry fields.
+
+### Companion plugin v1.1.0
+
+Five new REST endpoints — see
+`wp-plugin/wpsecscan-companion/readme.txt` for the full surface:
+`/failed-login-geo`, `/admin-login-sources`, `/backups`,
+`/file-perms`, `/2fa-enforcement`. Token model relaxed from
+single-use to ≤10 reads within the same 60-minute TTL so one
+scan can pull every endpoint with one token.
+
+### Distribution
+
+- **PyPI**: `pip install wpsecscan` (v2.4.0 live).
+- **Docker**: Dockerfile installs from `pyproject.toml`, runs as
+  non-root, uses tini as PID 1.
+- Homebrew formula + Scoop manifest + winget manifests templated
+  under `packaging/`.
+- VS Code extension under `vscode-extension/` (sidebar findings
+  tree + native Diagnostics + workspace auto-discovery).
+
+### Robustness
+
+- Signed snapshots with per-install HMAC secret.
+- Evidence redaction (JWTs, WP session cookies, bearer tokens,
+  X-WPSecScan-Token header, plus existing PII patterns).
+- HTTP retry with jittered exponential backoff on transient
+  errors.
+- WAF auto-derate (pre-flight) + lockout-guard check (mid-flight) +
+  smart-skip B4 threshold (existing) — defense in depth.
+
+---
+
 ## Round-64 — 165 features across 18 groups → v2.2.0
 
 Tests: **607 → 646 passing**. Checks: **161 → 189**.
