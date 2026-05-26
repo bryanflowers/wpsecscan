@@ -496,7 +496,7 @@ def main() -> None:
     if len(sys.argv) >= 2 and sys.argv[1] in (
         "sites", "schedule", "digest", "ai-cost", "db", "ai-options", "analytics",
         "compare", "badge", "paths", "report", "annotate", "check", "config",
-        "verify-release", "watch", "portfolio", "refix", "snooze",
+        "verify-release", "watch", "portfolio", "refix", "snooze", "diff-tree",
     ):
         _dispatch_subcommand(sys.argv[1], sys.argv[2:])
         return
@@ -972,6 +972,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_refix(args)
     elif cmd == "snooze":
         _cmd_snooze(args)
+    elif cmd == "diff-tree":
+        _cmd_diff_tree(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -1536,6 +1538,64 @@ def _cmd_refix(args: list[str]) -> None:
             print(f"  [{f.get('severity').upper()}] {f.get('title')}")
         print(f"Receipt: {out_path}")
         sys.exit(64)
+
+
+def _cmd_diff_tree(args: list[str]) -> None:
+    """`wpsecscan diff-tree URL [--limit N]`
+
+    Render a chronological ASCII tree of finding-deltas across the last N
+    snapshots (default 10) for URL. Each snapshot row shows + new, - fixed,
+    and the running risk-score.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_diff_tree.__doc__.strip()); sys.exit(0 if args else 2)
+    target = args[0]
+    if not target.startswith(("http://", "https://")):
+        target = "https://" + target
+    limit = 10
+    for i, a in enumerate(args):
+        if a == "--limit" and i + 1 < len(args):
+            try:
+                limit = max(2, int(args[i + 1]))
+            except ValueError:
+                pass
+
+    from . import history as _h
+    import json as _json
+    snaps = _h.snapshot_history(target)
+    if len(snaps) < 2:
+        print(f"need at least 2 snapshots for {target}; found {len(snaps)}.")
+        sys.exit(64)
+    snaps = snaps[-limit:]
+
+    def _key_set(report: dict, min_sev: tuple = ("low", "medium", "high", "critical")) -> set[str]:
+        out = set()
+        for r in report.get("results", []) or []:
+            for f in r.get("findings", []) or []:
+                if f.get("severity") in min_sev:
+                    out.add(f"{r.get('check_id','')}::{f.get('title','')}")
+        return out
+
+    prev: set[str] = set()
+    print(f"diff-tree for {target} (last {len(snaps)} snapshots):\n")
+    for i, sp in enumerate(snaps):
+        try:
+            data = _json.loads(sp.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        ts = data.get("scanned_at") or sp.stem.split("-")[-1]
+        cur = _key_set(data)
+        added = sorted(cur - prev)
+        removed = sorted(prev - cur)
+        score = data.get("risk_score", "?")
+        prefix = "├──" if i < len(snaps) - 1 else "└──"
+        print(f"{prefix} {ts}  score={score}  total={len(cur)}  +{len(added)} -{len(removed)}")
+        bar = "│  " if i < len(snaps) - 1 else "   "
+        for t in added[:5]:
+            print(f"{bar}  + {t[:90]}")
+        for t in removed[:5]:
+            print(f"{bar}  - {t[:90]}")
+        prev = cur
 
 
 def _cmd_snooze(args: list[str]) -> None:

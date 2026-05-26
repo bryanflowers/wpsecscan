@@ -346,6 +346,50 @@ def test_cmd_portfolio_no_sites_exits_two(monkeypatch, capsys):
     assert ei.value.code == 2
 
 
+def test_cmd_diff_tree_too_few_snapshots(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    from wpsecscan.__main__ import _cmd_diff_tree
+    import pytest
+    with pytest.raises(SystemExit) as ei:
+        _cmd_diff_tree(["https://no-snapshots.example"])
+    assert ei.value.code == 64
+    out = capsys.readouterr().out
+    assert "need at least 2 snapshots" in out
+
+
+def test_cmd_diff_tree_renders_added_and_removed(monkeypatch, tmp_path, capsys):
+    """Two snapshots, second introduces one finding and removes one — the
+    tree should print + and - lines."""
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    from wpsecscan import history as _h
+    import json as _json
+    url = "https://difftree.example"
+    snap_a = {
+        "scanned_at": "2026-05-25T10:00:00Z",
+        "risk_score": 42,
+        "results": [{"check_id": "headers", "findings": [
+            {"severity": "medium", "title": "Missing CSP"},
+        ]}],
+    }
+    snap_b = {
+        "scanned_at": "2026-05-26T10:00:00Z",
+        "risk_score": 35,
+        "results": [{"check_id": "tls", "findings": [
+            {"severity": "high", "title": "TLS 1.0 enabled"},
+        ]}],
+    }
+    _h.save_report_snapshot(url, _json.dumps(snap_a))
+    import time as _t
+    _t.sleep(1.1)  # ensure distinct timestamp filename
+    _h.save_report_snapshot(url, _json.dumps(snap_b))
+
+    from wpsecscan.__main__ import _cmd_diff_tree
+    _cmd_diff_tree([url, "--limit", "5"])
+    out = capsys.readouterr().out
+    assert "Missing CSP" in out
+    assert "TLS 1.0 enabled" in out
+
+
 def test_cmd_snooze_list_empty(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     from wpsecscan.__main__ import _cmd_snooze
