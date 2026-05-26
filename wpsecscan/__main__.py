@@ -1353,6 +1353,10 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_diff_agency(args)
     elif cmd == "playbook":
         _cmd_playbook(args)
+    elif cmd == "slack-app":
+        _cmd_slack_app(args)
+    elif cmd == "pr-status":
+        _cmd_pr_status(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -2197,6 +2201,88 @@ def _cmd_doctor(args: list[str]) -> None:
     else:
         print("All optional components detected.")
     sys.exit(0)
+
+
+def _cmd_slack_app(args: list[str]) -> None:
+    """Item #63 — start the Slack slash-command listener.
+
+      wpsecscan slack-app [--port 5000] [--host 0.0.0.0]
+
+    Set $WPSECSCAN_SLACK_SIGNING_SECRET first. Put it behind a TLS reverse
+    proxy; Slack requires HTTPS for the slash-command Request URL.
+    """
+    if args and args[0] in ("-h", "--help"):
+        print(_cmd_slack_app.__doc__.strip()); sys.exit(0)
+    host = "0.0.0.0"
+    port = 5000
+    for i, a in enumerate(args):
+        if a == "--port" and i + 1 < len(args):
+            port = int(args[i + 1])
+        elif a == "--host" and i + 1 < len(args):
+            host = args[i + 1]
+    from . import slack_app as _sa
+    _sa.serve(host=host, port=port)
+
+
+def _cmd_pr_status(args: list[str]) -> None:
+    """Item #62 — post a GitHub Check Run for the most-recent scan.
+
+      wpsecscan pr-status OWNER/REPO SHA URL [--fail-on high]
+
+    Different from `pr-comment`: this is a Check Run that branch-
+    protection rules can REQUIRE before merge. Uses $GITHUB_TOKEN with
+    `checks:write` scope. The verdict is derived from the saved JSON
+    snapshot of the most-recent scan of URL.
+    """
+    import json
+    if not args or args[0] in ("-h", "--help") or len(args) < 3:
+        print("usage: wpsecscan pr-status OWNER/REPO SHA URL [--fail-on high]",
+              file=sys.stderr)
+        sys.exit(64)
+    if "/" not in args[0]:
+        print(f"OWNER/REPO must be slash-separated; got {args[0]!r}", file=sys.stderr)
+        sys.exit(64)
+    owner, repo = args[0].split("/", 1)
+    sha = args[1]
+    url = args[2]
+    fail_on = "high"
+    for i, a in enumerate(args[3:]):
+        if a == "--fail-on" and i + 4 < len(args) + 3:
+            fail_on = args[i + 4]
+    from . import history as _h
+    snaps = _h.snapshot_history(url)
+    if not snaps:
+        print(f"no saved scan found for {url} — run a scan first", file=sys.stderr)
+        sys.exit(2)
+    data = json.loads(snaps[-1].read_text(encoding="utf-8"))
+    # Rehydrate just enough into a ScanReport-shaped object for gh_check_run.
+    from .models import ScanReport, CheckResult, Finding
+    results = [
+        CheckResult(
+            check_id=r["check_id"],
+            check_name=r.get("check_name", ""),
+            findings=[Finding(
+                severity=f["severity"], title=f.get("title", ""),
+                evidence=f.get("evidence", ""), remediation=f.get("remediation", ""),
+                url=f.get("url", ""), extra=f.get("extra") or {},
+            ) for f in r.get("findings", [])],
+            error=r.get("error"),
+            duration_ms=int(r.get("duration_ms", 0)),
+        ) for r in data.get("results", [])
+    ]
+    report = ScanReport(
+        target=data.get("target", url),
+        scanned_at=data.get("scanned_at", ""),
+        duration_ms=int(data.get("duration_ms", 0)),
+        results=results,
+    )
+    from . import gh_check_run as _gh
+    try:
+        resp = _gh.post_check_run(report, owner, repo, sha, fail_on=fail_on)
+        print(f"check-run created: id={resp.get('id')} conclusion={resp.get('conclusion')} "
+               f"url={resp.get('html_url')}")
+    except RuntimeError as e:
+        print(f"check-run failed: {e}", file=sys.stderr); sys.exit(2)
 
 
 def _cmd_playbook(args: list[str]) -> None:
@@ -3125,6 +3211,69 @@ def _cmd_digest(args: list[str]) -> None:
             print("digest sent")
         except Exception as e:  # noqa: BLE001
             print(f"send failed: {e}", file=sys.stderr); sys.exit(1)
+    elif args[0] == "schedule":
+        # Item #64 — wrap `digest send` in a recurring OS-level task.
+        import shutil as _shutil
+        import subprocess as _sp
+        kw: dict[str, str] = {"time": "08:00", "cadence": "weekly"}
+        i = 1
+        while i < len(args):
+            a = args[i]
+            if a == "--time" and i + 1 < len(args):
+                kw["time"] = args[i + 1]; i += 2
+            elif a == "--weekly":
+                kw["cadence"] = "weekly"; i += 1
+            elif a == "--daily":
+                kw["cadence"] = "daily"; i += 1
+            elif a == "--monthly":
+                kw["cadence"] = "monthly"; i += 1
+            else:
+                i += 1
+        if not re.match(r"^\d{2}:\d{2}$", kw["time"]):
+            print("--time must be HH:MM", file=sys.stderr); sys.exit(64)
+        if sys.platform == "win32":
+            exe = _shutil.which("wpsecscan") or sys.executable
+            cmd_args = ["wpsecscan", "digest", "send"] if exe.endswith("wpsecscan.exe") else [sys.executable, "-m", "wpsecscan", "digest", "send"]
+            quoted = '"' + '" "'.join(cmd_args) + '"'
+            sc_args = ["schtasks", "/Create", "/TN", "WPSecScanDigest",
+                        "/TR", quoted, "/ST", kw["time"], "/F"]
+            if kw["cadence"] == "weekly":
+                sc_args[6:6] = ["/SC", "WEEKLY", "/D", "MON"]
+            elif kw["cadence"] == "daily":
+                sc_args[6:6] = ["/SC", "DAILY"]
+            else:
+                sc_args[6:6] = ["/SC", "MONTHLY", "/D", "1"]
+            try:
+                r = _sp.run(sc_args, capture_output=True, text=True, timeout=15)
+                if r.returncode == 0:
+                    print(f"scheduled digest task 'WPSecScanDigest' — {kw['cadence']} {kw['time']}")
+                else:
+                    print(f"schtasks failed: {(r.stderr or r.stdout)[:200]}", file=sys.stderr)
+                    sys.exit(2)
+            except (OSError, _sp.TimeoutExpired) as e:
+                print(f"schtasks error: {e}", file=sys.stderr); sys.exit(2)
+        else:
+            # Print the crontab line for the operator to paste.
+            hh, mm = kw["time"].split(":")
+            if kw["cadence"] == "weekly":
+                spec = f"{mm} {hh} * * 1"
+            elif kw["cadence"] == "monthly":
+                spec = f"{mm} {hh} 1 * *"
+            else:
+                spec = f"{mm} {hh} * * *"
+            cmd = f"{sys.executable} -m wpsecscan digest send"
+            print(f"Add this line to your crontab (`crontab -e`):\n\n    {spec} {cmd}\n")
+    elif args[0] == "schedule-uninstall":
+        if sys.platform == "win32":
+            import subprocess as _sp
+            try:
+                _sp.run(["schtasks", "/Delete", "/TN", "WPSecScanDigest", "/F"],
+                         capture_output=True, timeout=10)
+                print("removed WPSecScanDigest")
+            except (OSError, _sp.TimeoutExpired) as e:
+                print(f"schtasks error: {e}", file=sys.stderr); sys.exit(2)
+        else:
+            print("On Linux/macOS: remove the crontab line you added with `crontab -e`.")
     else:
         print(f"unknown digest action: {args[0]}", file=sys.stderr); sys.exit(2)
 
