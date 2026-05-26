@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'WPSECSCAN_COMPANION_VERSION',     '1.0.0' );
+define( 'WPSECSCAN_COMPANION_VERSION',     '1.1.0' );
 define( 'WPSECSCAN_COMPANION_TOKEN_OPTION', 'wpsecscan_companion_token' );
 define( 'WPSECSCAN_COMPANION_TOKEN_TTL',    60 * 60 );    // 60 minutes
 define( 'WPSECSCAN_COMPANION_LOG_OPTION',   'wpsecscan_companion_log' );

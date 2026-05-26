@@ -4,7 +4,7 @@ Tags: security, scanner, hardening, vulnerabilities, defensive
 Requires at least: 5.6
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -27,7 +27,10 @@ The plugin **never writes anything**. It exposes a single read-only REST endpoin
 * No DB credentials, AUTH_KEY salts, plaintext API keys, or user passwords are returned
 * Emails are returned as SHA-256 hashes only
 
-= What the endpoint returns =
+= What the endpoints return =
+
+The companion plugin exposes nine read-only endpoints. All require the
+same one-time token in the `X-WPSecScan-Token` header.
 
 `/wp-json/wpsecscan/v1/diagnostics`
 
@@ -39,6 +42,57 @@ The plugin **never writes anything**. It exposes a single read-only REST endpoin
 * `auth_filters`: which plugin code has hooked `authenticate` etc.
 * `site_health`: critical + recommended issues from WP_Site_Health
 * `config_constants`: sanitised wp-config constants (no secrets)
+
+`/wp-json/wpsecscan/v1/file-monitor`
+
+* Rolling SHA-256 manifest of every file under the active plugin +
+  theme directories. The external scanner compares the manifest
+  against the prior one and surfaces any diff as a critical finding
+  (most file changes outside upgrade windows are tampering).
+
+`/wp-json/wpsecscan/v1/app-passwords-policy`
+
+* Whether the WP Application-Passwords feature is enabled, the
+  configured auth-cookie expiration, and which (if any) IP-
+  restriction plugins are active so the scanner can flag an
+  unconstrained AP exposure.
+
+`/wp-json/wpsecscan/v1/slow-query-log`
+
+* Reports whether MySQL's `slow_query_log_file` is configured inside
+  the document root (a common cheap-shared-hosting misconfig that
+  lets visitors download production query logs).
+
+`/wp-json/wpsecscan/v1/failed-login-geo` *(v1.1.0)*
+
+* Last 7 days of failed-login source IPs grouped by IP with hit
+  counts, sourced from Wordfence (wfLogins) or Solid Security
+  (itsec_logs) audit tables when present.
+
+`/wp-json/wpsecscan/v1/admin-login-sources` *(v1.1.0)*
+
+* Last 50 administrator session sources (IP + login timestamp +
+  user-agent), read from WordPress's per-user `session_tokens`
+  meta. The scanner cross-references these against the public
+  Tor exit-node list.
+
+`/wp-json/wpsecscan/v1/backups` *(v1.1.0)*
+
+* Detects UpdraftPlus, BlogVault, and Solid Backups, returning the
+  last successful backup timestamp and off-site destination so the
+  scanner can flag stale or missing backups.
+
+`/wp-json/wpsecscan/v1/file-perms` *(v1.1.0)*
+
+* Octal mode + world/group-writable flags for the four most-
+  impactful paths: `wp-config.php`, `wp-content/`, `uploads/`,
+  `plugins/`.
+
+`/wp-json/wpsecscan/v1/2fa-enforcement` *(v1.1.0)*
+
+* Detects Wordfence-Login-Security, WP-2FA, and Solid Security,
+  reads the per-role enforcement policy, and flags admin-exempt
+  configurations.
 
 == Installation ==
 
@@ -90,6 +144,16 @@ Yes — you can hit the endpoint with `curl` for your own diagnostics. The scann
 
 == Changelog ==
 
+= 1.1.0 =
+* Five new read-only REST endpoints feeding the v2.4.0 scanner:
+  `/failed-login-geo`, `/admin-login-sources`, `/backups`,
+  `/file-perms`, `/2fa-enforcement`.
+* Token model upgraded from single-use to up-to-10-reads within the
+  same 60-minute TTL so one scan can pull all nine endpoints with
+  one token instead of requiring nine separate generations.
+* No write actions added — every new endpoint reads-only, gated by
+  the same HTTPS + token + audit-log model as v1.0.0.
+
 = 1.0.0 =
 * Initial release
 * Read-only REST endpoint at `/wp-json/wpsecscan/v1/diagnostics`
@@ -98,6 +162,13 @@ Yes — you can hit the endpoint with `curl` for your own diagnostics. The scann
 * Activity log on admin page
 
 == Upgrade Notice ==
+
+= 1.1.0 =
+Adds five new diagnostic endpoints (failed-login geo, admin-login
+sources, backup status, file permissions, 2FA enforcement) and
+relaxes the single-use token to ≤10 reads within the same TTL so a
+full scan only needs one token. No write actions, same security
+model.
 
 = 1.0.0 =
 Initial release.
