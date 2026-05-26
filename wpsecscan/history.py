@@ -197,8 +197,16 @@ def get_annotation(url: str, check_id: str, finding_title: str) -> dict | None:
     return load_annotations().get(url, {}).get(annotation_fingerprint(check_id, finding_title))
 
 
-def set_annotation(url: str, check_id: str, finding_title: str, status: str, note: str = "") -> None:
-    """status is typically 'accepted-risk', 'false-positive', or '' (clear)."""
+def set_annotation(url: str, check_id: str, finding_title: str, status: str,
+                   note: str = "", snooze_until: str = "") -> None:
+    """status is typically 'accepted-risk', 'false-positive', or '' (clear).
+
+    `snooze_until` accepts an ISO date (YYYY-MM-DD). When set, the
+    annotation has an additional `snooze_until` field; consumers should
+    treat the finding as suppressed only while today < snooze_until and
+    automatically resurface it once the date passes (handled at
+    annotation-load time by `is_active_annotation()`).
+    """
     d = load_annotations()
     bucket = d.setdefault(url, {})
     fp = annotation_fingerprint(check_id, finding_title)
@@ -207,8 +215,26 @@ def set_annotation(url: str, check_id: str, finding_title: str, status: str, not
         if not bucket:
             d.pop(url, None)
     else:
-        bucket[fp] = {"status": status, "note": note or "", "ts": time.time()}
+        entry: dict = {"status": status, "note": note or "", "ts": time.time()}
+        if snooze_until:
+            entry["snooze_until"] = snooze_until
+        bucket[fp] = entry
     _save_annotations(d)
+
+
+def is_active_annotation(entry: dict) -> bool:
+    """Return False if a snoozed annotation has expired (the finding should
+    resurface). Returns True for non-snoozed and not-yet-expired entries."""
+    if not isinstance(entry, dict):
+        return False
+    snooze = entry.get("snooze_until")
+    if not snooze:
+        return True
+    try:
+        from datetime import date
+        return date.today() < date.fromisoformat(snooze)
+    except (ValueError, TypeError):
+        return True
 
 
 # --------------- G1 Finding ownership ---------------

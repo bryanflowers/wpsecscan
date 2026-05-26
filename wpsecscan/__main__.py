@@ -414,7 +414,7 @@ def main() -> None:
     # `wpsecscan <url>` invocations stay backward-compatible.
     if len(sys.argv) >= 2 and sys.argv[1] in (
         "sites", "schedule", "digest", "ai-cost", "db", "ai-options", "analytics",
-        "compare", "badge", "paths",
+        "compare", "badge", "paths", "report", "annotate", "check",
     ):
         _dispatch_subcommand(sys.argv[1], sys.argv[2:])
         return
@@ -825,9 +825,159 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_badge(args)
     elif cmd == "paths":
         _cmd_paths(args)
+    elif cmd == "report":
+        _cmd_report(args)
+    elif cmd == "annotate":
+        _cmd_annotate(args)
+    elif cmd == "check":
+        _cmd_check(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
+
+
+def _cmd_report(args: list[str]) -> None:
+    """`wpsecscan report open <URL>` — open the most-recent HTML report for
+    URL in the default browser. Also: `wpsecscan report path <URL>` to
+    just print the path."""
+    if not args or args[0] in ("-h", "--help"):
+        print("usage: wpsecscan report {open|path} <URL>")
+        return
+    if args[0] not in ("open", "path") or len(args) < 2:
+        print("usage: wpsecscan report {open|path} <URL>", file=sys.stderr)
+        sys.exit(64)
+    mode = args[0]
+    url = args[1]
+    if "://" not in url:
+        url = "https://" + url
+    from . import history as _h
+    reports_dir = _h._reports_dir()
+    safe = _h._safe_filename(url)
+    # Look for the most-recently modified HTML for this host. CLI writes
+    # JSON snapshots automatically; HTML reports stay where --out put them.
+    # We try the home reports dir + cwd as fallbacks.
+    candidates: list[Path] = []
+    for d in (reports_dir, Path.cwd()):
+        if d.exists():
+            candidates.extend(d.glob(f"*{safe}*.html"))
+    if not candidates:
+        print(f"No HTML report found for {url}. Looked in:\n  {reports_dir}\n  {Path.cwd()}",
+              file=sys.stderr)
+        sys.exit(64)
+    latest = max(candidates, key=lambda p: p.stat().st_mtime)
+    if mode == "path":
+        print(latest)
+        return
+    # Open in default browser, cross-platform.
+    import webbrowser
+    if not webbrowser.open(latest.resolve().as_uri()):
+        print(f"Could not open browser; path: {latest}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _cmd_annotate(args: list[str]) -> None:
+    """Bulk-accept findings from a CSV, or set a single annotation.
+
+    Usage:
+        wpsecscan annotate --bulk-accept FILE.csv
+        wpsecscan annotate URL CHECK_ID TITLE --status STATUS [--note NOTE] [--snooze YYYY-MM-DD]
+    CSV columns: url,check_id,title[,reason]
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(
+            "usage:\n"
+            "  wpsecscan annotate --bulk-accept FILE.csv\n"
+            "  wpsecscan annotate URL CHECK_ID TITLE --status accepted-risk [--note NOTE] [--snooze YYYY-MM-DD]\n"
+            "CSV columns for --bulk-accept: url,check_id,title[,reason]"
+        )
+        return
+    from . import history as _h
+    if args[0] == "--bulk-accept":
+        if len(args) < 2:
+            print("usage: wpsecscan annotate --bulk-accept FILE.csv", file=sys.stderr)
+            sys.exit(64)
+        import csv as _csv
+        applied = 0
+        skipped = 0
+        with open(args[1], "r", encoding="utf-8") as f:
+            reader = _csv.DictReader(f)
+            for row in reader:
+                url = (row.get("url") or "").strip()
+                cid = (row.get("check_id") or "").strip()
+                title = (row.get("title") or "").strip()
+                reason = (row.get("reason") or "").strip()
+                if not (url and cid and title):
+                    skipped += 1
+                    continue
+                _h.set_annotation(url, cid, title, "accepted-risk",
+                                  note=reason or "bulk-accepted")
+                applied += 1
+        print(f"Applied {applied} annotation(s); skipped {skipped} incomplete row(s).")
+        return
+    # Single-annotation form
+    if len(args) < 3:
+        print("usage: wpsecscan annotate URL CHECK_ID TITLE --status STATUS [--note NOTE] [--snooze YYYY-MM-DD]",
+              file=sys.stderr)
+        sys.exit(64)
+    url, cid, title = args[0], args[1], args[2]
+    status = ""
+    note = ""
+    snooze = ""
+    i = 3
+    while i < len(args):
+        if args[i] == "--status" and i + 1 < len(args):
+            status = args[i + 1]; i += 2
+        elif args[i] == "--note" and i + 1 < len(args):
+            note = args[i + 1]; i += 2
+        elif args[i] == "--snooze" and i + 1 < len(args):
+            snooze = args[i + 1]; i += 2
+        else:
+            i += 1
+    if not status:
+        print("--status is required (e.g. accepted-risk, false-positive, '')", file=sys.stderr)
+        sys.exit(64)
+    _h.set_annotation(url, cid, title, status, note=note, snooze_until=snooze)
+    msg = f"annotated {cid}::{title!r} on {url} as {status!r}"
+    if snooze:
+        msg += f" until {snooze}"
+    print(msg)
+
+
+def _cmd_check(args: list[str]) -> None:
+    """`wpsecscan check list [--category CAT]` — print the full check inventory.
+
+    Categories are derived from each check's OWASP tag. Useful for operators
+    auditing what the scanner does before running it on a client.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print("usage: wpsecscan check list [--category OWASP-CATEGORY]")
+        return
+    if args[0] != "list":
+        print("usage: wpsecscan check list [--category OWASP-CATEGORY]", file=sys.stderr)
+        sys.exit(64)
+    cat_filter = ""
+    i = 1
+    while i < len(args):
+        if args[i] == "--category" and i + 1 < len(args):
+            cat_filter = args[i + 1].lower()
+            i += 2
+        else:
+            i += 1
+    from .checks import ALL_CHECKS
+    from . import tags as _tags
+    rows = []
+    for cid, cname, _fn, agg in ALL_CHECKS:
+        t = _tags.get_tags(cid) or {}
+        owasp = t.get("owasp", "") or ""
+        owasp_label = t.get("owasp_label", "") or ""
+        if cat_filter and cat_filter not in owasp.lower() and cat_filter not in owasp_label.lower():
+            continue
+        rows.append((cid, cname, owasp, owasp_label, "aggressive" if agg else "passive"))
+    rows.sort(key=lambda r: (r[2], r[0]))
+    print(f"{len(rows)} check(s)" + (f" (filtered: {cat_filter})" if cat_filter else ""))
+    print()
+    for cid, cname, owasp, owasp_label, mode in rows:
+        print(f"  [{owasp:8s}]  {cid:35s}  ({mode:11s})  {cname}")
 
 
 def _cmd_paths(args: list[str]) -> None:
