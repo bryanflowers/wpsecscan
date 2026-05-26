@@ -597,6 +597,89 @@ async def _amain(args) -> int:
     return worst
 
 
+def _apply_config_and_profile(parser, args) -> None:
+    """#33 + #34 — merge values from --config FILE and --profile NAME into
+    args. CLI-explicit values always win: we only set attributes that are
+    still at the argparse default.
+
+    Precedence (lowest → highest):
+      1. argparse defaults
+      2. --profile NAME values (from ~/.wpsecscan/profiles.json)
+      3. --config FILE values (YAML / TOML / JSON)
+      4. CLI-explicit flags
+    """
+    # Build a default-args namespace to compare against.
+    defaults = parser.parse_args([])  # all defaults
+    merged: dict = {}
+
+    if getattr(args, "profile", None):
+        try:
+            from . import history as _h
+            profiles = _h.load_profiles()
+            p = profiles.get(args.profile)
+            if not p:
+                print(f"profile not found: {args.profile!r}", file=sys.stderr)
+                print(f"available: {', '.join(sorted(profiles.keys())) or '(none)'}", file=sys.stderr)
+                sys.exit(2)
+            merged.update(p)
+        except Exception as e:  # noqa: BLE001
+            print(f"--profile load failed: {e}", file=sys.stderr)
+            sys.exit(2)
+
+    if getattr(args, "config", None):
+        try:
+            from pathlib import Path
+            cfg_path = Path(args.config)
+            if not cfg_path.exists():
+                print(f"--config: file not found: {cfg_path}", file=sys.stderr)
+                sys.exit(2)
+            text = cfg_path.read_text(encoding="utf-8")
+            data: dict = {}
+            ext = cfg_path.suffix.lower()
+            if ext in (".yml", ".yaml"):
+                try:
+                    import yaml  # type: ignore[import-not-found]
+                    data = yaml.safe_load(text) or {}
+                except ImportError:
+                    print("--config: .yml needs pyyaml installed (pip install wpsecscan[yaml])",
+                          file=sys.stderr)
+                    sys.exit(2)
+            elif ext == ".toml":
+                try:
+                    import tomllib  # type: ignore[import-not-found]
+                except ImportError:
+                    import tomli as tomllib  # type: ignore[import-not-found]
+                data = tomllib.loads(text)
+            elif ext == ".json":
+                import json as _json
+                data = _json.loads(text)
+            else:
+                print(f"--config: unsupported extension {ext} (use .yml/.yaml/.toml/.json)",
+                      file=sys.stderr)
+                sys.exit(2)
+            if not isinstance(data, dict):
+                print(f"--config: top-level must be a mapping/dict", file=sys.stderr)
+                sys.exit(2)
+            merged.update(data)
+        except Exception as e:  # noqa: BLE001
+            print(f"--config load failed: {e}", file=sys.stderr)
+            sys.exit(2)
+
+    if not merged:
+        return
+
+    # Apply merged values to args attributes — only when the current
+    # attribute equals the argparse default (i.e. user didn't override
+    # on the CLI).
+    for key, value in merged.items():
+        # argparse turns `--auth-user` into `auth_user`; accept both forms.
+        attr = key.replace("-", "_")
+        if not hasattr(args, attr):
+            continue
+        if getattr(args, attr, None) == getattr(defaults, attr, None):
+            setattr(args, attr, value)
+
+
 def main() -> None:
     # ---- Subcommand dispatch (round-60): keep before argparse so existing
     # `wpsecscan <url>` invocations stay backward-compatible.
@@ -633,6 +716,14 @@ def main() -> None:
     p.add_argument("target", nargs="?", help="URL to scan (e.g. https://example.com)")
     p.add_argument("--file", help="File containing URLs, one per line (# comments OK)")
     p.add_argument("--out", help="Output directory or filename stem")
+    # #33: load every flag from a YAML/TOML config file. Operator can keep
+    # site-specific arg sets on disk instead of repeating long command lines.
+    p.add_argument("--config", default=None, metavar="FILE",
+                   help="#33: load flags from a YAML or TOML config file. CLI args still override.")
+    # #34: load a named profile from ~/.wpsecscan/profiles.json (same
+    # storage the GUI uses for File → Save current settings as profile).
+    p.add_argument("--profile", default=None, metavar="NAME",
+                   help="#34: load a named profile saved via the GUI or wpsecscan profile save.")
     p.add_argument("--timeout", type=float, default=15.0, help="Per-request timeout seconds (default 15)")
     p.add_argument("--concurrency", type=int, default=10, help="Concurrent requests per host (default 10)")
     p.add_argument("--user-agent", default=f"WPSecScan/{__version__} (+defensive-recon)", help="HTTP User-Agent")
@@ -784,6 +875,12 @@ def main() -> None:
     p.add_argument("--debug", action="store_true", help="Verbose logging to ~/.wpsecscan/logs/")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     args = p.parse_args()
+
+    # #33 / #34 — merge config file + named profile into args BEFORE any
+    # downstream code reads them. CLI args always win over file / profile
+    # values: argparse defaults are kept verbatim, and we only inject
+    # values into args attributes that are still at their default.
+    _apply_config_and_profile(p, args)
 
     # O47 --completion is checked FIRST — before logging setup, before any
     # I/O — so the stdout output isn't contaminated by debug-log notices
