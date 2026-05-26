@@ -1441,6 +1441,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_import_pentest(args)
     elif cmd == "scan-zip":
         _cmd_scan_zip(args)
+    elif cmd == "reference-diff":
+        _cmd_reference_diff(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -2285,6 +2287,84 @@ def _cmd_doctor(args: list[str]) -> None:
     else:
         print("All optional components detected.")
     sys.exit(0)
+
+
+def _cmd_reference_diff(args: list[str]) -> None:
+    """Item #79 — diff a live file-monitor manifest against a clean WP install.
+
+      wpsecscan reference-diff --version 6.4.3 \\
+                               --reference-zip ./wordpress-6.4.3.zip \\
+                               --live  ./live-manifest.json \\
+                               [--include-content]
+
+    The first invocation extracts the reference zip/tarball and caches
+    its per-file sha256 manifest to
+    ~/.wpsecscan/reference-installs/wp-{version}.json. Subsequent runs
+    reuse the cache (no --reference-zip needed once cached).
+
+    Default skips wp-content/, wp-config.php, .htaccess, robots.txt,
+    sitemap.xml since they vary per install — pass --include-content
+    to see every difference.
+
+    Exit 1 if any tamper indicator is found, 0 otherwise.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_reference_diff.__doc__.strip()); return
+    kv: dict[str, str] = {}
+    include_content = False
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a.startswith("--") and i + 1 < len(args) and not args[i + 1].startswith("--"):
+            kv[a[2:].replace("-", "_")] = args[i + 1]; i += 2
+        elif a == "--include-content":
+            include_content = True; i += 1
+        else:
+            i += 1
+    version = kv.get("version", "")
+    if not version:
+        print("--version is required (e.g. --version 6.4.3)", file=sys.stderr)
+        sys.exit(64)
+    live_path = kv.get("live", "")
+    if not live_path:
+        print("--live FILE.json is required", file=sys.stderr); sys.exit(64)
+
+    from . import reference_diff as _rd
+    ref = _rd.load_reference_manifest(version)
+    if not ref:
+        ref_zip = kv.get("reference_zip", "")
+        if not ref_zip:
+            print(f"no cached reference for {version}; pass --reference-zip ./wordpress-{version}.zip "
+                   f"the first time (or download from https://wordpress.org/wordpress-{version}.zip).",
+                   file=sys.stderr)
+            sys.exit(64)
+        print(f"building reference manifest for {version} from {ref_zip} …")
+        ref = _rd.build_reference_manifest(Path(ref_zip), version)
+        print(f"cached {len(ref)} file(s) at ~/.wpsecscan/reference-installs/wp-{version}.json")
+
+    live = _rd.load_live_manifest(Path(live_path))
+    if not live:
+        print(f"no files found in live manifest {live_path}", file=sys.stderr); sys.exit(2)
+    d = _rd.diff_against_reference(live, ref, include_content=include_content)
+    print(f"Reference: WordPress {version}  ({len(ref)} files)")
+    print(f"Live     : {live_path}          ({len(live)} files)")
+    print(f"  added    : {len(d['added']):>5d}")
+    print(f"  removed  : {len(d['removed']):>5d}")
+    print(f"  modified : {len(d['modified']):>5d}")
+    print()
+    if d["modified"]:
+        print("MODIFIED files (likely tamper):")
+        for row in d["modified"]:
+            print(f"  ~ {row['path']}")
+    if d["added"] and not include_content:
+        print("ADDED files (suspicious if outside wp-content/):")
+        for row in d["added"]:
+            print(f"  + {row['path']}")
+    if d["removed"]:
+        print("REMOVED files (may indicate a damaged install):")
+        for row in d["removed"]:
+            print(f"  - {row['path']}")
+    sys.exit(1 if (d["modified"] or d["added"] or d["removed"]) else 0)
 
 
 def _cmd_scan_zip(args: list[str]) -> None:
