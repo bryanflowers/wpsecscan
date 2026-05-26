@@ -1439,6 +1439,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_sla(args)
     elif cmd == "import-pentest":
         _cmd_import_pentest(args)
+    elif cmd == "scan-zip":
+        _cmd_scan_zip(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -2283,6 +2285,51 @@ def _cmd_doctor(args: list[str]) -> None:
     else:
         print("All optional components detected.")
     sys.exit(0)
+
+
+def _cmd_scan_zip(args: list[str]) -> None:
+    """Item #77 — pre-install static scan of a plugin / theme zip.
+
+      wpsecscan scan-zip PATH/TO/plugin.zip [--json | --md]
+
+    Surfaces eval-chains, assert($_REQUEST), preg_replace /e modifier,
+    shell-exec primitives, raw php://input reads, SQL-injection
+    primitives, remote-include patterns, and header-completeness flags.
+    Returns exit 0 if clean (info-only); 1 otherwise.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_scan_zip.__doc__.strip()); return
+    p = Path(args[0])
+    if not p.exists():
+        print(f"file not found: {p}", file=sys.stderr); sys.exit(2)
+    fmt = "text"
+    for a in args[1:]:
+        if a == "--json": fmt = "json"
+        elif a == "--md": fmt = "md"
+    from . import scan_zip as _sz
+    report = _sz.scan_zip(p)
+    if fmt == "json":
+        import json
+        print(json.dumps(report.to_dict(), indent=2))
+    elif fmt == "md":
+        print(f"# scan-zip: {p.name}\n")
+        for r in report.results:
+            for f in r.findings:
+                print(f"- **{f.severity.upper()}** — {f.title}")
+                if f.evidence:
+                    print(f"  ```\n  {f.evidence[:300]}\n  ```")
+                if f.remediation:
+                    print(f"  Fix: {f.remediation}")
+    else:
+        print(f"scan-zip: {p}")
+        print(f"  findings: {len(report.all_findings)}")
+        for r in report.results:
+            for f in r.findings:
+                print(f"  [{f.severity:8s}] {f.title}")
+                if f.evidence:
+                    print(f"             {f.evidence[:200]}")
+    worst = report.worst_severity() or "info"
+    sys.exit(0 if worst == "info" else 1)
 
 
 def _cmd_import_pentest(args: list[str]) -> None:
