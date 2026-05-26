@@ -175,6 +175,12 @@ from .uploads_year_listing import check as uploads_year_listing
 from .wp_cron_cpu import check as wp_cron_cpu
 from .rum_beacons import check as rum_beacons
 from .email_obfuscation_audit import check as email_obfuscation_audit
+# Audit-extras-v4 (FEAT-016/018/026/030/046)
+from .phpinfo_dangerous_directives import check as phpinfo_dangerous_directives
+from .db_admin_login_probe import check as db_admin_login_probe
+from .debug_log_pii_sniff import check as debug_log_pii_sniff
+from .wp_debug_display_via_rest import check as wp_debug_display_via_rest
+from .object_cache_dropin import check as object_cache_dropin
 
 # Aggressive (active payloads) — opt-in
 from .sqli import check as sqli
@@ -326,6 +332,12 @@ ALL_CHECKS = [
     ("wp_cron_cpu",                "wp-cron.php response-time amplification",     wp_cron_cpu,                False),
     ("rum_beacons",                "RUM beacon library detection",                rum_beacons,                False),
     ("email_obfuscation_audit",    "Email obfuscation + raw-address leak audit",  email_obfuscation_audit,    False),
+    # ---- Audit-extras-v4 (FEAT-016/018/026/030/046) ----
+    ("phpinfo_dangerous_directives","phpinfo() dangerous-runtime-flag audit",     phpinfo_dangerous_directives, False),
+    ("db_admin_login_probe",        "Adminer/phpMyAdmin login-form depth probe",  db_admin_login_probe,         False),
+    ("debug_log_pii_sniff",         "debug.log PII content sniff",                debug_log_pii_sniff,          False),
+    ("wp_debug_display_via_rest",   "WP_DEBUG_DISPLAY via malformed REST POST",   wp_debug_display_via_rest,    False),
+    ("object_cache_dropin",         "/wp-content/object-cache.php drop-in audit", object_cache_dropin,          False),
     # ---- Aggressive ----
     ("sqli",               "SQL injection probes",       sqli,               True),
     ("xss_reflected",      "Reflected XSS probes",       xss_reflected,      True),
