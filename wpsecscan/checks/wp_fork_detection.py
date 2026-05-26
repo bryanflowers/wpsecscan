@@ -31,10 +31,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         if "ClassicPress" in body or "classicpress" in body.lower():
             fork = "classicpress"
             detail = "REST root advertises ClassicPress."
-        elif '"home":' in body and '"name":' in body:
-            # vanilla WP — keep going
-
-            pass
+        # else: vanilla WP — the default classification already; nothing to do.
 
     # --- Bedrock layout: probe /app/themes/ + /app/plugins/. WP would 404.
     step("probing /app/themes/ for Bedrock layout...")
