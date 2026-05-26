@@ -53,6 +53,20 @@ def open_settings(app) -> None:
     ttk.Label(body, text=f"({min_p:.0f}–{max_p:.0f})", foreground=MUTED).grid(row=row, column=2, sticky="w", padx=(6, 0), pady=(6, 0))
     row += 1
 
+    # UX-033: per-request HTTP timeout. Slow targets (Cloudways, behind a
+    # WAF, on a CDN cold-cache) routinely take more than the 15s default.
+    ttk.Separator(body, orient="horizontal").grid(row=row, column=0, columnspan=3, sticky="ew", pady=12); row += 1
+    ttk.Label(body, text="HTTP timeout", font=("Segoe UI", 10, "bold")).grid(
+        row=row, column=0, columnspan=3, sticky="w", pady=(0, 6)); row += 1
+    ttk.Label(body, text="Seconds per request:").grid(row=row, column=0, sticky="w", padx=(0, 8))
+    if not hasattr(app, "http_timeout_var"):
+        # Back-compat for callers that opened Settings before the var existed.
+        app.http_timeout_var = tk.DoubleVar(value=15.0)
+    ttk.Spinbox(body, from_=5.0, to=120.0, increment=5.0, width=7, format="%.0f",
+                textvariable=app.http_timeout_var).grid(row=row, column=1, sticky="w")
+    ttk.Label(body, text="(5–120)", foreground=MUTED).grid(row=row, column=2, sticky="w", padx=(6, 0))
+    row += 1
+
     ttk.Separator(body, orient="horizontal").grid(row=row, column=0, columnspan=3, sticky="ew", pady=12); row += 1
     ttk.Label(body, text="Webhook notify (Slack / Discord)", font=("Segoe UI", 10, "bold")).grid(
         row=row, column=0, columnspan=3, sticky="w", pady=(0, 6)); row += 1

@@ -137,6 +137,8 @@ class App:
         self._DT_BOUNDS = (_DT_MIN_A, _DT_MAX_A, _DT_MIN_P, _DT_MAX_P)
         self.deep_throttle_attempts_var = IntVar(value=_DT_ATTEMPTS_DEFAULT)
         self.deep_throttle_pacing_var = DoubleVar(value=_DT_PACING_DEFAULT)
+        # UX-033: per-request HTTP timeout, exposed via Settings.
+        self.http_timeout_var = DoubleVar(value=15.0)
         self.deep_throttle_eta_var = StringVar(value="")
         # #12: webhook notify (loaded from a profile if any)
         self.webhook_url_var = StringVar(value="")
@@ -907,10 +909,16 @@ class App:
         from .gui_windows import _load_setup_tokens
         tokens = _load_setup_tokens()
         try:
+            try:
+                http_timeout = float(self.http_timeout_var.get())
+                if not 5.0 <= http_timeout <= 120.0:
+                    http_timeout = 15.0
+            except (_tk_mod.TclError, TypeError, ValueError):
+                http_timeout = 15.0
             report = asyncio.run(
                 scan(
                     target,
-                    timeout=15.0,
+                    timeout=http_timeout,
                     aggressive=aggressive,
                     prove=prove,
                     sequential=True,   # GUI: run one at a time so you can watch
@@ -2141,12 +2149,19 @@ class App:
             dt_p = float(self.deep_throttle_pacing_var.get())
         except (_tk_mod.TclError, TypeError, ValueError):
             dt_p = 10.0
+        try:
+            http_to = float(self.http_timeout_var.get())
+            if not 5.0 <= http_to <= 120.0:
+                http_to = 15.0
+        except (_tk_mod.TclError, TypeError, ValueError):
+            http_to = 15.0
         profile = {
             "aggressive": bool(self.aggressive_var.get()),
             "prove": bool(self.prove_var.get()),
             "deep_throttle": bool(self.deep_throttle_var.get()),
             "deep_throttle_attempts": dt_a,
             "deep_throttle_pacing_s": dt_p,
+            "http_timeout_s": http_to,
             "save_reports": bool(self.save_reports_var.get()),
             "auth_user": self.auth_user_var.get().strip(),
             "auth_pass": self.auth_pass_var.get(),
@@ -2164,6 +2179,11 @@ class App:
         self.deep_throttle_var.set(bool(p.get("deep_throttle")))
         self.deep_throttle_attempts_var.set(int(p.get("deep_throttle_attempts") or 120))
         self.deep_throttle_pacing_var.set(float(p.get("deep_throttle_pacing_s") or 10.0))
+        try:
+            http_to = float(p.get("http_timeout_s") or 15.0)
+        except (TypeError, ValueError):
+            http_to = 15.0
+        self.http_timeout_var.set(max(5.0, min(120.0, http_to)))
         self.save_reports_var.set(bool(p.get("save_reports", True)))
         self.auth_user_var.set(p.get("auth_user", ""))
         self.auth_pass_var.set(p.get("auth_pass", ""))
