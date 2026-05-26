@@ -364,8 +364,44 @@ def test_all_new_checks_registered():
     from wpsecscan.checks import ALL_CHECKS
     ids = [c[0] for c in ALL_CHECKS]
     for required in ("rest_api", "cors", "js_libraries", "secret_leak",
-                      "referenced_buckets", "cloudflare_origin_leak"):
+                      "referenced_buckets", "cloudflare_origin_leak",
+                      "crlf_location_injection"):
         assert required in ids, f"check {required!r} not registered in ALL_CHECKS"
+
+
+# ============================== item 4 — CRLF Location injection ==============================
+
+def test_crlf_location_injection_flags_set_cookie_followthrough():
+    """If the server reflects the CRLF payload into a Set-Cookie follower
+    header, the check should fire high."""
+    import asyncio as _asyncio
+    from wpsecscan.checks.crlf_location_injection import check
+    # Build a 302 response with the injected Set-Cookie present.
+    vulnerable_resp = FakeResponse(
+        status_code=302,
+        headers={
+            "location": "https://example.com/",
+            "set-cookie": "wpsecscan-crlf-probe=1; Path=/",
+        },
+    )
+    # Every probed endpoint returns the same vulnerable response.
+    client = FakeClient(responses={"*": vulnerable_resp})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    high = [f for f in findings if f.severity == "high"]
+    assert high, "expected at least one high finding when Set-Cookie reflects the probe"
+    assert "CRLF" in high[0].title
+
+
+def test_crlf_location_injection_clean_path():
+    import asyncio as _asyncio
+    from wpsecscan.checks.crlf_location_injection import check
+    # 302 with a clean Location and no Set-Cookie.
+    safe = FakeResponse(status_code=302, headers={"location": "https://example.com/"})
+    client = FakeClient(responses={"*": safe})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any("clean" in f.title.lower() for f in findings)
 
 
 def test_new_exploit_signatures_loaded():

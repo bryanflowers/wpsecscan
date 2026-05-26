@@ -43,7 +43,7 @@ class FakeClient:
         return self.base_url.rstrip("/") + "/" + path.lstrip("/")
 
     def _lookup(self, method: str, path: str, params=None):
-        # Try exact path match first, then path-only fallback
+        # Try exact path match first, then path-only fallback, then "*" wildcard.
         key_with_params = (method, path, repr(params or {}))
         if key_with_params in self.responses:
             return self.responses[key_with_params]
@@ -51,6 +51,12 @@ class FakeClient:
             return self.responses[(method, path)]
         if path in self.responses:
             return self.responses[path]
+        # Strip a query string before falling back to the bare path.
+        bare = path.split("?", 1)[0]
+        if bare in self.responses:
+            return self.responses[bare]
+        if "*" in self.responses:
+            return self.responses["*"]
         return None
 
     async def request(self, method: str, path: str, **kwargs):
