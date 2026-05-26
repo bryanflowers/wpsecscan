@@ -1403,6 +1403,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_pr_status(args)
     elif cmd == "dashboard-templates":
         _cmd_dashboard_templates(args)
+    elif cmd == "creds":
+        _cmd_creds(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -2247,6 +2249,167 @@ def _cmd_doctor(args: list[str]) -> None:
     else:
         print("All optional components detected.")
     sys.exit(0)
+
+
+def _cmd_creds(args: list[str]) -> None:
+    """Items #68, #69, #71 — credential vault CRUD.
+
+      wpsecscan creds add    SITE_URL  [--account NAME] [--field FIELD ...]
+      wpsecscan creds get    SITE_URL  [--account NAME] [--field FIELD]
+      wpsecscan creds list   [--values]
+      wpsecscan creds rm     SITE_URL  [--account NAME] [--field FIELD]
+      wpsecscan creds rotate SITE_URL  [--account NAME] [--field FIELD]
+      wpsecscan creds use    SITE_URL  [--account NAME]
+          (prints `export WPSECSCAN_AUTH_USER=... WPSECSCAN_AUTH_PASS=...`
+           so a wrapper script can `eval $(wpsecscan creds use SITE)`)
+
+    --account NAME       multi-account on one site (#71). The account name
+                          becomes a suffix on every field (e.g. \"admin1\" →
+                          \"username@admin1\", \"password@admin1\").
+    --field FIELD VALUE  store an arbitrary key/value; default fields
+                          prompted for are \"username\" + \"password\".
+
+    Backend is keyring when available, else a 0600 fallback file at
+    ~/.wpsecscan/creds-vault.json.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_creds.__doc__.strip()); return
+    from . import creds_vault as _cv
+    sub = args[0]
+
+    # Helper: combine field + account into the on-disk field name.
+    def _f(field: str, account: str | None) -> str:
+        return f"{field}@{account}" if account else field
+
+    # Helper: parse trailing --account / --field KEY VAL flags.
+    def _parse(extra: list[str]) -> tuple[str | None, dict[str, str]]:
+        account: str | None = None
+        kv: dict[str, str] = {}
+        i = 0
+        while i < len(extra):
+            a = extra[i]
+            if a == "--account" and i + 1 < len(extra):
+                account = extra[i + 1]; i += 2
+            elif a == "--field" and i + 2 < len(extra):
+                kv[extra[i + 1]] = extra[i + 2]; i += 3
+            else:
+                i += 1
+        return account, kv
+
+    if sub == "list":
+        show_values = "--values" in args[1:]
+        backend = _cv.backend_in_use()
+        sites = _cv.list_sites()
+        print(f"creds vault ({backend} backend):")
+        if not sites:
+            print("  (empty — use `wpsecscan creds add SITE_URL` to populate)")
+            return
+        for site, fields in sites:
+            print(f"  {site}")
+            for f in fields:
+                if show_values:
+                    v = _cv.get_secret(site, f) or ""
+                    masked = v if f.startswith(("username", "user", "account")) else "*" * len(v)
+                    print(f"    {f:30s} = {masked}")
+                else:
+                    print(f"    {f}")
+        return
+
+    if len(args) < 2:
+        print("usage: wpsecscan creds {add|get|rm|rotate|use} SITE_URL [--account NAME] [--field FIELD VALUE]",
+              file=sys.stderr)
+        sys.exit(64)
+    site = args[1].rstrip("/")
+    account, kv = _parse(args[2:])
+
+    if sub == "add":
+        # Interactive fill if no --field overrides were supplied.
+        if not kv:
+            import getpass as _gp
+            user = input(f"username for {site}{' @' + account if account else ''}: ").strip()
+            pw = _gp.getpass(f"password for {site}{' @' + account if account else ''}: ")
+            if user:
+                _cv.set_secret(site, _f("username", account), user)
+            if pw:
+                _cv.set_secret(site, _f("password", account), pw)
+        else:
+            for k, v in kv.items():
+                _cv.set_secret(site, _f(k, account), v)
+        print(f"saved credentials for {site}"
+               + (f" account={account}" if account else "") +
+               f" (backend={_cv.backend_in_use()})")
+        return
+
+    if sub == "get":
+        # If --field was given as a flag, look up that single one.
+        if "--field" in args[2:]:
+            i = args.index("--field", 2)
+            if i + 1 < len(args):
+                v = _cv.get_secret(site, _f(args[i + 1], account))
+                print(v or "")
+                return
+        # Default: print user + masked-pw line.
+        u = _cv.get_secret(site, _f("username", account)) or ""
+        p = _cv.get_secret(site, _f("password", account)) or ""
+        print(f"username = {u}")
+        print(f"password = {'*' * len(p) if p else ''} ({len(p)} chars)")
+        return
+
+    if sub == "rm":
+        n = 0
+        if not kv and "--field" not in args[2:]:
+            # Remove all fields for this site (+ account).
+            for f in _cv.list_fields_for(site):
+                if account and not f.endswith(f"@{account}"):
+                    continue
+                if not account and "@" in f:
+                    continue
+                if _cv.delete_secret(site, f):
+                    n += 1
+        else:
+            target_fields = list(kv.keys()) or []
+            if "--field" in args[2:]:
+                i = args.index("--field", 2)
+                if i + 1 < len(args):
+                    target_fields.append(args[i + 1])
+            for k in target_fields:
+                if _cv.delete_secret(site, _f(k, account)):
+                    n += 1
+        print(f"removed {n} secret(s) for {site}" + (f" account={account}" if account else ""))
+        return
+
+    if sub == "rotate":
+        import getpass as _gp
+        # Identify which field to rotate; default = password.
+        field = "password"
+        if "--field" in args[2:]:
+            i = args.index("--field", 2)
+            if i + 1 < len(args):
+                field = args[i + 1]
+        new_v = _gp.getpass(f"new value for {field}@{site}"
+                              + (f" account={account}" if account else "") + ": ")
+        if not new_v:
+            print("aborted (empty input)", file=sys.stderr); sys.exit(2)
+        _cv.rotate_secret(site, _f(field, account), new_v)
+        print(f"rotated {field} for {site}" + (f" account={account}" if account else ""))
+        return
+
+    if sub == "use":
+        u = _cv.get_secret(site, _f("username", account)) or ""
+        p = _cv.get_secret(site, _f("password", account)) or ""
+        if not (u and p):
+            print(f"no creds stored for {site}"
+                   + (f" account={account}" if account else "") +
+                   " — run `wpsecscan creds add` first", file=sys.stderr)
+            sys.exit(2)
+        # Print POSIX-friendly export lines so `eval $(...)` works.
+        u_esc = u.replace("'", "'\"'\"'")
+        p_esc = p.replace("'", "'\"'\"'")
+        print(f"export WPSECSCAN_AUTH_USER='{u_esc}'")
+        print(f"export WPSECSCAN_AUTH_PASS='{p_esc}'")
+        return
+
+    print(f"unknown creds subcommand: {sub}", file=sys.stderr); sys.exit(64)
 
 
 def _cmd_dashboard_templates(args: list[str]) -> None:
