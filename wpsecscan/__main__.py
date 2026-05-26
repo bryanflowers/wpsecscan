@@ -108,6 +108,9 @@ def _parse_since(s: str):
 
 
 async def _scan_one(target: str, args, console: Console):
+    # Item #72 — hwkey gate. Runs first so we never start an aggressive
+    # check before authorisation is confirmed; passthrough for passive scans.
+    _check_aggressive_hwkey_gate(args)
     # Round-56: wrap the scan in a live multi-panel dashboard when stdout
     # is a TTY and the user hasn't asked for plain output.
     use_live = (not args.no_console
@@ -1405,6 +1408,10 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_dashboard_templates(args)
     elif cmd == "creds":
         _cmd_creds(args)
+    elif cmd == "sso":
+        _cmd_sso(args)
+    elif cmd == "hwkey":
+        _cmd_hwkey(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -2249,6 +2256,190 @@ def _cmd_doctor(args: list[str]) -> None:
     else:
         print("All optional components detected.")
     sys.exit(0)
+
+
+def _cmd_sso(args: list[str]) -> None:
+    """Item #70 — SAML / OIDC configure flow for the daemon REST API.
+
+      wpsecscan sso configure --type oidc --issuer URL --audience NAME
+                              [--jwks-url URL] [--cache-ttl 3600]
+      wpsecscan sso configure --type saml --metadata-url URL --acs-url URL
+                              [--audience NAME]
+      wpsecscan sso status
+      wpsecscan sso clear
+
+    Writes ~/.wpsecscan/sso.json which auth/sso_oidc.py + auth/sso_saml.py
+    read at daemon startup. The daemon was already wired (round-64); this
+    just makes config a one-liner instead of editing JSON by hand.
+    """
+    import json
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_sso.__doc__.strip()); return
+    home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+    home.mkdir(parents=True, exist_ok=True)
+    cfg_path = home / "sso.json"
+    sub = args[0]
+
+    if sub == "status":
+        if not cfg_path.exists():
+            print("no SSO configured. Run `wpsecscan sso configure --type oidc ...`")
+            return
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            for k, v in cfg.items():
+                print(f"  {k:14s} = {v}")
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"error reading {cfg_path}: {e}", file=sys.stderr); sys.exit(2)
+        return
+
+    if sub == "clear":
+        if cfg_path.exists():
+            cfg_path.unlink()
+            print(f"removed {cfg_path}")
+        else:
+            print("no SSO config to remove")
+        return
+
+    if sub != "configure":
+        print("usage: wpsecscan sso {configure|status|clear} [opts]", file=sys.stderr)
+        sys.exit(64)
+
+    kv: dict[str, str] = {}
+    i = 1
+    while i < len(args):
+        a = args[i]
+        if a.startswith("--") and i + 1 < len(args):
+            kv[a[2:].replace("-", "_")] = args[i + 1]
+            i += 2
+        else:
+            i += 1
+    sso_type = kv.get("type", "").lower()
+    if sso_type not in ("oidc", "saml"):
+        print("must pass --type oidc or --type saml", file=sys.stderr); sys.exit(64)
+    if sso_type == "oidc":
+        if not kv.get("issuer") or not kv.get("audience"):
+            print("--issuer and --audience are required for OIDC", file=sys.stderr); sys.exit(64)
+        out = {"type": "oidc", "issuer": kv["issuer"], "audience": kv["audience"]}
+        if kv.get("jwks_url"):
+            out["jwks_url"] = kv["jwks_url"]
+        if kv.get("cache_ttl"):
+            out["cache_ttl"] = int(kv["cache_ttl"])
+    else:
+        if not kv.get("metadata_url") or not kv.get("acs_url"):
+            print("--metadata-url and --acs-url are required for SAML", file=sys.stderr); sys.exit(64)
+        out = {"type": "saml", "metadata_url": kv["metadata_url"],
+                "acs_url": kv["acs_url"]}
+        if kv.get("audience"):
+            out["audience"] = kv["audience"]
+    cfg_path.write_text(json.dumps(out, indent=2), encoding="utf-8")
+    print(f"SSO configured → {cfg_path}")
+    print("Restart the wpsecscan daemon for it to pick up the change.")
+
+
+def _cmd_hwkey(args: list[str]) -> None:
+    """Item #72 — hardware-key gating for --aggressive.
+
+      wpsecscan hwkey enable           # require a touch before any --aggressive scan
+      wpsecscan hwkey disable          # remove the gate
+      wpsecscan hwkey status           # report whether the gate is active
+      wpsecscan hwkey grant [--ttl 3600]   # mint a one-shot authorization token
+
+    When the gate is enabled, the scanner refuses --aggressive scans
+    unless either:
+      • $WPSECSCAN_AGGRESSIVE_HWKEY_TOKEN matches a current grant token, or
+      • the operator types the literal word YES at an interactive prompt
+        (so a manual touch + acknowledgement still works without scripting).
+
+    This is the practical hardening; full FIDO2/WebAuthn CTAP integration
+    is out of scope for v2.5.0 — the `fido2` library wiring lands later.
+    """
+    import json
+    import secrets
+    import time
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_hwkey.__doc__.strip()); return
+    home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+    home.mkdir(parents=True, exist_ok=True)
+    gate_path = home / "hwkey-gate.json"
+    sub = args[0]
+
+    if sub == "enable":
+        gate_path.write_text(json.dumps({"enabled": True,
+                                           "enabled_at": int(time.time())}, indent=2),
+                              encoding="utf-8")
+        print(f"hwkey gate ENABLED. --aggressive scans now require either "
+               f"$WPSECSCAN_AGGRESSIVE_HWKEY_TOKEN (mint via `wpsecscan hwkey grant`) "
+               f"or interactive YES confirmation.")
+        return
+    if sub == "disable":
+        if gate_path.exists():
+            gate_path.unlink()
+        print("hwkey gate disabled.")
+        return
+    if sub == "status":
+        if not gate_path.exists():
+            print("hwkey gate: disabled")
+        else:
+            try:
+                cfg = json.loads(gate_path.read_text(encoding="utf-8"))
+                print(f"hwkey gate: ENABLED at {cfg.get('enabled_at')}")
+            except (OSError, json.JSONDecodeError):
+                print("hwkey gate: ENABLED (config unreadable)")
+        return
+    if sub == "grant":
+        ttl = 3600
+        for i, a in enumerate(args[1:]):
+            if a == "--ttl" and i + 2 <= len(args[1:]):
+                ttl = int(args[i + 2])
+        token = secrets.token_urlsafe(24)
+        grants_path = home / "hwkey-grants.json"
+        try:
+            grants = json.loads(grants_path.read_text(encoding="utf-8")) if grants_path.exists() else {}
+        except (OSError, json.JSONDecodeError):
+            grants = {}
+        expires_at = int(time.time()) + ttl
+        grants[token] = {"expires_at": expires_at, "used": False}
+        grants_path.write_text(json.dumps(grants, indent=2), encoding="utf-8")
+        print(f"export WPSECSCAN_AGGRESSIVE_HWKEY_TOKEN={token}")
+        print(f"# valid for {ttl}s (until epoch {expires_at})", file=sys.stderr)
+        return
+    print(f"unknown hwkey subcommand: {sub}", file=sys.stderr); sys.exit(64)
+
+
+def _check_aggressive_hwkey_gate(args) -> None:
+    """Item #72 — called from the main scan path BEFORE any aggressive
+    check runs. If the gate is enabled, demands authorisation."""
+    if not getattr(args, "aggressive", False):
+        return
+    import json
+    import time
+    home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+    gate_path = home / "hwkey-gate.json"
+    if not gate_path.exists():
+        return  # gate disabled — passthrough
+    token_env = os.environ.get("WPSECSCAN_AGGRESSIVE_HWKEY_TOKEN", "").strip()
+    if token_env:
+        grants_path = home / "hwkey-grants.json"
+        try:
+            grants = json.loads(grants_path.read_text(encoding="utf-8")) if grants_path.exists() else {}
+        except (OSError, json.JSONDecodeError):
+            grants = {}
+        entry = grants.get(token_env)
+        if entry and not entry.get("used") and entry.get("expires_at", 0) > int(time.time()):
+            entry["used"] = True  # one-shot
+            grants_path.write_text(json.dumps(grants, indent=2), encoding="utf-8")
+            return
+        # Token bad / expired / replayed — fall through to interactive prompt.
+    # Interactive YES prompt — operator must be at the terminal.
+    if not sys.stdin.isatty():
+        print("hwkey gate is enabled and no valid $WPSECSCAN_AGGRESSIVE_HWKEY_TOKEN "
+               "was supplied (and stdin is not a TTY for interactive confirmation). "
+               "Run `wpsecscan hwkey grant` to mint one, or disable the gate with "
+               "`wpsecscan hwkey disable`.", file=sys.stderr)
+        sys.exit(3)
+    answer = input("--aggressive scan: hwkey gate is enabled. Type YES to proceed: ").strip()
+    if answer != "YES":
+        print("aborted by hwkey gate.", file=sys.stderr); sys.exit(3)
 
 
 def _cmd_creds(args: list[str]) -> None:
