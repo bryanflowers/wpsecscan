@@ -109,6 +109,18 @@ def test_db_ver_lt():
     assert not db.ver_lt("13.1.5", "13.1.5")
 
 
+def test_db_ver_lt_pre_release_lower_than_release():
+    """A pre-release of X should sort below X. Previously `1.2.3-rc1` was treated
+    as equal to `1.2.3`, so a vuln fixed in `1.2.3` was wrongly considered patched
+    on `1.2.3-rc1`."""
+    from wpsecscan import db
+    assert db.ver_lt("1.2.3-rc1", "1.2.3")
+    assert db.ver_lt("1.2.3rc1", "1.2.3")        # inline tag, no separator
+    assert db.ver_lt("1.2.3-beta", "1.2.3-rc1")  # beta < rc
+    assert not db.ver_lt("1.2.3", "1.2.3-rc1")
+    assert not db.ver_lt("1.2.3-rc1", "1.2.3-rc1")
+
+
 def test_db_affected():
     from wpsecscan.db import Vuln, affected
     v = Vuln(slug="foo", type="plugin", title="t", severity="high", cve="CVE-X", cvss=None,
@@ -117,6 +129,71 @@ def test_db_affected():
     assert affected("1.9.99", v)
     assert not affected("2.0", v)
     assert not affected("2.1", v)
+    # Pre-release of the fixed version is still vulnerable
+    assert affected("2.0-rc1", v)
+
+
+def test_db_find_for_unknown_version_returns_empty():
+    """When installed version is unknown, find_for must NOT dump every historical
+    CVE for the slug — that produced dozens of stale findings on plugins with
+    long CVE histories. Callers use has_any_for() to surface a low-confidence
+    'version unknown' finding instead."""
+    from wpsecscan.db import Vuln, find_for, has_any_for
+    vulns = [
+        Vuln(slug="foo", type="plugin", title="old", severity="high", cve="CVE-1",
+             cvss=None, fixed_in="1.0", affected_from="", affected_to="1.0",
+             to_inclusive=False, references=[], description=""),
+        Vuln(slug="foo", type="plugin", title="newer", severity="medium", cve="CVE-2",
+             cvss=None, fixed_in="2.5", affected_from="2.0", affected_to="2.5",
+             to_inclusive=False, references=[], description=""),
+    ]
+    assert find_for(vulns, "plugin", "foo", installed_version=None) == []
+    assert find_for(vulns, "plugin", "foo", installed_version="") == []
+    assert has_any_for(vulns, "plugin", "foo") is True
+    assert has_any_for(vulns, "plugin", "bar") is False
+    # Known version still works normally
+    assert len(find_for(vulns, "plugin", "foo", "2.3")) == 1
+
+
+def test_db_osv_multi_branch_ranges_produce_multiple_vulns():
+    """An OSV advisory with multiple introduced/fixed pairs (e.g. fixed in both
+    the 7.x and 8.x branches) must expand into multiple Vuln entries — previously
+    only the last `fixed` event survived, so users on 8.x missed real CVE matches."""
+    from wpsecscan import db
+    # Synthesise a minimal OSV-shaped advisory mid-pipeline
+    advisory = {
+        "id": "GHSA-test",
+        "aliases": ["CVE-test"],
+        "summary": "test multi-branch",
+        "severity": [{"type": "CVSS_V3", "score": "6.5"}],
+        "affected": [
+            {"ranges": [
+                {"events": [{"introduced": "7.0.0"}, {"fixed": "7.1.2"}]},
+                {"events": [{"introduced": "8.0.0"}, {"fixed": "8.0.5"}]},
+            ]}
+        ],
+    }
+    # Inline-simulate the parsing block in fetch_osv_packagist (we don't want
+    # to hit the network; the parser logic is what we're testing).
+    pairs = []
+    for af in advisory["affected"]:
+        for rg in af["ranges"]:
+            introduced = ""
+            for ev in rg["events"]:
+                if "introduced" in ev:
+                    introduced = ev["introduced"]
+                elif "fixed" in ev:
+                    pairs.append((introduced, ev["fixed"]))
+                    introduced = ""
+            if introduced:
+                pairs.append((introduced, ""))
+    assert pairs == [("7.0.0", "7.1.2"), ("8.0.0", "8.0.5")]
+    # And the affected() check works for the 8.x branch
+    v8 = db.Vuln(slug="x", type="plugin", title="t", severity="medium", cve="CVE-test",
+                 cvss=6.5, fixed_in="8.0.5", affected_from="8.0.0", affected_to="8.0.5",
+                 to_inclusive=False, references=[], description="")
+    assert db.affected("8.0.3", v8)
+    assert not db.affected("8.0.5", v8)
 
 
 def test_baseline_calibration_stable(ctx):

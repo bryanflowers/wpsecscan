@@ -16,6 +16,12 @@ SARIF_LEVEL = {
 
 
 def render(report: ScanReport) -> str:
+    from .. import confidence as _conf
+    waf_detected = any(
+        ("WAF" in (f.title or "") or "CDN detected" in (f.title or ""))
+        for r in report.results if r.check_id == "waf"
+        for f in r.findings
+    )
     rules: dict[str, dict] = {}
     results: list[dict] = []
     for r in report.results:
@@ -42,6 +48,7 @@ def render(report: ScanReport) -> str:
                 "properties": {
                     **(f.extra or {}),
                     "severity": f.severity,
+                    "confidence": _conf.compute_confidence(f, r.check_id, waf_detected=waf_detected),
                     "evidence": f.evidence,
                     "remediation": f.remediation,
                 },

@@ -321,24 +321,38 @@ def fetch_osv_packagist(timeout: float = 60.0) -> list[Vuln]:
                                 pass
                     if sev_score is not None:
                         sev_str = _cvss_to_severity(sev_score)
-                    # Pull fixed version from ranges
-                    fixed = ""
+                    # Pull every (introduced, fixed) pair from OSV ranges and
+                    # emit one Vuln per pair. Previously we kept overwriting
+                    # `fixed` across loops, so multi-branch ranges (e.g.,
+                    # 7.0..7.1.2 and 8.0..8.0.5 simultaneously) lost the
+                    # higher branch and missed real CVE matches.
+                    pairs: list[tuple[str, str]] = []
                     for af in advisory.get("affected", []) or []:
                         for rg in af.get("ranges", []) or []:
+                            introduced = ""
                             for ev in rg.get("events", []) or []:
-                                if "fixed" in ev:
-                                    fixed = ev["fixed"]
-                                    break
+                                if "introduced" in ev:
+                                    introduced = ev["introduced"] or ""
+                                elif "fixed" in ev:
+                                    pairs.append((introduced, ev["fixed"] or ""))
+                                    introduced = ""
+                            # Range with introduced but no fixed → still vulnerable
+                            if introduced:
+                                pairs.append((introduced, ""))
+                    # Fallback for advisories with no events at all
+                    if not pairs:
+                        pairs = [("", "")]
                     cves = [a for a in advisory.get("aliases", []) or [] if a.startswith("CVE-")]
                     refs = [r.get("url", "") for r in (advisory.get("references", []) or []) if isinstance(r, dict)]
-                    out.append(Vuln(
-                        slug=slug, type="plugin",
-                        title=advisory.get("summary") or advisory.get("id") or "OSV advisory",
-                        severity=sev_str, cve=cves[0] if cves else advisory.get("id", ""),
-                        cvss=sev_score, fixed_in=fixed,
-                        affected_from="", affected_to=fixed, to_inclusive=False,
-                        references=refs, description=advisory.get("details", "")[:1000],
-                    ))
+                    for introduced, fixed in pairs:
+                        out.append(Vuln(
+                            slug=slug, type="plugin",
+                            title=advisory.get("summary") or advisory.get("id") or "OSV advisory",
+                            severity=sev_str, cve=cves[0] if cves else advisory.get("id", ""),
+                            cvss=sev_score, fixed_in=fixed,
+                            affected_from=introduced, affected_to=fixed, to_inclusive=False,
+                            references=refs, description=advisory.get("details", "")[:1000],
+                        ))
             except httpx.HTTPError:
                 continue
     return out
@@ -499,9 +513,23 @@ def update_db(verbose: bool = True, patchstack_token: str = "") -> tuple[int, Pa
     raise RuntimeError("DB update produced no entries.")
 
 
+def _split_pre_release(v: str) -> tuple[str, str]:
+    """Split `1.2.3-rc1` into ('1.2.3', 'rc1'). For `1.2.3`, returns ('1.2.3', '')."""
+    for sep in ("-", "+", "_"):
+        if sep in v:
+            base, _, tag = v.partition(sep)
+            return base, tag
+    # Inline alpha tag with no separator (`1.2.3rc1`)
+    for i, ch in enumerate(v):
+        if ch.isalpha():
+            return v[:i], v[i:]
+    return v, ""
+
+
 def ver_parts(v: str) -> list[int]:
+    base, _tag = _split_pre_release(v)
     out: list[int] = []
-    for p in v.split("."):
+    for p in base.split("."):
         num = "".join(ch for ch in p if ch.isdigit())
         out.append(int(num) if num else 0)
     return out
@@ -512,7 +540,19 @@ def ver_lt(a: str, b: str) -> bool:
     n = max(len(pa), len(pb))
     pa += [0] * (n - len(pa))
     pb += [0] * (n - len(pb))
-    return pa < pb
+    if pa != pb:
+        return pa < pb
+    # Numeric segments equal: pre-release tag of `a` makes it less than tag-less `b`.
+    # `1.2.3-rc1` < `1.2.3`, `1.2.3` == `1.2.3`, `1.2.3-rc1` < `1.2.3-rc2`.
+    ta = _split_pre_release(a)[1]
+    tb = _split_pre_release(b)[1]
+    if ta == tb:
+        return False
+    if ta and not tb:
+        return True   # pre-release < release
+    if tb and not ta:
+        return False  # release > pre-release
+    return ta < tb    # both have tags, compare lexicographically
 
 
 def ver_lte(a: str, b: str) -> bool:
@@ -539,17 +579,28 @@ def affected(installed: str, vuln: Vuln) -> bool:
 
 
 def find_for(vulns: Iterable[Vuln], type_: str, slug: str, installed_version: str | None) -> list[Vuln]:
+    """Return vulns affecting `installed_version`. If version is unknown, return
+    an empty list — callers should surface a low-confidence "version unknown"
+    finding instead of dumping every historical CVE for the slug. Previously
+    this returned all vulns when version was None, producing dozens of stale
+    findings on plugins with rich CVE histories."""
     out: list[Vuln] = []
     slug = (slug or "").lower()
+    if not installed_version:
+        return out
     for v in vulns:
         if v.type != type_ or v.slug != slug:
             continue
-        if installed_version:
-            if affected(installed_version, v):
-                out.append(v)
-        else:
+        if affected(installed_version, v):
             out.append(v)
     return out
+
+
+def has_any_for(vulns: Iterable[Vuln], type_: str, slug: str) -> bool:
+    """Whether the DB contains ANY vulns for the slug, regardless of version.
+    Used by callers to surface a low-confidence "version not detected" finding."""
+    slug = (slug or "").lower()
+    return any(v.type == type_ and v.slug == slug for v in vulns)
 
 
 # ============================================================

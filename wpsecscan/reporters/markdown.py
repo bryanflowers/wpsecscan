@@ -14,7 +14,13 @@ from ..models import ScanReport
 def render(report: ScanReport) -> str:
     s = report.summary
     from ..risk import risk_grade, risk_label
+    from .. import confidence as _conf
     score = report.risk_score
+    waf_detected = any(
+        ("WAF" in (f.title or "") or "CDN detected" in (f.title or ""))
+        for r in report.results if r.check_id == "waf"
+        for f in r.findings
+    )
     lines: list[str] = [
         f"# WPSecScan — {report.target}",
         "",
@@ -36,7 +42,8 @@ def render(report: ScanReport) -> str:
         lines.append(f"## {res.check_name}")
         lines.append("")
         for f in res.findings:
-            lines.append(f"### [{f.severity.upper()}] {f.title}")
+            conf = _conf.compute_confidence(f, res.check_id, waf_detected=waf_detected)
+            lines.append(f"### [{f.severity.upper()}] {f.title}  *({_conf.chip(conf)})*")
             lines.append("")
             if f.url:
                 lines.append(f"- URL: {f.url}")

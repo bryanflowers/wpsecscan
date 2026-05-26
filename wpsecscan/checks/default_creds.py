@@ -88,6 +88,33 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     findings: list[Finding] = []
     step = ctx.get("step") or (lambda _s: None)
 
+    # Lockout-risk gate: skip if a security plugin that bans IPs after a few
+    # failed logins is fronting the site. Wordfence in particular permanently
+    # bans the source IP after its default 5-fails-in-4-minutes threshold,
+    # which would be triggered by the 10 attempts below even with 3-second
+    # pacing. The user can override with `--ignore-lockout-risk`.
+    waf_shared = ctx.get("shared", {}).get("waf") or []
+    LOCKOUT_WAFS = {"Wordfence", "Sucuri", "Imperva (Incapsula)"}
+    if not ctx.get("ignore_lockout_risk") and any(w in LOCKOUT_WAFS for w in waf_shared):
+        blocking = [w for w in waf_shared if w in LOCKOUT_WAFS]
+        findings.append(
+            Finding(
+                severity="info",
+                title=f"Default-credentials probe skipped — {', '.join(blocking)} can ban scanner IP",
+                evidence=(
+                    f"Detected: {', '.join(blocking)}. These plugins/WAFs ban source IPs after a "
+                    "small number of failed login attempts. Running this check could permanently "
+                    "lock out your scanner machine."
+                ),
+                remediation=(
+                    "Allowlist your scanner IP in the security plugin, then re-run with "
+                    "--ignore-lockout-risk. Or test default credentials manually via the admin login."
+                ),
+                url=client.url("/wp-login.php"),
+            )
+        )
+        return findings
+
     # Pre-check: is /wp-login.php even reachable? If not, skip cleanly.
     step("checking /wp-login.php reachability before any auth attempts...")
     pre = await client.get("/wp-login.php")

@@ -99,18 +99,42 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
 
     if server or powered:
         bits = [b for b in (f"Server: {server}" if server else None, f"X-Powered-By: {powered}" if powered else None) if b]
-        findings.append(
-            Finding(
-                severity="low",
-                title="Server / X-Powered-By headers leak software info",
-                evidence="; ".join(bits),
-                remediation=(
-                    "Suppress these headers. Nginx: `more_clear_headers Server X-Powered-By;` (headers-more module) "
-                    "or `server_tokens off;`. PHP: set `expose_php = Off` in php.ini."
-                ),
-                url=ctx["target"],
+        # CDN-injected Server headers (Cloudflare, Vercel, Fly) can't be
+        # suppressed at origin — the site owner has no remedy, so don't fire
+        # a finding that points at /etc/nginx. Downgrade to info instead.
+        server_lower = (server or "").lower()
+        powered_lower = (powered or "").lower()
+        cdn_injected = any(tok in server_lower or tok in powered_lower
+                           for tok in ("cloudflare", "vercel", "fly.io", "netlify", "akamai", "fastly"))
+        # Also suppress when the WAF check already detected a known CDN/WAF.
+        waf_shared = ctx.get("shared", {}).get("waf") or []
+        if cdn_injected or waf_shared:
+            findings.append(
+                Finding(
+                    severity="info",
+                    title="Server header set by upstream CDN (cannot be suppressed at origin)",
+                    evidence="; ".join(bits) + (f"\nDetected CDN/WAF: {', '.join(waf_shared)}" if waf_shared else ""),
+                    remediation=(
+                        "No action: this header is injected by your CDN/edge, not your web "
+                        "server. Hide it via the CDN's transform/response-header rules if "
+                        "you still want it suppressed."
+                    ),
+                    url=ctx["target"],
+                )
             )
-        )
+        else:
+            findings.append(
+                Finding(
+                    severity="low",
+                    title="Server / X-Powered-By headers leak software info",
+                    evidence="; ".join(bits),
+                    remediation=(
+                        "Suppress these headers. Nginx: `more_clear_headers Server X-Powered-By;` (headers-more module) "
+                        "or `server_tokens off;`. PHP: set `expose_php = Off` in php.ini."
+                    ),
+                    url=ctx["target"],
+                )
+            )
 
     if is_https and host:
         step(f"performing TLS handshake to {host}:443...")

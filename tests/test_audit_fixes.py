@@ -32,11 +32,16 @@ def _parse_csv(text: str) -> list[list[str]]:
     return list(csv.reader(io.StringIO(text)))
 
 
+def _title_col(rows: list[list[str]]) -> int:
+    """Find the title column by header so the test isn't tied to column position."""
+    return rows[0].index("title")
+
+
 def test_csv_neutralizes_equals_formula():
     """Finding title `=cmd|calc.exe` would execute as a formula in Excel. Must be neutralised."""
     r = _build_report("=cmd|calc.exe")
     rows = _parse_csv(csv_out.render(r))
-    title_cell = rows[1][5]  # column index of 'title'
+    title_cell = rows[1][_title_col(rows)]
     assert title_cell.startswith("'="), f"expected leading apostrophe, got {title_cell!r}"
 
 
@@ -44,14 +49,14 @@ def test_csv_neutralizes_plus_minus_at_tab():
     """All formula trigger chars per OWASP must be neutralised."""
     for ch in ("+SUM(1+1)", "-2+3", "@SUM(A1)", "\tx"):
         rows = _parse_csv(csv_out.render(_build_report(ch)))
-        title_cell = rows[1][5]
+        title_cell = rows[1][_title_col(rows)]
         assert title_cell.startswith("'"), f"prefix not neutralised for {ch!r}: {title_cell!r}"
 
 
 def test_csv_normal_titles_unaffected():
     """Findings that don't start with a formula char should round-trip unchanged."""
     rows = _parse_csv(csv_out.render(_build_report("Reflected XSS in ?q=")))
-    assert rows[1][5] == "Reflected XSS in ?q="
+    assert rows[1][_title_col(rows)] == "Reflected XSS in ?q="
 
 
 # ============================== Finding severity ==============================

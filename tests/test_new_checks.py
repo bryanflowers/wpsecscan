@@ -133,7 +133,29 @@ def test_secret_leak_flags_openai_key():
     client = FakeClient(responses={"/": FakeResponse(text=body)})
     ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
     findings = run(check(client, ctx))
-    assert any("OpenAI API key" in f.title for f in findings)
+    assert any("OpenAI/Anthropic API key" in f.title for f in findings)
+
+
+def test_secret_leak_flags_anthropic_key():
+    """The merged OpenAI/Anthropic critical pattern should match sk-ant- too."""
+    from wpsecscan.checks.secret_leak import check
+    body = 'CLAUDE = "sk-ant-api03-abcDEF123-_xyzqrstuvwxyz12345678"'
+    client = FakeClient(responses={"/": FakeResponse(text=body)})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = run(check(client, ctx))
+    assert any(f.severity == "critical" and "OpenAI/Anthropic" in f.title for f in findings)
+
+
+def test_secret_leak_generic_sk_prefix_is_low():
+    """A bare `sk-` (not sk-proj-/svcacct-/ant-) should be low-severity, not
+    critical — too many non-secret tokens use that prefix."""
+    from wpsecscan.checks.secret_leak import check
+    body = 'token = "sk-MyCustomJwtSecretThatIsNotAnyVendorKey1234567890"'
+    client = FakeClient(responses={"/": FakeResponse(text=body)})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = run(check(client, ctx))
+    crits = [f for f in findings if f.severity == "critical" and "sk-" in (f.evidence or "")]
+    assert not crits, f"generic sk- prefix should not be critical, got: {[f.title for f in crits]}"
 
 
 def test_secret_leak_redacts_the_secret():

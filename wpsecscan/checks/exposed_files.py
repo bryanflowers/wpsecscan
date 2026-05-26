@@ -31,13 +31,34 @@ def _load_paths() -> list[tuple[str, str, str]]:
     return out
 
 
-def _looks_real(content_type: str, body: str, path: str) -> bool:
-    """Avoid false positives from SPAs that 200 every path with index.html."""
-    if "text/html" in content_type and "<!doctype html>" in body.lower()[:200]:
-        # Heuristic: a 200 HTML on /.env or /wp-config.php.bak is almost certainly
-        # a soft-404. Be strict for high-risk paths.
-        risky = (".env", ".bak", ".sql", "wp-config", "debug.log", ".git/", "phpinfo", "info.php", "adminer", ".htaccess")
-        if any(r in path.lower() for r in risky):
+def _looks_real(content_type: str, body: str, path: str, home_body: str = "") -> bool:
+    """Avoid false positives from SPAs / WP rewrite catch-alls that 200 every
+    path with the homepage HTML.
+
+    Returns True iff the response looks like the actual targeted resource,
+    not a soft-404. Strategy:
+      1. If the response is binary or non-HTML, trust it.
+      2. If the response is HTML AND the path has a structural extension
+         (.env, .sql, .bak, .php~, .git, .htaccess), trust the extension
+         and reject HTML — a real `.env` is plain text, not `<!doctype html>`.
+      3. If HTML and we have a homepage body for comparison, soft-404 the
+         response when its body is identical or near-identical to the home
+         page (length within 5% AND first 200 chars match).
+    """
+    body_lower = body.lower()[:500]
+    is_html = "text/html" in content_type or "<!doctype html>" in body_lower or "<html" in body_lower
+    if not is_html:
+        return True
+    # Structural extensions whose real content is not HTML
+    structural = (".env", ".bak", ".sql", "wp-config", "debug.log", ".git/", "phpinfo",
+                  "info.php", "adminer", ".htaccess", ".swp", ".orig", ".sqlite",
+                  ".tar.gz", ".zip", ".json", ".yaml", ".yml")
+    if any(r in path.lower() for r in structural):
+        return False
+    # WP rewrite catch-all detection — soft-404 if body matches homepage
+    if home_body and body:
+        if abs(len(body) - len(home_body)) < max(200, len(home_body) // 20) \
+                and body[:200] == home_body[:200]:
             return False
     return True
 
@@ -57,6 +78,13 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         )
         return findings
 
+    # Fetch the homepage once so _looks_real can detect WP catch-all soft-404s
+    # by comparing each probe response to it.
+    home_body = ""
+    home_r = await client.get("/")
+    if home_r is not None and home_r.text:
+        home_body = home_r.text
+
     for path, sev, label in paths:
         step(f"probing /{path}...")
         r = await client.get(path)
@@ -66,7 +94,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
             continue
         body = r.text or "" if hasattr(r, "text") else ""
         ct = r.headers.get("content-type", "")
-        if not _looks_real(ct, body, path):
+        if not _looks_real(ct, body, path, home_body):
             continue
         snippet = (body[:200].replace("\n", " ") + "...") if body else f"(binary, {len(r.content)} bytes)"
         findings.append(

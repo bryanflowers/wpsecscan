@@ -34,7 +34,12 @@ HEADER_SIGNS = [
     ("server",           "incapsula",                               "Imperva (Incapsula)"),
     ("x-distil-cs",      "",                                        "Imperva Distil"),
     ("server",           "openresty",                               "OpenResty"),
-    ("x-cache",          "",                                        "Generic edge cache"),
+    # `X-Cache` alone is set by plain Nginx fastcgi-cache and many ordinary
+    # reverse-proxy configs — not a WAF. Pair with a CDN-specific token to
+    # avoid annotating every cached site with "WAF interference".
+    ("x-cache",          "hit from cloudfront",                     "AWS CloudFront"),
+    ("x-cache",          "fastly",                                  "Fastly"),
+    ("x-cache",          "cf-",                                     "Cloudflare"),
     ("x-amz-cf-id",      "",                                        "AWS CloudFront"),
     ("x-azure-ref",      "",                                        "Azure Front Door"),
 ]
@@ -76,15 +81,22 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     tripwire = await client.get("/", params={"q": "<script>alert(1)</script>"})
     if tripwire is not None and tripwire.status_code in (403, 406, 419, 429, 503):
         # Heuristic: a clean install returns 200; mid-3xx if redirect.
-        body = (tripwire.text or "")[:1000].lower()
+        body = (tripwire.text or "")[:2000].lower()
         if "cloudflare" in body or "ray id" in body:
             detected.setdefault("Cloudflare", "tripwire blocked (HTML body contains 'cloudflare')")
         elif "sucuri" in body:
             detected.setdefault("Sucuri", "tripwire blocked (HTML body contains 'sucuri')")
         elif "wordfence" in body:
             detected.setdefault("Wordfence", "tripwire blocked (HTML body contains 'wordfence')")
-        else:
-            detected.setdefault("Unknown WAF", f"tripwire returned HTTP {tripwire.status_code}")
+        elif any(tok in body for tok in ("akamai", "incapsula", "imperva", "fastly",
+                                          "wallarm", "barracuda", "modsecurity",
+                                          "mod_security", "this request has been blocked",
+                                          "your request was blocked", "naxsi")):
+            # Generic WAF block-page indicators
+            detected.setdefault("Unknown WAF", f"tripwire returned HTTP {tripwire.status_code} with WAF-style block page")
+        # Otherwise: a non-WAF 4xx/5xx (e.g. Nginx deny rule, app-level rate-limit
+        # page) — do NOT annotate as "Unknown WAF". That mis-classification
+        # downgrades every aggressive finding on hardened-without-WAF sites.
 
     if detected:
         ctx["shared"]["waf"] = list(detected.keys())

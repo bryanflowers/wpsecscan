@@ -58,8 +58,10 @@ def test_xlsx_reporter_writes_valid_xlsx(tmp_path):
     assert "Summary" in wb.sheetnames
     assert "All findings" in wb.sheetnames
     ws = wb["All findings"]
-    # Row 2 = first finding; column 4 = title
-    title_cell = ws.cell(row=2, column=4).value
+    # Look up title column by header so the test isn't tied to column position
+    headers = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 1)]
+    title_col = headers.index("title") + 1
+    title_cell = ws.cell(row=2, column=title_col).value
     assert title_cell.startswith("'="), f"CSV-injection-safe prefix missing: {title_cell!r}"
 
 

@@ -83,6 +83,12 @@ def write(report: ScanReport, path: Path) -> None:
     ws.column_dimensions["B"].width = 30
 
     # ----- Per-OWASP-category sheets + All-findings sheet -----
+    from .. import confidence as _conf
+    waf_detected = any(
+        ("WAF" in (f.title or "") or "CDN detected" in (f.title or ""))
+        for r in report.results if r.check_id == "waf"
+        for f in r.findings
+    )
     owasp_buckets: dict[str, list[tuple]] = {}  # owasp -> [(check_id, finding, ...)]
     all_rows: list[tuple] = []
     for r in report.results:
@@ -95,6 +101,7 @@ def write(report: ScanReport, path: Path) -> None:
                 _safe_cell(r.check_id),
                 _safe_cell(r.check_name),
                 _safe_cell(f.severity),
+                _safe_cell(_conf.compute_confidence(f, r.check_id, waf_detected=waf_detected)),
                 _safe_cell(f.title),
                 _safe_cell(f.url),
                 _safe_cell((f.evidence or "").replace("\r", " ").replace("\n", " | ")[:2000]),
@@ -105,7 +112,8 @@ def write(report: ScanReport, path: Path) -> None:
             owasp_buckets.setdefault(owasp, []).append(row_tuple)
             all_rows.append(row_tuple)
 
-    HEADERS = ("check_id", "check_name", "severity", "title", "url", "evidence", "remediation", "owasp", "attack")
+    HEADERS = ("check_id", "check_name", "severity", "confidence", "title", "url",
+               "evidence", "remediation", "owasp", "attack")
 
     def _write_sheet(sheet, rows):
         # Header row
@@ -124,9 +132,9 @@ def write(report: ScanReport, path: Path) -> None:
                     if fill:
                         cell.fill = PatternFill("solid", fgColor=fill)
                         cell.font = Font(color=fg, bold=True)
-                cell.alignment = Alignment(vertical="top", wrap_text=col in (4, 6, 7))
-        # Reasonable column widths
-        widths = (16, 28, 10, 50, 50, 70, 50, 14, 14)
+                cell.alignment = Alignment(vertical="top", wrap_text=col in (5, 7, 8))
+        # Reasonable column widths (after inserting confidence at col 4)
+        widths = (16, 28, 10, 14, 50, 50, 70, 50, 14, 14)
         for col, w in enumerate(widths, start=1):
             sheet.column_dimensions[get_column_letter(col)].width = w
         # Freeze header row

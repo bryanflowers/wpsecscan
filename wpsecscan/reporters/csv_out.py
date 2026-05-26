@@ -20,9 +20,16 @@ def _safe_cell(value) -> str:
 
 
 def render(report: ScanReport) -> str:
+    from .. import confidence as _conf
+    waf_detected = any(
+        ("WAF" in (f.title or "") or "CDN detected" in (f.title or ""))
+        for r in report.results if r.check_id == "waf"
+        for f in r.findings
+    )
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\n")
-    w.writerow(["target", "scanned_at", "check_id", "check_name", "severity", "title", "url", "evidence", "remediation", "cve"])
+    w.writerow(["target", "scanned_at", "check_id", "check_name", "severity", "confidence",
+                "title", "url", "evidence", "remediation", "cve"])
     for r in report.results:
         for f in r.findings:
             w.writerow([
@@ -31,6 +38,7 @@ def render(report: ScanReport) -> str:
                 _safe_cell(r.check_id),
                 _safe_cell(r.check_name),
                 _safe_cell(f.severity),
+                _safe_cell(_conf.compute_confidence(f, r.check_id, waf_detected=waf_detected)),
                 _safe_cell(f.title),
                 _safe_cell(f.url),
                 _safe_cell((f.evidence or "").replace("\r", " ").replace("\n", " | ")[:1000]),

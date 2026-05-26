@@ -54,3 +54,31 @@ def test_default_creds_skips_if_login_unreachable():
     ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
     findings = run(check(client, ctx))
     assert any("skipped" in f.title.lower() for f in findings)
+
+
+def test_default_creds_skipped_on_wordfence():
+    """When Wordfence is fronting the site, do NOT attempt logins — its default
+    lockout policy permanently bans the source IP after 5 failed attempts."""
+    from wpsecscan.checks.default_creds import check
+    client = FakeClient(responses={})  # should not be called
+    ctx = {"target": "https://example.com", "shared": {"waf": ["Wordfence"]},
+           "step": lambda _s: None}
+    findings = run(check(client, ctx))
+    assert len(findings) == 1
+    assert "Wordfence" in findings[0].title
+    assert "skipped" in findings[0].title.lower()
+
+
+def test_default_creds_runs_on_wordfence_with_override():
+    """--ignore-lockout-risk override bypasses the Wordfence skip."""
+    from wpsecscan.checks.default_creds import check
+    client = FakeClient(responses={
+        "/wp-login.php": FakeResponse(status_code=404),  # unreachable triggers the next skip
+    })
+    ctx = {"target": "https://example.com",
+           "shared": {"waf": ["Wordfence"]},
+           "ignore_lockout_risk": True,
+           "step": lambda _s: None}
+    findings = run(check(client, ctx))
+    # The override let us past the WAF gate; we land on the "login unreachable" skip
+    assert any("not reachable" in f.title for f in findings)

@@ -21,11 +21,22 @@ SECRET_PATTERNS: tuple[tuple[str, str, re.Pattern], ...] = (
     ("Stripe live publishable",    "low",      re.compile(r"\b(pk_live_[0-9a-zA-Z]{24,})", re.IGNORECASE)),
     ("Stripe test secret key",     "medium",   re.compile(r"\b(sk_test_[0-9a-zA-Z]{24,})", re.IGNORECASE)),
     ("AWS access key ID",          "high",     re.compile(r"\b(AKIA[0-9A-Z]{16})\b")),
-    ("AWS secret access key",      "critical", re.compile(r"(?<![0-9A-Za-z+/=])([A-Za-z0-9/+=]{40})(?![0-9A-Za-z+/=])", re.IGNORECASE)),  # noisy — combined with context check below
+    # 40-char base64 strings are extremely common (hashes, CSS-loader IDs,
+    # build manifests). Require a leading `=` or `:` so it looks like an
+    # assignment, not arbitrary content — plus the AWS context check below.
+    ("AWS secret access key",      "critical",
+        re.compile(r"(?<=[=:\"'\s])([A-Za-z0-9/+=]{40})(?![0-9A-Za-z+/=])", re.IGNORECASE)),
     ("Google API key",             "medium",   re.compile(r"\b(AIza[0-9A-Za-z\-_]{35})\b")),
     ("GitHub personal access token","critical",re.compile(r"\b(gh[pousr]_[A-Za-z0-9]{36,})\b")),
     ("Slack bot/app token",        "critical", re.compile(r"\b(xox[baprs]-[A-Za-z0-9\-]{10,})\b")),
-    ("OpenAI API key",             "critical", re.compile(r"\b(sk-[A-Za-z0-9_\-]{20,})\b")),
+    # OpenAI uses three known shapes: classic sk-<48>, project sk-proj-<...>,
+    # service-account sk-svcacct-<...>. Anthropic uses sk-ant-<...>. A bare
+    # `sk-<anything>` is too generic and matches custom JWT secrets, SDK tokens,
+    # etc. — downgrade unless it matches a vendor prefix.
+    ("OpenAI/Anthropic API key",   "critical",
+        re.compile(r"\b(sk-(?:proj-|svcacct-|ant-)[A-Za-z0-9_\-]{20,})\b")),
+    ("Generic sk- prefixed secret","low",
+        re.compile(r"\b(sk-[A-Za-z0-9_\-]{40,})\b")),
     ("Mailgun API key",            "high",     re.compile(r"\b(key-[0-9a-f]{32})\b")),
     ("Mailchimp API key",          "high",     re.compile(r"\b([0-9a-f]{32}-us[0-9]{1,2})\b")),
     ("SendGrid API key",           "high",     re.compile(r"\b(SG\.[A-Za-z0-9_\-]{22}\.[A-Za-z0-9_\-]{43})\b")),
