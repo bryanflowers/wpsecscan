@@ -1412,6 +1412,10 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_sso(args)
     elif cmd == "hwkey":
         _cmd_hwkey(args)
+    elif cmd == "cron-schedule":
+        _cmd_cron_schedule(args)
+    elif cmd == "sla":
+        _cmd_sla(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
@@ -2256,6 +2260,104 @@ def _cmd_doctor(args: list[str]) -> None:
     else:
         print("All optional components detected.")
     sys.exit(0)
+
+
+def _cmd_cron_schedule(args: list[str]) -> None:
+    """Item #73 — cron-style scheduled scans (absolute times).
+
+      wpsecscan cron-schedule add    \"0 3 * * 1\" https://example.com [-- --aggressive --prove]
+      wpsecscan cron-schedule list
+      wpsecscan cron-schedule rm     IDX_OR_NAME
+      wpsecscan cron-schedule run    (start the daemon loop — Ctrl+C to stop)
+      wpsecscan cron-schedule trigger (evaluate once now; for tests)
+
+    Use \"-- <flags>\" to pass extra wpsecscan flags through to the scan.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_cron_schedule.__doc__.strip()); return
+    from . import scheduler as _sch
+    sub = args[0]
+    if sub == "add":
+        if len(args) < 3:
+            print("usage: wpsecscan cron-schedule add \"CRON_EXPR\" TARGET [-- extra flags]",
+                  file=sys.stderr); sys.exit(64)
+        cron_expr = args[1]
+        target = args[2]
+        extra: list[str] = []
+        if "--" in args[3:]:
+            extra = args[args.index("--", 3) + 1:]
+        entry = _sch.add(cron_expr, target, extra)
+        print(f"added: {entry.name} ({entry.cron_expr}) → {entry.target} {' '.join(entry.flags)}")
+        return
+    if sub == "list":
+        entries = _sch.list_entries()
+        if not entries:
+            print("no scheduled entries. Use `wpsecscan cron-schedule add ...` to create one.")
+            return
+        for i, e in enumerate(entries):
+            mark = "✓" if e.enabled else " "
+            last = (f"  last_run={e.last_run}" if e.last_run else "")
+            print(f"  [{i:2d}] {mark} {e.cron_expr:18s}  {e.name}  {' '.join(e.flags)}{last}")
+        return
+    if sub == "rm":
+        if len(args) < 2:
+            print("usage: wpsecscan cron-schedule rm IDX_OR_NAME", file=sys.stderr); sys.exit(64)
+        ok = _sch.remove(args[1])
+        print("removed" if ok else "no matching entry")
+        return
+    if sub == "run":
+        _sch.daemon_loop()
+        return
+    if sub == "trigger":
+        from datetime import datetime
+        results = _sch.run_once(datetime.now().replace(second=0, microsecond=0))
+        print(f"triggered {len(results)} entr(ies)")
+        for entry, rc in results:
+            print(f"  {entry.name} → exit {rc}")
+        return
+    print(f"unknown cron-schedule subcommand: {sub}", file=sys.stderr); sys.exit(64)
+
+
+def _cmd_sla(args: list[str]) -> None:
+    """Item #74 — finding-level SLA tracker.
+
+      wpsecscan sla report URL [--critical-days 7] [--high-days 30]
+                              [--medium-days 60] [--low-days 90]
+
+    Walks the saved snapshots for URL and prints, per finding:
+      • first-seen / last-seen
+      • days open
+      • whether it currently breaches the per-severity SLA.
+
+    SLA defaults: critical 7 / high 30 / medium 60 / low 90 days.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_sla.__doc__.strip()); return
+    if args[0] != "report" or len(args) < 2:
+        print("usage: wpsecscan sla report URL [--critical-days N ...]",
+              file=sys.stderr); sys.exit(64)
+    target = args[1]
+    if "://" not in target:
+        target = "https://" + target
+    sla = {"critical": 7, "high": 30, "medium": 60, "low": 90}
+    for i, a in enumerate(args[2:]):
+        for sev in sla:
+            if a == f"--{sev}-days" and i + 3 < len(args):
+                sla[sev] = int(args[i + 3])
+    from . import sla as _sla
+    out = _sla.for_target(target, sla)
+    s = out["summary"]
+    print(f"Target: {target}")
+    print(f"  tracked findings : {s['tracked']}")
+    print(f"  currently open   : {s['open']}")
+    print(f"  SLA breached     : {s['breached']}")
+    print()
+    if not out["breached"]:
+        print("(no SLA breaches)")
+        return
+    print(f"{'DAYS':>6s}  {'SEV':<8s}  {'CHECK_ID':<28s}  TITLE")
+    for row in out["breached"]:
+        print(f"{row['days_open']:>6d}  {row['severity']:<8s}  {row['check_id']:<28s}  {row['title']}")
 
 
 def _cmd_sso(args: list[str]) -> None:
