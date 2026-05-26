@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
+import subprocess
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -19,6 +21,19 @@ import httpx
 
 from ..http import Client
 from ..models import Finding
+
+
+# DNS labels must match RFC 1035 letters/digits/hyphen. Validated before
+# passing to nslookup/dig so a hostname like `-v` can't be misinterpreted
+# as a flag, and so a label containing shell metacharacters can't be
+# weaponised even though we already use the list form of subprocess.
+_LABEL_RE = re.compile(r"^[a-zA-Z0-9](?:[a-zA-Z0-9_-]{0,61}[a-zA-Z0-9])?$")
+
+
+def _is_safe_dns_name(name: str) -> bool:
+    if not name or len(name) > 253:
+        return False
+    return all(_LABEL_RE.match(p) for p in name.split(".") if p)
 
 
 def _parse_rdap_expiry(payload: dict) -> tuple[str | None, int | None]:
@@ -93,30 +108,49 @@ async def _whois_expiry_finding(apex: str) -> Finding | None:
 
 
 def _resolve_txt(name: str) -> list[str]:
-    """Use socket.getaddrinfo-adjacent trick — actually we need dns. Fall back
-    to nothing if no resolver is available."""
-    # stdlib doesn't expose TXT lookups directly. Use shell `nslookup` /
-    # `dig` if available. Otherwise return empty (graceful degrade).
-    import subprocess
+    """Look up TXT records via nslookup or dig (whichever is on PATH).
+
+    Returns an empty list if no resolver is available OR if the lookup
+    legitimately produced no records. Previously this exited on the first
+    tool whose stdout was non-empty — but on Windows nslookup always emits
+    "Server:/Address:" lines, so dig was never tried and SPF/DMARC/DKIM
+    checks silently reported "missing" even when records existed.
+    """
+    # Defence-in-depth: never pass a hostname that doesn't pass DNS-label
+    # validation to a subprocess. Already list-form, but a label like `-v`
+    # would still be parsed by nslookup as a flag.
+    if not _is_safe_dns_name(name):
+        return []
     for tool, args in (
         ("nslookup", ["nslookup", "-type=TXT", name]),
         ("dig", ["dig", "+short", "TXT", name]),
     ):
         try:
             r = subprocess.run(args, capture_output=True, text=True, timeout=8)
-            if r.returncode == 0 and r.stdout:
-                txts: list[str] = []
-                for line in r.stdout.splitlines():
-                    line = line.strip()
-                    # nslookup: look for `"v=spf1 ..."` after "text =" or just quoted strings
-                    if 'text =' in line or '"' in line:
-                        # Pull out the quoted-string contents
-                        import re as _re
-                        for m in _re.findall(r'"([^"]+)"', line):
-                            txts.append(m)
-                return txts
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             continue
+        if r.returncode != 0:
+            continue
+        txts: list[str] = []
+        for line in (r.stdout or "").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if '"' in line:
+                # nslookup: quoted strings, possibly preceded by `text =`.
+                for m in re.findall(r'"([^"]+)"', line):
+                    txts.append(m)
+            elif tool == "dig":
+                # dig +short TXT emits unquoted bare strings like
+                # `v=spf1 include:_spf.google.com ~all`. Accept them when
+                # they look like TXT records (have at least one '=' or
+                # known TXT-style prefix).
+                if "=" in line or line.startswith(("v=", "google-")):
+                    txts.append(line)
+        if txts:
+            return txts
+        # Fall through to the next tool if this one produced no records
+        # (Windows nslookup always prints Server:/Address: noise).
     return []
 
 

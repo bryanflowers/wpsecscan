@@ -104,14 +104,17 @@ def render(report: ScanReport) -> str:
     recommendations = _rec.recommendations_for(report)
 
     # Sort checks by worst finding severity (descending) so the HTML opens with
-    # the most-actionable items at the top. The template iterates report.results,
-    # so we replace the report's list rather than passing a separate view.
+    # the most-actionable items at the top. The template iterates `report.results`
+    # — render a shallow copy of the ScanReport with reordered results so
+    # subsequent reporters (console, JSON) see the original scan-execution order.
+    from dataclasses import replace
     from ..models import SEVERITY_RANK
     def _worst_rank(check_result):
         if not check_result.findings:
             return -1
         return max(SEVERITY_RANK.get(f.severity, -1) for f in check_result.findings)
-    report.results = sorted(report.results, key=_worst_rank, reverse=True)
+    sorted_results = sorted(report.results, key=_worst_rank, reverse=True)
+    report = replace(report, results=sorted_results)
     # E2 heatmap — render once, embed inline
     try:
         from .. import heatmap as _hm
