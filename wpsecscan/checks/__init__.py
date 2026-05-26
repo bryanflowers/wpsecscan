@@ -76,6 +76,7 @@ from .crlf_location_injection import check as crlf_location_injection
 from .host_header_validation import check as host_header_validation
 from .woocommerce_storefront import check as woocommerce_storefront
 from .page_builder_cve import check as page_builder_cve
+from .wp_fork_detection import check as wp_fork_detection
 from .github_leak_search import check as github_leak_search
 from .path_bypass import check as path_bypass
 from .race_condition import check as race_condition
@@ -329,6 +330,7 @@ ALL_CHECKS = [
     ("host_header_validation", "Host-header validation on admin endpoints (DNS-rebinding)", host_header_validation, False),
     ("woocommerce_storefront", "WC coupon-enum throttle + fragments cache-poisoning", woocommerce_storefront, False),
     ("page_builder_cve", "Page-builder fingerprint + known-CVE family hint", page_builder_cve, False),
+    ("wp_fork_detection", "WP fork detection (ClassicPress / Bedrock / headless)", wp_fork_detection, False),
     ("github_leak_search", "GitHub leaked-token search (opt-in)", github_leak_search, False),
     ("jwt_audit",          "JWT audit (alg=none + weak HS256)", jwt_audit,        False),
     # ---- CVE matching ----

@@ -366,8 +366,48 @@ def test_all_new_checks_registered():
     for required in ("rest_api", "cors", "js_libraries", "secret_leak",
                       "referenced_buckets", "cloudflare_origin_leak",
                       "crlf_location_injection", "host_header_validation",
-                      "woocommerce_storefront", "page_builder_cve"):
+                      "woocommerce_storefront", "page_builder_cve",
+                      "wp_fork_detection"):
         assert required in ids, f"check {required!r} not registered in ALL_CHECKS"
+
+
+# ============================== items 19 + 20 — fork detection ==============================
+
+def test_wp_fork_detects_classicpress():
+    import asyncio as _asyncio
+    from wpsecscan.checks.wp_fork_detection import check
+    cp_root = FakeResponse(
+        status_code=200,
+        text='{"name":"My Site","description":"Just another ClassicPress site"}',
+    )
+    client = FakeClient(responses={"/wp-json/": cp_root})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any("classicpress" in f.title.lower() for f in findings)
+    assert ctx["shared"].get("wp_fork") == "classicpress"
+
+
+def test_wp_fork_detects_headless_next():
+    import asyncio as _asyncio
+    from wpsecscan.checks.wp_fork_detection import check
+    home = FakeResponse(
+        status_code=200,
+        text='<html><script>self.__NEXT_DATA__={};</script><link href="/_next/static/x.css"></html>',
+    )
+    client = FakeClient(responses={"/": home})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any("headless-next" in f.title for f in findings)
+
+
+def test_wp_fork_default_to_vanilla():
+    import asyncio as _asyncio
+    from wpsecscan.checks.wp_fork_detection import check
+    client = FakeClient(responses={"/": FakeResponse(text="<html>vanilla</html>")})
+    ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
+    findings = _asyncio.run(check(client, ctx))
+    assert any("vanilla WordPress" in f.title for f in findings)
+    assert ctx["shared"].get("wp_fork") == "wordpress"
 
 
 # ============================== item 18 — page builder CVE ==============================

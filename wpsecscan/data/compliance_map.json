@@ -504,6 +504,11 @@
     "nist_800_53": "SI-2",
     "iso_27001": "A.8.8"
   },
+  "wp_fork_detection": {
+    "pci_dss": "12.5.1",
+    "nist_800_53": "CM-8",
+    "iso_27001": "A.8.9"
+  },
   "github_leak_search": {
     "pci_dss": "8.2.1",
     "nist_800_53": "IA-5",
