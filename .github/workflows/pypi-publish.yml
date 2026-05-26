@@ -3,12 +3,15 @@ name: pypi-publish
 # Item #66 — Publish to PyPI (and TestPyPI for dry runs).
 #
 # Two trigger modes:
-#   1. workflow_dispatch with environment=testpypi   → TestPyPI dry run
-#   2. workflow_dispatch with environment=pypi      → real PyPI publish
+#   1. workflow_dispatch with environment=testpypi   → TestPyPI (token-auth)
+#   2. workflow_dispatch with environment=pypi      → real PyPI (Trusted Publisher OIDC)
 #
-# Uses PyPI's Trusted Publisher (OIDC) flow — no API tokens required.
-# Setup once at https://pypi.org/manage/project/wpsecscan/settings/publishing/
-# pointing this workflow filename + the wpsecscan repo.
+# Auth split: TestPyPI uses the API token in the repo secret
+# TEST_PYPI_API_TOKEN (setting Trusted Publisher on test.pypi.org was
+# a hassle vs just storing a token); real PyPI uses GitHub Trusted
+# Publisher OIDC (no token stored).
+# Trusted Publisher config for pypi.org lives at
+# https://pypi.org/manage/account/publishing/ — see docs/release-pypi.md.
 
 on:
   workflow_dispatch:
@@ -66,6 +69,8 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           skip-existing: true
 
   publish-pypi:

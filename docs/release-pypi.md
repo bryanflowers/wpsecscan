@@ -134,10 +134,26 @@ gh release create vX.Y.Z --notes-from-tag
 The existing `release-attestation.yml` workflow will then attach
 cosign signatures + SHA256SUMS + the SBOM to the release.
 
+## Auth model (as actually shipped)
+
+- **TestPyPI** uses an API token stored in the repo secret
+  `TEST_PYPI_API_TOKEN`. Token issued at
+  <https://test.pypi.org/manage/account/token/>. Mirrored in
+  `C:\Users\bryan\migration\HANDOFF.md` for rotation reference.
+- **Real PyPI** uses Trusted Publisher OIDC. No token stored.
+  Configure once at <https://pypi.org/manage/account/publishing/>.
+
+Rotation:
+```
+gh secret set TEST_PYPI_API_TOKEN --repo bryanflowers/wpsecscan --body "<new>"
+```
+
 ## Common failures
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| TestPyPI publish: `Token-based authentication failed` | `TEST_PYPI_API_TOKEN` secret missing, expired, or scoped to a different project | Re-issue at test.pypi.org/manage/account/token/, then `gh secret set` (see Rotation above) |
+| TestPyPI publish: `403 from OIDC exchange` | An older workflow revision still tries OIDC instead of token-auth | Confirm workflow has `user: __token__` + `password: ${{ secrets.TEST_PYPI_API_TOKEN }}` on the publish-testpypi step |
 | `400 File already exists` | This version was already published | Bump the patch (PyPI is immutable — you can't republish the same version) |
 | `403 OIDC token verification failed` | Trusted Publisher mapping is wrong | Re-check the workflow filename + environment name in Step 2; they must match the workflow YAML byte-for-byte |
 | `Repository name does not match` | Repo renamed or forked | Update the mapping at <https://pypi.org/manage/project/wpsecscan/settings/publishing/> |
