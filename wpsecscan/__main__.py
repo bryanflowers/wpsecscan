@@ -186,6 +186,17 @@ async def _scan_one(target: str, args, console: Console):
     except Exception:  # noqa: BLE001
         pass
 
+    # #61 — redact JWTs / session cookies / bearer tokens / PII from
+    # evidence + remediation BEFORE any reporter runs.
+    if getattr(args, "redact_evidence", False):
+        try:
+            from . import ai_safety as _safety
+            n = _safety.redact_report_in_place(report)
+            if n and not args.no_console:
+                console.print(f"[yellow]Redacted {n} string(s) in evidence/remediation.[/yellow]")
+        except Exception:  # noqa: BLE001
+            pass
+
     # Items #40 + #41 — apply per-site policy (severity overrides + suppressions)
     # BEFORE the console render so what the user sees matches what the
     # reporters write.
@@ -744,6 +755,8 @@ def main() -> None:
     p.add_argument("--burp-export", action="store_true", help="Also write a Burp Suite scope XML for handoff to manual deep-testing")
     p.add_argument("--exec-pdf", action="store_true", help="Also write a one-page executive summary PDF (uses reportlab if installed; otherwise an HTML print-to-PDF fallback)")
     p.add_argument("--docx", action="store_true", help="#48: also write a Word-compatible report. Uses python-docx when installed; falls back to .rtf otherwise.")
+    p.add_argument("--redact-evidence", action="store_true",
+                   help="#61: mask JWTs / session cookies / bearer tokens / PII in finding evidence before any reporter writes. Recommended when sharing reports externally.")
     p.add_argument("--diff-html", nargs=2, metavar=("OLD.json", "NEW.json"),
                    help="#46: render a side-by-side HTML comparison of two snapshots of the SAME site, then exit.")
     p.add_argument("--daemon", default=None, metavar="CONFIG.yml", help="Run as a daemon: schedule scans via cron-style config (see SDK.md)")

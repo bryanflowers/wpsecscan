@@ -346,6 +346,54 @@ def test_cmd_portfolio_no_sites_exits_two(monkeypatch, capsys):
     assert ei.value.code == 2
 
 
+# ============================== #61 / #62 ======================================
+
+def test_redact_jwt_and_session_cookie():
+    from wpsecscan.ai_safety import mask_private
+    body = (
+        "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+        ".eyJzdWIiOiIxIn0.abcdefghijklmnop\n"
+        "Cookie: wordpress_logged_in_abcdef0123456789=admin%7C1234%7Ctok123"
+    )
+    out = mask_private(body)
+    assert "[JWT]" in out
+    assert "[SESSION_COOKIE]" in out
+    assert "abcdef0123456789" not in out or "[SESSION_COOKIE]" in out
+
+
+def test_redact_report_in_place_counts(monkeypatch):
+    from wpsecscan.models import Finding, CheckResult, ScanReport
+    from wpsecscan import ai_safety
+    f = Finding(severity="high", title="leaked",
+                  evidence="Bearer eyJabcdefghijklm.eyJsdfg.signaturepart111111",
+                  remediation="contact admin@example.com")
+    r = ScanReport(target="x", scanned_at="t", duration_ms=1,
+                    results=[CheckResult(check_id="x", check_name="x", findings=[f])])
+    n = ai_safety.redact_report_in_place(r)
+    assert n >= 2  # both evidence + remediation got changed
+    assert "Bearer " in f.evidence and "[TOKEN]" in f.evidence
+    assert "[EMAIL]" in f.remediation
+
+
+def test_snapshot_signing_round_trip(monkeypatch, tmp_path):
+    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
+    from wpsecscan import history as _h
+    url = "https://sign-test.example"
+    body = '{"target": "https://sign-test.example", "results": [], "risk_score": 90}'
+    _h.save_report_snapshot(url, body)
+    snaps = _h.snapshot_history(url)
+    assert snaps
+    snap = snaps[-1]
+    ok, reason = _h.verify_snapshot(snap)
+    assert ok, reason
+    # Tamper with the snapshot — verification must fail.
+    snap.write_text(body.replace('"risk_score": 90', '"risk_score": 100'),
+                      encoding="utf-8")
+    ok, reason = _h.verify_snapshot(snap)
+    assert not ok
+    assert "mismatch" in reason or "tamper" in reason
+
+
 # ============================== #49 / #50 ======================================
 
 def test_exec_pdf_trend_svg_empty_when_no_snapshots(monkeypatch, tmp_path):

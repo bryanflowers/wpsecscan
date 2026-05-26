@@ -121,22 +121,73 @@ def _safe_filename(url: str) -> str:
 
 
 def save_report_snapshot(url: str, report_json_text: str) -> None:
-    """Persist the latest JSON for a URL. Writes two files:
+    """Persist the latest JSON for a URL. Writes two files plus #62 sigs:
       - `{safe}.json` (canonical "latest", overwritten each run — back-compat)
       - `{safe}-{YYYYmmdd-HHMMSS}.json` (timestamped history for trend / compare)
+      - `{safe}-{ts}.json.sig` — HMAC-SHA256 of the JSON, signed with a
+                                  per-install secret. verify_snapshot()
+                                  recomputes on read to detect tampering.
     Old timestamped snapshots are retained; pruning is the caller's job.
     """
     if not url or not report_json_text:
         return
     from datetime import datetime as _dt, timezone as _tz
+    import hmac as _hmac, hashlib as _h
     safe = _safe_filename(url)
     ts = _dt.now(_tz.utc).strftime("%Y%m%d-%H%M%S")
     try:
         d = _reports_dir()
         (d / f"{safe}.json").write_text(report_json_text, encoding="utf-8")
-        (d / f"{safe}-{ts}.json").write_text(report_json_text, encoding="utf-8")
+        snap_path = d / f"{safe}-{ts}.json"
+        snap_path.write_text(report_json_text, encoding="utf-8")
+        # #62 — sign the snapshot.
+        secret = _snapshot_signing_secret()
+        sig = _hmac.new(secret.encode("utf-8"),
+                          report_json_text.encode("utf-8"), _h.sha256).hexdigest()
+        snap_path.with_suffix(".json.sig").write_text(f"sha256={sig}\n",
+                                                          encoding="utf-8")
     except OSError:
         pass
+
+
+def _snapshot_signing_secret() -> str:
+    """Return (and lazily-create) the per-install snapshot signing secret."""
+    p = _home() / "snapshot-signing-secret.json"
+    if p.exists():
+        try:
+            return json.loads(p.read_text(encoding="utf-8")).get("secret", "")
+        except (OSError, ValueError):
+            pass
+    import secrets as _secrets
+    p.parent.mkdir(parents=True, exist_ok=True)
+    secret = _secrets.token_hex(32)
+    try:
+        p.write_text(json.dumps({"secret": secret}), encoding="utf-8")
+    except OSError:
+        pass
+    return secret
+
+
+def verify_snapshot(snap_path: Path) -> tuple[bool, str]:
+    """#62: verify the HMAC signature for a snapshot file.
+    Returns (ok, reason). ok=False when sig missing or mismatched."""
+    sig_path = snap_path.with_suffix(".json.sig")
+    if not sig_path.exists():
+        return False, "no signature file"
+    try:
+        stored = sig_path.read_text(encoding="utf-8").strip()
+        if not stored.startswith("sha256="):
+            return False, "malformed signature"
+        expected = stored.split("=", 1)[1].strip()
+        body = snap_path.read_text(encoding="utf-8")
+    except OSError as e:
+        return False, str(e)
+    import hmac as _hmac, hashlib as _h
+    secret = _snapshot_signing_secret()
+    actual = _hmac.new(secret.encode("utf-8"), body.encode("utf-8"), _h.sha256).hexdigest()
+    if _hmac.compare_digest(expected, actual):
+        return True, "ok"
+    return False, "signature mismatch (snapshot may have been tampered)"
 
 
 def previous_report_path(url: str) -> Path | None:

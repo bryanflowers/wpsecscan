@@ -116,6 +116,16 @@ _MASK_PATTERNS = (
     (re.compile(r"\b(?:sk|pk)_(?:live|test)_[0-9a-zA-Z]{24,}\b"),            "[STRIPE_KEY]"),
     (re.compile(r"\bghp_[0-9a-zA-Z]{36}\b"),                                 "[GITHUB_PAT]"),
     (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),                                   "[SSN]"),
+    # #61 — JWTs (three base64 segments separated by .) + WordPress session
+    # cookies + bearer tokens. These appear in evidence blobs whenever an
+    # auth probe captures a logged-in response.
+    (re.compile(r"\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\b"), "[JWT]"),
+    (re.compile(r"\bwordpress_logged_in_[a-f0-9]{16,}\s*=\s*[^;\s]+",
+                  re.IGNORECASE), "wordpress_logged_in_***=[SESSION_COOKIE]"),
+    (re.compile(r"\bwordpress_sec_[a-f0-9]{16,}\s*=\s*[^;\s]+",
+                  re.IGNORECASE), "wordpress_sec_***=[SESSION_COOKIE]"),
+    (re.compile(r"\bBearer\s+[A-Za-z0-9_\-\.=]{20,}", re.IGNORECASE), "Bearer [TOKEN]"),
+    (re.compile(r"\bX-WPSecScan-Token:\s*\S+", re.IGNORECASE), "X-WPSecScan-Token: [REDACTED]"),
 )
 
 
@@ -132,6 +142,26 @@ def safe_for_llm(text: str) -> str:
     """One-stop sanitiser: strip prompt injection AND mask PII before
     sending user-controlled scan output to a remote LLM. Pure function."""
     return mask_private(strip_prompt_injection(text or ""))
+
+
+def redact_report_in_place(report) -> int:
+    """#61: walk every finding in a ScanReport and replace JWTs / session
+    cookies / bearer tokens / PII in evidence + remediation with mask
+    placeholders. Mutates the report. Returns the count of redactions."""
+    n = 0
+    for r in getattr(report, "results", []) or []:
+        for f in r.findings:
+            if f.evidence:
+                new_ev = mask_private(f.evidence)
+                if new_ev != f.evidence:
+                    n += 1
+                    f.evidence = new_ev
+            if f.remediation:
+                new_rem = mask_private(f.remediation)
+                if new_rem != f.remediation:
+                    n += 1
+                    f.remediation = new_rem
+    return n
 
 
 # ---- #68 hallucination verification ----
