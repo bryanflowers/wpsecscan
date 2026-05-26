@@ -7,6 +7,137 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [v2.5.0] — 2026-05-27
+
+Tests: **667 passing**. Third forward-audit delivery — all 80 items
+from the post-2.4.0 brainstorm shipped (or honestly scope-downed) in
+19 commits across 11 phases.
+
+**Headline:** auth/login robustness rebuilt for hardened sites
+(WP nonce, browser UA, CAPTCHA detection, login-URL discovery, 2FA
+field expansion, XML-RPC AP fallback), 12 new companion-plugin REST
+endpoints (active sessions, recent admin actions, db size, log files,
+PHP error log tail, cron failures, anomalies, shell commands, object
+cache, transient cache, wp-mail, multisite), live SIEM forwarders
+(Splunk HEC / Datadog Logs / Loki / Beats), GitHub Check Run as a
+PR-blocking status, Slack slash-command app, email-digest scheduler,
+Teams Adaptive Cards, DD/NR dashboard templates, Redmine/Bugzilla/Trac
+push, `creds` CRUD with OS-keychain + multi-account, SAML/OIDC
+configure flow, hwkey gating for --aggressive, cron-syntax scheduler,
+finding-level SLA tracker, AI auto-snooze + anomaly flagging,
+Burp/ZAP import, plugin-zip pre-install scanner, Chrome MV3 + Firefox
+browser extension overlay, reference-install diff against clean WP
+archives, mobile companion PWA + REST.
+
+### Added — Phase A: auth & login robustness (items 1–10)
+
+- **#1**  `_wpnonce` extraction from `GET /wp-login.php` before POST.
+- **#2**  Browser-like User-Agent on auth requests; `WPSECSCAN_AUTH_USER_AGENT` env override.
+- **#3**  CAPTCHA / Turnstile / hCaptcha detection — abort with clear error.
+- **#4**  Distinguish login-failure modes (wrong password / locked out / CAPTCHA / IP-banned).
+- **#5**  Renamed-login-URL discovery + `WPSECSCAN_LOGIN_PATH` override.
+- **#6**  2FA field expansion (3 → 12 plugin variants).
+- **#7**  XML-RPC `wp.getProfile` fallback when REST returns 401/403/404.
+- **#8**  Multi-step cookie capture across the redirect chain.
+- **#9**  `--auth-debug` mode logs every step (sanitised) to ~/.wpsecscan/auth-debug/{host}.log.
+- **#10** Successful auth strategy cached at ~/.wpsecscan/auth_strategy/{host}.json.
+
+### Added — Phase B: companion plugin v1.2 endpoints (items 11–22)
+
+12 new endpoints: `/active-sessions`, `/recent-admin-actions`,
+`/wp-cron-failures`, `/scheduled-task-anomalies`, `/object-cache-info`,
+`/transient-cache-size`, `/db-size-by-table`, `/log-files`,
+`/php-error-log-tail`, `/cron-shell-commands`, `/wp-mail-deliverability`,
+`/multisite-network-info`. Scanner-side consumers in `checks/companion_advanced.py`.
+
+### Added — Phase C: companion admin UI + perf (items 23–32)
+
+Test-connection AJAX, per-endpoint enable/disable toggles, IP-pin token
+issuance, CSV export of activity log, configurable max-uses (1–100),
+`/file-monitor` allowlist + incremental + subset + background wp-cron
+pre-compute, outbound access webhook.
+
+### Added — Phase D: CLI ergonomics (items 33–40)
+
+- `--config FILE` / `--profile NAME` (YAML/TOML/JSON; precedence default<profile<config<CLI).
+- `--format json,html,csv,md,xlsx,sarif,burp` consolidation.
+- Short aliases `-A` `-P` `-F`.
+- Shell-completion suggests values for `--fail-on`, `--ai-explain-for`, `--format`.
+- `wpsecscan only CHECK_ID URL` — ad-hoc single-check probe.
+- `wpsecscan doctor` — env audit.
+
+### Added — Phase E: GUI feature gaps (items 41–49)
+
+- OS keychain via `keyring` (Tools → Saved sites credential vault).
+- Double-click finding → open URL in browser.
+- Scan-completion system notification (plyer / winsound / Tk bell chain).
+- Per-check heatmap pane (Tools menu).
+- Filter box extended for CVE matching (`cve:CVE-N`).
+- Scope-downs documented for #46 drag-drop, #48 reference compare (later landed in CLI as #79), #49 HAR viewer.
+
+### Added — Phase F: reports (items 50–55)
+
+- **#50** Full-evidence auditor PDF (reportlab + HTML fallback).
+- **#51** SOC2 / ISO compliance-attestation matrix across 8 frameworks.
+- **#52** Board-room 1-pager (3 numbers, 3 sentences, 3 actions).
+- **#53** OpenAPI 3.1 schema for JSON output (`--print-openapi` to pipe).
+- **#54** `--report-template TEMPLATE.html.j2` — user-supplied Jinja2.
+- **#55** `wpsecscan diff-agency OLD.html NEW.html` — portfolio diff with exit-1-on-regression.
+
+### Added — Phase G: power user (items 56–60)
+
+- **#56** `wpsecscan check new SLUG` scaffold + 3 search dirs + `marketplace.json` publish.
+- **#57** Boolean rule engine `severity_rules:` in policy.yml.
+- **#58** Risk-weight override already shipped (`risk_weights.py`, noted in audit).
+- **#59** `wpsecscan playbook {add|show|rm|list}` — user playbooks merged on top of bundled.
+- **#60** `risk_formula:` in policy.yml — AST-allowlisted Python expression.
+
+### Added — Phase H: integrations (items 61–67)
+
+- **#61** SIEM forwarders: Splunk HEC, Datadog Logs HTTP intake, Grafana Loki push, Logstash HTTP input.
+- **#62** `wpsecscan pr-status` — GitHub Check Run as branch-protection gate.
+- **#63** `wpsecscan slack-app` — stdlib HMAC-verified slash-command listener.
+- **#64** `wpsecscan digest schedule --weekly|--daily|--monthly` — schtasks + crontab template.
+- **#65** Microsoft Teams notify upgraded from legacy MessageCard → Adaptive Cards 1.5.
+- **#66** Bundled Datadog + New Relic dashboard JSON templates (`wpsecscan dashboard-templates ...`).
+- **#67** `--push-redmine` / `--push-bugzilla` / `--push-trac` push functions in `issue_push.py`.
+
+### Added — Phase I: credentials (items 68–72)
+
+- **#68** `wpsecscan creds add SITE_URL` interactive prompt → OS keychain or sealed fallback.
+- **#69** `creds {get,list,rm,rotate,use}` full CRUD; `creds use` prints POSIX exports for `eval`.
+- **#70** `wpsecscan sso configure --type {oidc,saml} ...` — daemon SSO writer.
+- **#71** Multi-account via `--account NAME` (field-suffix in storage).
+- **#72** `wpsecscan hwkey {enable,disable,status,grant}` — gate `--aggressive` on token-or-typed-YES.
+
+### Added — Phase J: workflow / orchestration (items 73–80)
+
+- **#73** `wpsecscan cron-schedule {add,list,rm,run,trigger}` — POSIX cron-style absolute-time scheduler.
+- **#74** `wpsecscan sla report URL` — finding-level open-days tracker + per-severity SLA breach detector.
+- **#75** `--ai-auto-snooze-info-findings` + `--ai-flag-anomalies-for-human`.
+- **#76** `wpsecscan import-pentest FILE` — Burp Suite scan XML + OWASP ZAP report.xml importer.
+- **#77** `wpsecscan scan-zip plugin.zip` — pre-install static malware/vuln pattern scanner.
+- **#78** Chrome MV3 + Firefox browser extension for wp-admin overlay (`browser-extension/`).
+- **#79** `wpsecscan reference-diff` — diff live file-monitor manifest against clean WordPress archive.
+- **#80** `wpsecscan mobile-api` — installable PWA + REST for phone dashboards (scope-down from native iOS/Android).
+
+### Scope-downs documented in commit messages
+
+- **#46** drag-drop URL/HAR intake (Tk lacks portable drag-drop).
+- **#48** reference-install compare in GUI (CLI landed at #79 instead).
+- **#49** HAR Repeater in GUI.
+- **#56** centralised marketplace (ships scaffold + manual marketplace.json publish).
+- **#61** Loki + Beats as helper-protocol forwarders (protocols differ enough to need separate testing).
+- **#72** full FIDO2/WebAuthn CTAP (lands later; token-or-typed-YES is the practical gate today).
+- **#80** native iOS/Android app (PWA + REST is the ship-today version).
+
+### Notes
+
+- `pyproject.toml` / `__init__.py` / `installer/wpsecscan-setup.nsi` all bumped to 2.5.0.
+- `wp-plugin/wpsecscan-companion` bumped to 1.2.0 (12 new endpoints + admin UI changes).
+- No public-API breaking changes: every new flag is opt-in; legacy `notify_teams` MessageCard
+  → Adaptive Card change is invisible to receivers (Teams renders both).
+
 ## [v2.4.0] — 2026-05-26
 
 Tests: **665 → 667 passing**. Phase A→F of the 66-item second-audit
