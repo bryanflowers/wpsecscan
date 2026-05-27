@@ -1666,6 +1666,8 @@ SUBCOMMAND_HELP: tuple[tuple[str, str], ...] = (
     ("worker",               "Redis-queue distributed-scan worker (item #110)"),
     ("learn",                "interactive tutorial mode, no scan (item #116)"),
     ("audio-summary URL",    "TTS MP3 of the exec summary (item #118)"),
+    ("marketplace",          "marketplace list/search/install/verify/stars/authors/leaderboard (L126-L130)"),
+    ("submit-cve SLUG CVE",  "queue community CVE-DB contribution (L129)"),
 )
 
 SUBCOMMAND_NAMES: tuple[str, ...] = tuple(
@@ -1801,6 +1803,12 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
     elif cmd == "audio-summary":
         from .edu_v27 import cmd_audio_summary
         cmd_audio_summary(args)
+    elif cmd == "marketplace":
+        from .marketplace_v27 import cmd_marketplace
+        cmd_marketplace(args)
+    elif cmd == "submit-cve":
+        from .marketplace_v27 import cmd_submit_cve
+        cmd_submit_cve(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
