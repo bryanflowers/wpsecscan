@@ -35,7 +35,14 @@ _USER_AGENT = "WPSecScan-SIEM/1.0"
 # only redact strings of 24+ chars that are pure base64url / hex —
 # normal English text and URLs are safe.
 import re as _re
-_TOKEN_RE = _re.compile(r"\b[A-Za-z0-9+/=_-]{24,}\b")
+# Match long opaque tokens AND JWT-style three-part tokens (header.payload.sig)
+# where any of the three parts is itself long. \b word boundaries don't span
+# `.`, so JWTs need their own alternation.
+_TOKEN_RE = _re.compile(
+    r"(?:[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,})"  # JWT
+    r"|"
+    r"\b[A-Za-z0-9+/=_-]{24,}\b"                                     # long opaque blob
+)
 
 
 def _redact(msg: str) -> str:

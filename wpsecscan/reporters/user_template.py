@@ -28,9 +28,20 @@ def render(report: ScanReport, template_path: Path) -> str:
     if not template_path.exists():
         raise FileNotFoundError(f"Report template not found: {template_path}")
 
+    # Autoescape on by default — without this, common naming like
+    # `branded.html.j2` (final extension .j2) skips the html-extension
+    # check and serves raw HTML interpolations. select_autoescape's
+    # `default_for_string=True` + `default=True` makes the safer choice
+    # apply to every template regardless of extension; templates that
+    # genuinely want raw HTML output use the `|safe` filter, same as the
+    # built-in HTML reporter.
     env = Environment(
         loader=FileSystemLoader(str(template_path.parent)),
-        autoescape=select_autoescape(["html", "xml"]),
+        autoescape=select_autoescape(
+            enabled_extensions=("html", "xml", "j2", "jinja", "jinja2"),
+            default_for_string=True,
+            default=True,
+        ),
         trim_blocks=True,
         lstrip_blocks=True,
     )
