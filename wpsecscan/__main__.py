@@ -1249,8 +1249,28 @@ def main() -> None:
                    help="Diff scan-in-progress against the most recent saved snapshot older than WINDOW "
                         "(e.g. `7d`, `24h`, `2w`). Composes with the scan; outputs the delta after the scan completes.")
     p.add_argument("--debug", action="store_true", help="Verbose logging to ~/.wpsecscan/logs/")
-    p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    # K124 — third-party audit link in --version output
+    try:
+        from .trust_v27 import third_party_audit_url as _audit_url
+        _audit = _audit_url()
+    except ImportError:
+        _audit = ""
+    p.add_argument(
+        "--version", action="version",
+        version=(f"%(prog)s {__version__}"
+                 + (f"\nThird-party audit: {_audit}" if _audit else "")),
+    )
+    p.add_argument("--deterministic", action="store_true",
+                   help="K125: pin all randomness so two runs of the same target "
+                        "produce byte-identical reports.")
     args = p.parse_args()
+    # K125 — apply deterministic seed BEFORE any other module fires.
+    if getattr(args, "deterministic", False):
+        try:
+            from .trust_v27 import set_deterministic_seed
+            set_deterministic_seed()
+        except ImportError:
+            pass
 
     # #33 / #34 — merge config file + named profile into args BEFORE any
     # downstream code reads them. CLI args always win over file / profile
