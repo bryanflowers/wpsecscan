@@ -271,6 +271,12 @@ from .algolia_elastic_frontend_keys import check as algolia_elastic_frontend_key
 from .bucket_shadow_takeover import check as bucket_shadow_takeover
 from .vercel_preview_url_leak import check as vercel_preview_url_leak
 from .jwt_auth_plugin_audit import check as jwt_auth_plugin_audit
+from .pwa_service_worker_cache import check as pwa_service_worker_cache
+from .amp_transitional_redirect import check as amp_transitional_redirect
+from .cookie_consent_desync import check as cookie_consent_desync
+from .gdpr_dsr_endpoint_enum import check as gdpr_dsr_endpoint_enum
+from .plugin_install_rest_race import check as plugin_install_rest_race
+from .form_builder_upload_bypass import check as form_builder_upload_bypass
 
 # Authenticated — only when creds are provided
 from .authenticated import check as authenticated
@@ -536,6 +542,12 @@ ALL_CHECKS = [
     ("bucket_shadow_takeover",   "S3 / R2 / GCS shadow-bucket takeover (A15)", bucket_shadow_takeover, False),
     ("vercel_preview_url_leak",  "Vercel / Netlify preview-URL leak (A16)", vercel_preview_url_leak, False),
     ("jwt_auth_plugin_audit",    "JWT-Auth plugin secret-key audit (A17)", jwt_auth_plugin_audit, False),
+    ("pwa_service_worker_cache", "PWA service-worker precaches admin URLs (A18)", pwa_service_worker_cache, False),
+    ("amp_transitional_redirect","AMP plugin transitional-mode open-redirect (A19)", amp_transitional_redirect, False),
+    ("cookie_consent_desync",    "Tracking cookies fire pre-consent (A20)", cookie_consent_desync, False),
+    ("gdpr_dsr_endpoint_enum",   "GDPR DSR ajax-action auth check (A21)", gdpr_dsr_endpoint_enum, False),
+    ("plugin_install_rest_race", "REST plugin-install endpoint auth audit (A22)", plugin_install_rest_race, False),
+    ("form_builder_upload_bypass","Form-builder file-upload bypass advisory (A23)", form_builder_upload_bypass, False),
     # ---- Round-58 aggressive checks ----
     ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
     ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),

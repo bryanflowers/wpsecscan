@@ -1118,5 +1118,35 @@
     "pci_dss": "3.6.1",
     "nist_800_53": "SC-12",
     "iso_27001": "A.8.24"
+  },
+  "pwa_service_worker_cache": {
+    "pci_dss": "8.3.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.3"
+  },
+  "amp_transitional_redirect": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "cookie_consent_desync": {
+    "pci_dss": "n/a",
+    "nist_800_53": "AC-21",
+    "iso_27001": "A.5.34"
+  },
+  "gdpr_dsr_endpoint_enum": {
+    "pci_dss": "7.2.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.5.34"
+  },
+  "plugin_install_rest_race": {
+    "pci_dss": "7.2.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.3"
+  },
+  "form_builder_upload_bypass": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
   }
 }

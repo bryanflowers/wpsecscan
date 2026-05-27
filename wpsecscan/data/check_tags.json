@@ -266,5 +266,11 @@
   "algolia_elastic_frontend_keys":{"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552.001", "attack_label": "Credentials In Files", "cwe": "CWE-798", "d3fend": "D3-CRO"},
   "bucket_shadow_takeover":       {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1583.006", "attack_label": "Web Services", "cwe": "CWE-1188", "d3fend": "D3-DNS"},
   "vercel_preview_url_leak":      {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-IAA"},
-  "jwt_auth_plugin_audit":        {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1606", "attack_label": "Forge Web Credentials", "cwe": "CWE-347", "d3fend": "D3-CRO"}
+  "jwt_auth_plugin_audit":        {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1606", "attack_label": "Forge Web Credentials", "cwe": "CWE-347", "d3fend": "D3-CRO"},
+  "pwa_service_worker_cache":     {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1005", "attack_label": "Data from Local System", "cwe": "CWE-200", "d3fend": "D3-FA"},
+  "amp_transitional_redirect":    {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1566.002", "attack_label": "Spearphishing Link", "cwe": "CWE-601", "d3fend": "D3-NTA"},
+  "cookie_consent_desync":        {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-359", "d3fend": "D3-FA"},
+  "gdpr_dsr_endpoint_enum":       {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-862", "d3fend": "D3-IAA"},
+  "plugin_install_rest_race":     {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-862", "d3fend": "D3-IAA"},
+  "form_builder_upload_bypass":   {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1505.003", "attack_label": "Web Shell", "cwe": "CWE-434", "d3fend": "D3-FA"}
 }
