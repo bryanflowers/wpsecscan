@@ -28,6 +28,9 @@ define( 'WPSECSCAN_COMPANION_LOG_OPTION',   'wpsecscan_companion_log' );
 require_once __DIR__ . '/includes/admin.php';
 require_once __DIR__ . '/includes/rest.php';
 require_once __DIR__ . '/includes/diagnostics.php';
+// B48 (v1.4.0) — WP-CLI integration: self-registers `wp wpsec` if WP_CLI
+// is defined (no-op for non-CLI WordPress contexts).
+require_once __DIR__ . '/includes/cli.php';
 
 /**
  * Bootstrap.

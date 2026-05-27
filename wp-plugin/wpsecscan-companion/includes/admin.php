@@ -443,3 +443,47 @@ function wpsecscan_companion_test_connection_ajax() {
         'total'   => count( $results ),
     ] );
 }
+
+/**
+ * B46 — Settings page button: "Check for updates".
+ * Compares the installed plugin version against the GitHub releases
+ * "latest" tag. Read-only HTTP call; never writes / never auto-installs.
+ */
+add_action( 'wp_ajax_wpsecscan_companion_check_update', 'wpsecscan_companion_check_update_ajax' );
+function wpsecscan_companion_check_update_ajax() {
+    if ( ! current_user_can( 'manage_options' )
+            || ! check_ajax_referer( 'wpsecscan_companion_admin', '_wpnonce', false ) ) {
+        wp_send_json_error( 'permission denied', 403 );
+    }
+    $current = defined( 'WPSECSCAN_COMPANION_VERSION' )
+                ? (string) WPSECSCAN_COMPANION_VERSION
+                : '0.0.0';
+    $resp = wp_remote_get(
+        'https://api.github.com/repos/bryanflowers/wpsecscan/releases/latest',
+        [
+            'timeout' => 8,
+            'headers' => [
+                'Accept'     => 'application/vnd.github+json',
+                'User-Agent' => 'WPSecScan-Companion/' . $current,
+            ],
+        ]
+    );
+    if ( is_wp_error( $resp ) ) {
+        wp_send_json_error( 'fetch failed: ' . $resp->get_error_message() );
+    }
+    $code = (int) wp_remote_retrieve_response_code( $resp );
+    $body = (string) wp_remote_retrieve_body( $resp );
+    if ( $code !== 200 ) {
+        wp_send_json_error( 'github returned ' . $code );
+    }
+    $data    = @json_decode( $body, true );
+    $tag     = isset( $data['tag_name'] ) ? trim( (string) $data['tag_name'], 'v' ) : '';
+    $url     = isset( $data['html_url'] ) ? (string) $data['html_url'] : '';
+    $is_new  = ( $tag && version_compare( $tag, $current, '>' ) );
+    wp_send_json_success( [
+        'current_version' => $current,
+        'latest_version'  => $tag,
+        'update_available'=> $is_new,
+        'release_url'     => $url,
+    ] );
+}
