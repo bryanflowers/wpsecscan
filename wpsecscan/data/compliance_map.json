@@ -1148,5 +1148,30 @@
     "pci_dss": "6.2.4",
     "nist_800_53": "SI-10",
     "iso_27001": "A.8.28"
+  },
+  "theme_json_font_ssrf": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "search_highlight_xss": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "wp_mail_smtp_site_health_leak": {
+    "pci_dss": "8.2.1",
+    "nist_800_53": "IA-5",
+    "iso_27001": "A.5.17"
+  },
+  "translation_plugin_key_leak": {
+    "pci_dss": "8.2.1",
+    "nist_800_53": "IA-5",
+    "iso_27001": "A.5.17"
+  },
+  "wc_api_key_escalation": {
+    "pci_dss": "7.2.1",
+    "nist_800_53": "AC-6",
+    "iso_27001": "A.8.3"
   }
 }

@@ -277,6 +277,11 @@ from .cookie_consent_desync import check as cookie_consent_desync
 from .gdpr_dsr_endpoint_enum import check as gdpr_dsr_endpoint_enum
 from .plugin_install_rest_race import check as plugin_install_rest_race
 from .form_builder_upload_bypass import check as form_builder_upload_bypass
+from .theme_json_font_ssrf import check as theme_json_font_ssrf
+from .search_highlight_xss import check as search_highlight_xss
+from .wp_mail_smtp_site_health_leak import check as wp_mail_smtp_site_health_leak
+from .translation_plugin_key_leak import check as translation_plugin_key_leak
+from .wc_api_key_escalation import check as wc_api_key_escalation
 
 # Authenticated — only when creds are provided
 from .authenticated import check as authenticated
@@ -548,6 +553,11 @@ ALL_CHECKS = [
     ("gdpr_dsr_endpoint_enum",   "GDPR DSR ajax-action auth check (A21)", gdpr_dsr_endpoint_enum, False),
     ("plugin_install_rest_race", "REST plugin-install endpoint auth audit (A22)", plugin_install_rest_race, False),
     ("form_builder_upload_bypass","Form-builder file-upload bypass advisory (A23)", form_builder_upload_bypass, False),
+    ("theme_json_font_ssrf",     "theme.json font-source SSRF surface (A24)", theme_json_font_ssrf, False),
+    ("search_highlight_xss",     "Search-result <mark> reflected XSS (A25)", search_highlight_xss, False),
+    ("wp_mail_smtp_site_health_leak", "Site-Health debug dump SMTP-key leak (A26)", wp_mail_smtp_site_health_leak, False),
+    ("translation_plugin_key_leak","Translation plugin API key leak (A27)", translation_plugin_key_leak, False),
+    ("wc_api_key_escalation",    "WooCommerce REST key scope advisory (A28)", wc_api_key_escalation, False),
     # ---- Round-58 aggressive checks ----
     ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
     ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),
