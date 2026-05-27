@@ -1619,6 +1619,10 @@ SUBCOMMAND_HELP: tuple[tuple[str, str], ...] = (
     ("mobile-api",           "installable PWA + REST for phones (item #80)"),
     # v2.6.0
     ("kev URL",              "CISA KEV-only fast scan (item #67)"),
+    # v2.7.0
+    ("compare-portfolios OLD NEW", "diff two sites.json portfolios (item #61)"),
+    ("changelog URL",        "human-readable site-change log (--since DATE, item #63)"),
+    ("replay HAR.json",      "browse a recorded HTTP Archive (item #64)"),
 )
 
 SUBCOMMAND_NAMES: tuple[str, ...] = tuple(
@@ -1706,6 +1710,15 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_mobile_api(args)
     elif cmd == "kev":
         _cmd_kev(args)
+    elif cmd == "compare-portfolios":
+        from .workflow_cmds import cmd_compare_portfolios
+        cmd_compare_portfolios(args)
+    elif cmd == "changelog":
+        from .workflow_cmds import cmd_changelog
+        cmd_changelog(args)
+    elif cmd == "replay":
+        from .workflow_cmds import cmd_replay
+        cmd_replay(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
