@@ -202,14 +202,30 @@ def _fallback_save(data: dict[str, str]) -> None:
         p.parent.mkdir(parents=True, exist_ok=True)
         if p.is_symlink():
             p.unlink()
-        # Best-effort restrict to the owning user. On Windows, NTFS ACL
-        # tightening is non-trivial here — the comment above tells the
-        # user to treat this file as sensitive.
-        p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        # S9: atomic 0600 create — no window where the file is world-readable.
+        # On POSIX, os.open(O_CREAT|O_WRONLY|O_TRUNC, 0o600) honours the
+        # mode argument intersected with umask. On Windows, the mode arg is
+        # ignored; NTFS ACL hardening is out of scope here — the comment
+        # above the call tells the user to treat this file as sensitive.
+        payload = json.dumps(data, indent=2).encode("utf-8")
+        fd = os.open(str(p), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         try:
-            p.chmod(0o600)
-        except OSError:
-            pass
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(payload)
+        except Exception:
+            # fdopen takes ownership of fd; only close manually if fdopen failed.
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            raise
+        # Belt-and-braces: re-chmod on POSIX (in case the file already
+        # existed with a wider mode and O_CREAT didn't tighten it).
+        if os.name != "nt":
+            try:
+                os.chmod(str(p), 0o600)
+            except OSError:
+                pass
     except OSError:
         pass
 

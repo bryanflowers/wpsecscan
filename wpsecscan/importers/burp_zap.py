@@ -23,8 +23,22 @@ picks them up the next time it renders.
 from __future__ import annotations
 
 import re
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+# S5: prefer defusedxml when available (blocks billion-laughs entity
+# expansion + XXE on all Python versions). Falls back to stdlib for
+# users who didn't install the [security] extra; print a one-time
+# stderr warning so they know parsing is using the less-safe path.
+try:
+    from defusedxml import ElementTree as ET  # type: ignore[import-not-found]
+    _ET_BACKEND = "defusedxml"
+except ImportError:
+    import xml.etree.ElementTree as ET  # type: ignore[no-redef]
+    _ET_BACKEND = "stdlib"
+    import sys as _sys
+    print("warning: defusedxml not installed; using stdlib XML parser "
+           "(vulnerable to billion-laughs DoS). pip install defusedxml.",
+           file=_sys.stderr)
 
 from ..models import CheckResult, Finding, ScanReport
 

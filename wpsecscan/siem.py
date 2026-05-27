@@ -29,6 +29,19 @@ from .models import ScanReport
 
 _USER_AGENT = "WPSecScan-SIEM/1.0"
 
+# S10: redact anything in an error message that looks like a long
+# opaque token before it bubbles to the console. Splunk HEC tokens,
+# Datadog API keys, and JWTs all match this pattern. Conservative: we
+# only redact strings of 24+ chars that are pure base64url / hex —
+# normal English text and URLs are safe.
+import re as _re
+_TOKEN_RE = _re.compile(r"\b[A-Za-z0-9+/=_-]{24,}\b")
+
+
+def _redact(msg: str) -> str:
+    """Mask token-shaped substrings in an SIEM-forwarder error message."""
+    return _TOKEN_RE.sub("[redacted-token]", msg)
+
 
 def _build_events(report: ScanReport, source: str) -> list[dict[str, Any]]:
     """Flatten the report into one dict per finding for SIEM ingest."""
@@ -74,10 +87,10 @@ def post_splunk_hec(report: ScanReport, hec_url: str, token: str,
                         headers={"Authorization": f"Splunk {token}"},
                         content=payload)
             if r.status_code >= 400:
-                return 0, f"splunk HEC {r.status_code}: {r.text[:200]}"
+                return 0, _redact(f"splunk HEC {r.status_code}: {r.text[:200]}")
             return len(events), f"splunk HEC accepted {len(events)} event(s)"
     except (httpx.RequestError, httpx.HTTPStatusError) as e:
-        return 0, f"splunk HEC error: {e}"
+        return 0, _redact(f"splunk HEC error: {e}")
 
 
 def post_datadog_logs(report: ScanReport, api_key: str,
@@ -110,10 +123,10 @@ def post_datadog_logs(report: ScanReport, api_key: str,
             r = c.post(intake.rstrip("/") + "/api/v2/logs",
                         content=json.dumps(payload))
             if r.status_code >= 400:
-                return 0, f"datadog {r.status_code}: {r.text[:200]}"
+                return 0, _redact(f"datadog {r.status_code}: {r.text[:200]}")
             return len(events), f"datadog accepted {len(events)} log entr(ies)"
     except (httpx.RequestError, httpx.HTTPStatusError) as e:
-        return 0, f"datadog error: {e}"
+        return 0, _redact(f"datadog error: {e}")
 
 
 def post_loki(report: ScanReport, push_url: str,
@@ -148,10 +161,10 @@ def post_loki(report: ScanReport, push_url: str,
         with httpx.Client(timeout=timeout, headers=headers) as c:
             r = c.post(push_url, content=json.dumps(payload))
             if r.status_code >= 400:
-                return 0, f"loki {r.status_code}: {r.text[:200]}"
+                return 0, _redact(f"loki {r.status_code}: {r.text[:200]}")
             return len(events), f"loki accepted {len(events)} entr(ies) across {len(streams)} stream(s)"
     except (httpx.RequestError, httpx.HTTPStatusError) as e:
-        return 0, f"loki error: {e}"
+        return 0, _redact(f"loki error: {e}")
 
 
 def post_beats(report: ScanReport, http_input_url: str,
@@ -171,10 +184,10 @@ def post_beats(report: ScanReport, http_input_url: str,
                                     "Content-Type": "application/json"}) as c:
             r = c.post(http_input_url, content=json.dumps(events))
             if r.status_code >= 400:
-                return 0, f"beats/logstash {r.status_code}: {r.text[:200]}"
+                return 0, _redact(f"beats/logstash {r.status_code}: {r.text[:200]}")
             return len(events), f"logstash accepted {len(events)} event(s)"
     except (httpx.RequestError, httpx.HTTPStatusError) as e:
-        return 0, f"beats/logstash error: {e}"
+        return 0, _redact(f"beats/logstash error: {e}")
 
 
 def forward_all(report: ScanReport, args) -> list[str]:

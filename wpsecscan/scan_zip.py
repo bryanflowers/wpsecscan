@@ -7,7 +7,7 @@ patterns commonly associated with malicious or vulnerable WordPress
 extensions:
 
   • eval / base64_decode / gzinflate chains            → high
-  • assert(\$_REQUEST[...]) / preg_replace 'e' modifier  → critical
+  • assert($_REQUEST[...]) / preg_replace 'e' modifier  → critical
   • create_function with user input                    → high
   • shell exec primitives (exec/system/passthru/...)   → high
   • file_get_contents("php://input")  + eval()         → critical
@@ -83,10 +83,18 @@ def scan_zip(zip_path: Path) -> ScanReport:
     """Unzip + static-scan + return a ScanReport. Cleans the temp dir on exit."""
     findings: list[Finding] = []
     tmp = Path(tempfile.mkdtemp(prefix="wpsec-zip-"))
+    # S4: cap uncompressed size to defend against zip-bombs. 200 MB is
+    # ~10× the largest legitimate WordPress plugin we've seen.
+    _MAX_UNCOMPRESSED = 200 * 1024 * 1024
     try:
         with zipfile.ZipFile(zip_path, "r") as zf:
-            # Reject path-traversal entries before unzipping.
-            for member in zf.namelist():
+            # S4: reject path-traversal AND symlink AND oversize entries
+            # before unzipping. Each is a real-world plugin-distribution
+            # attack vector.
+            total_size = 0
+            blocked = False
+            for info in zf.infolist():
+                member = info.filename
                 if member.startswith(("/", "\\")) or ".." in Path(member).parts:
                     findings.append(Finding(
                         severity="critical",
@@ -95,8 +103,29 @@ def scan_zip(zip_path: Path) -> ScanReport:
                         remediation="Reject this archive. The plugin's installer can write outside its directory.",
                         url=str(zip_path),
                     ))
-                    break
-            else:
+                    blocked = True; break
+                # Symlink check: ZIP stores Unix mode in the upper 16 bits
+                # of external_attr; 0xA000 == S_IFLNK.
+                if (info.external_attr >> 16) & 0xF000 == 0xA000:
+                    findings.append(Finding(
+                        severity="critical",
+                        title="Symlink entry in zip",
+                        evidence=f"symlink member: {member!r}",
+                        remediation="Reject this archive. Symlinks in a plugin zip can point at /etc/cron.d/ or other persistent locations.",
+                        url=str(zip_path),
+                    ))
+                    blocked = True; break
+                total_size += info.file_size
+                if total_size > _MAX_UNCOMPRESSED:
+                    findings.append(Finding(
+                        severity="critical",
+                        title="Zip-bomb (uncompressed payload exceeds 200 MB)",
+                        evidence=f"running total {total_size:,} bytes (cap {_MAX_UNCOMPRESSED:,})",
+                        remediation="Reject this archive. Legitimate plugin/theme zips are under 50 MB; this one targets disk exhaustion.",
+                        url=str(zip_path),
+                    ))
+                    blocked = True; break
+            if not blocked:
                 zf.extractall(tmp)
 
         php_files = list(tmp.rglob("*.php"))

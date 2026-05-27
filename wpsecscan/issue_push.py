@@ -297,9 +297,12 @@ def push_bugzilla(target: str, payloads: list[dict], *, base_url: str,
             "product": product, "component": component, "version": version,
             "summary": title, "description": body, "op_sys": "All", "platform": "All",
         }
+        # S1: send the API key in the X-BUGZILLA-API-KEY header so it
+        # doesn't appear in proxy / server access logs or Python
+        # tracebacks that include the request URL.
         status, resp = _post_json(
-            f"{base_url.rstrip('/')}/rest/bug?api_key={token}",
-            bz_payload, {},
+            f"{base_url.rstrip('/')}/rest/bug",
+            bz_payload, {"X-BUGZILLA-API-KEY": token},
         )
         if status in (200, 201) and isinstance(resp, dict) and resp.get("id"):
             bid = resp["id"]
@@ -349,7 +352,11 @@ def push_trac(target: str, payloads: list[dict], *, base_url: str,
                                              {"type": "defect", "priority": "major"},
                                              True)
         except (xmlrpc.client.Fault, OSError) as e:
-            results.append({"ok": False, "error": str(e)})
+            # S8: xmlrpc.client error strings can echo the ServerProxy
+            # URL, which embeds the Trac password. Strip credentials
+            # before propagating.
+            msg = str(e).replace(quote(pw, safe=''), "***").replace(pw, "***")
+            results.append({"ok": False, "error": msg})
             continue
         url = f"{base_url.rstrip('/')}/ticket/{ticket_id}"
         cache[key] = {"system": "trac", "ticket_id": f"#{ticket_id}", "url": url,

@@ -50,6 +50,10 @@ ops = ["redis>=5.0", "bcrypt>=4.0"]
 # Optional Pillow for GUI image rendering + pystray for minimize-to-tray (#56)
 # + keyring for OS-keychain credential storage (#42)
 ui = ["Pillow>=10", "pystray>=0.19", "keyring>=24"]
+# S5 — defusedxml protects the burp/zap importer against billion-laughs
+# entity-expansion DoS on hostile XML reports. Stdlib ElementTree falls
+# back with a stderr warning when this isn't installed.
+security = ["defusedxml>=0.7"]
 # Everything optional in one install
 all = [
     "reportlab>=4.0",
@@ -60,6 +64,7 @@ all = [
     "Pillow>=10",
     "pystray>=0.19",
     "keyring>=24",
+    "defusedxml>=0.7",
 ]
 # Test deps (also installed by CI)
 test = ["pytest>=7.4"]

@@ -86,6 +86,15 @@ class _Handler(BaseHTTPRequestHandler):
         form = parse_qs(body.decode("utf-8", errors="replace"))
         text = (form.get("text", [""])[0]).strip()
         response_url = form.get("response_url", [""])[0]
+        # S2: response_url must point at Slack's own webhook host. Without
+        # this, a compromised Slack workspace or a malicious slash-command
+        # config could redirect scan output to an arbitrary URL (SSRF on
+        # cloud metadata endpoints, exfil to attacker-controlled host).
+        if response_url and not response_url.startswith("https://hooks.slack.com/"):
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write(b"response_url must be https://hooks.slack.com/...")
+            return
         if not text:
             self.send_response(200)
             self.send_header("Content-Type", "application/json")

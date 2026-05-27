@@ -244,7 +244,13 @@ class _Handler(BaseHTTPRequestHandler):
         expected = os.environ.get("WPSECSCAN_MOBILE_TOKEN", "")
         if not expected:
             return False
-        return self.headers.get("X-WPSecScan-Token", "") == expected
+        # S6: hmac.compare_digest is constant-time over token length;
+        # `==` short-circuits and leaks the matched prefix length via
+        # timing. Critical on a noisy LAN.
+        import hmac as _hmac
+        return _hmac.compare_digest(
+            self.headers.get("X-WPSecScan-Token", ""), expected,
+        )
 
     def do_GET(self):  # noqa: N802 — stdlib API
         url = urlparse(self.path)

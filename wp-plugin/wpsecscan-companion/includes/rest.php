@@ -10,6 +10,42 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
+ * S7 helper — collapse IPv4-mapped IPv6 (`::ffff:1.2.3.4`) to its bare
+ * IPv4 form, leave other addresses alone. Used by IP-pin comparison so
+ * dual-stack proxies don't trigger false-positive token revocations.
+ */
+function wpsecscan_companion_normalize_ip( $ip ) {
+    if ( ! $ip ) {
+        return '';
+    }
+    $bin = @inet_pton( $ip );
+    if ( $bin === false ) {
+        return (string) $ip; // unparseable — fall back to raw
+    }
+    // 16-byte IPv6 starting with 10 zero bytes + 0xff 0xff is IPv4-mapped.
+    if ( strlen( $bin ) === 16 && substr( $bin, 0, 10 ) === str_repeat( "\0", 10 )
+            && substr( $bin, 10, 2 ) === "\xff\xff" ) {
+        return inet_ntop( substr( $bin, 12 ) );
+    }
+    return inet_ntop( $bin );
+}
+
+/**
+ * S3 helper — return true if the given IP string is RFC1918 / link-local /
+ * loopback / IPv6 ULA / IPv6 link-local / 0.0.0.0 / ::. Used to block
+ * SSRF on the access-webhook destination.
+ */
+function wpsecscan_companion_is_private_ip( $ip ) {
+    if ( ! $ip ) {
+        return true; // be conservative: empty == "don't allow"
+    }
+    if ( ! filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ) {
+        return true; // failed the public-only filter → private / reserved
+    }
+    return false;
+}
+
+/**
  * Register the route.
  */
 function wpsecscan_companion_register_routes() {
@@ -238,6 +274,11 @@ function wpsecscan_companion_check_token( $request ) {
     $pinned = isset( $stored['pinned_ip'] ) ? (string) $stored['pinned_ip'] : '';
     if ( $pinned ) {
         $req_ip = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) $_SERVER['REMOTE_ADDR'] : '';
+        // S7: normalise IPv4-mapped IPv6 (`::ffff:1.2.3.4`) so dual-stack
+        // proxies don't falsely revoke legitimate tokens. inet_pton +
+        // inet_ntop collapses the mapped form to the bare IPv4 string.
+        $pinned = wpsecscan_companion_normalize_ip( $pinned );
+        $req_ip = wpsecscan_companion_normalize_ip( $req_ip );
         if ( $req_ip !== $pinned ) {
             // Revoke the token on IP mismatch — strong signal of replay attempt.
             delete_option( WPSECSCAN_COMPANION_TOKEN_OPTION );
@@ -275,8 +316,24 @@ function wpsecscan_companion_check_token( $request ) {
  */
 function wpsecscan_companion_fire_access_webhook( $event, $payload = [] ) {
     $url = (string) get_option( 'wpsecscan_companion_access_webhook', '' );
-    if ( ! $url || ! preg_match( '#^https?://#i', $url ) ) {
+    // S3: require HTTPS and block private/link-local destinations so a
+    // compromised admin can't turn this into an SSRF gun aimed at cloud
+    // metadata (`169.254.169.254`) or internal services. Apply to ALL
+    // resolved IPs for the host, in case of DNS-rebinding.
+    if ( ! $url || ! preg_match( '#^https://#i', $url ) ) {
         return;
+    }
+    $host = parse_url( $url, PHP_URL_HOST );
+    if ( ! $host ) {
+        return;
+    }
+    $ips = @gethostbynamel( $host );
+    if ( $ips ) {
+        foreach ( $ips as $ip ) {
+            if ( wpsecscan_companion_is_private_ip( $ip ) ) {
+                return; // refuse SSRF to RFC1918 / link-local / loopback
+            }
+        }
     }
     $body = wp_json_encode( array_merge( [
         'event'     => (string) $event,
