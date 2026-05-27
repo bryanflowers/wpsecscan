@@ -277,5 +277,9 @@
   "search_highlight_xss":         {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1059.007", "attack_label": "JavaScript", "cwe": "CWE-79", "d3fend": "D3-FA"},
   "wp_mail_smtp_site_health_leak":{"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1552.001", "attack_label": "Credentials In Files", "cwe": "CWE-200", "d3fend": "D3-CRO"},
   "translation_plugin_key_leak":  {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552.001", "attack_label": "Credentials In Files", "cwe": "CWE-798", "d3fend": "D3-CRO"},
-  "wc_api_key_escalation":        {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1078", "attack_label": "Valid Accounts", "cwe": "CWE-269", "d3fend": "D3-CRO"}
+  "wc_api_key_escalation":        {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1078", "attack_label": "Valid Accounts", "cwe": "CWE-269", "d3fend": "D3-CRO"},
+  "service_worker_scope_hijack":  {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1554", "attack_label": "Compromise Client Software Binary", "cwe": "CWE-1188", "d3fend": "D3-FA"},
+  "hsts_preload_mismatch":        {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1557", "attack_label": "Adversary-in-the-Middle", "cwe": "CWE-319", "d3fend": "D3-CRO"},
+  "ct_log_shadow_cert":           {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1556.004", "attack_label": "Network Provider MITM", "cwe": "CWE-295", "d3fend": "D3-CRO"},
+  "turnstile_sitekey_reuse":      {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1566", "attack_label": "Phishing", "cwe": "CWE-1188", "d3fend": "D3-IAA"}
 }

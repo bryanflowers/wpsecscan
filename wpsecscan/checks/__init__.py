@@ -282,6 +282,10 @@ from .search_highlight_xss import check as search_highlight_xss
 from .wp_mail_smtp_site_health_leak import check as wp_mail_smtp_site_health_leak
 from .translation_plugin_key_leak import check as translation_plugin_key_leak
 from .wc_api_key_escalation import check as wc_api_key_escalation
+from .service_worker_scope_hijack import check as service_worker_scope_hijack
+from .hsts_preload_mismatch import check as hsts_preload_mismatch
+from .ct_log_shadow_cert import check as ct_log_shadow_cert
+from .turnstile_sitekey_reuse import check as turnstile_sitekey_reuse
 
 # Authenticated — only when creds are provided
 from .authenticated import check as authenticated
@@ -558,6 +562,10 @@ ALL_CHECKS = [
     ("wp_mail_smtp_site_health_leak", "Site-Health debug dump SMTP-key leak (A26)", wp_mail_smtp_site_health_leak, False),
     ("translation_plugin_key_leak","Translation plugin API key leak (A27)", translation_plugin_key_leak, False),
     ("wc_api_key_escalation",    "WooCommerce REST key scope advisory (A28)", wc_api_key_escalation, False),
+    ("service_worker_scope_hijack","Service-worker origin-wide scope (A29)", service_worker_scope_hijack, False),
+    ("hsts_preload_mismatch",    "HSTS preload list vs header mismatch (A30)", hsts_preload_mismatch, False),
+    ("ct_log_shadow_cert",       "CT-log shadow certificate detection (A31)", ct_log_shadow_cert, False),
+    ("turnstile_sitekey_reuse",  "Captcha sitekey placeholder / domain audit (A32)", turnstile_sitekey_reuse, False),
     # ---- Round-58 aggressive checks ----
     ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
     ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),

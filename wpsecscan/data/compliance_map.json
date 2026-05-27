@@ -1173,5 +1173,25 @@
     "pci_dss": "7.2.1",
     "nist_800_53": "AC-6",
     "iso_27001": "A.8.3"
+  },
+  "service_worker_scope_hijack": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SC-18",
+    "iso_27001": "A.8.28"
+  },
+  "hsts_preload_mismatch": {
+    "pci_dss": "4.2.1",
+    "nist_800_53": "SC-8",
+    "iso_27001": "A.8.24"
+  },
+  "ct_log_shadow_cert": {
+    "pci_dss": "4.2.1",
+    "nist_800_53": "SC-12",
+    "iso_27001": "A.8.24"
+  },
+  "turnstile_sitekey_reuse": {
+    "pci_dss": "6.4.3",
+    "nist_800_53": "SC-23",
+    "iso_27001": "A.8.27"
   }
 }
