@@ -210,6 +210,100 @@ def fix_pr_body(finding) -> str:
                 system=sys_msg, max_tokens=500)
 
 
+def evidence_summary(finding) -> str:
+    """G91 (v2.7.0) — one-sentence summary of finding.evidence.
+
+    For long evidence (raw JS-library version list etc.), produces a
+    summary line the reporter shows above the raw evidence.
+    """
+    import os as _os
+    if _os.environ.get("WPSECSCAN_NO_AI") or not is_configured():
+        return ""
+    if not finding.evidence or len(finding.evidence) < 80:
+        return ""
+    sys_msg = (
+        "Summarise the following WPSecScan finding evidence in EXACTLY ONE "
+        "sentence (max 30 words). State the concrete observation; no "
+        "speculation. Output the sentence only — no preface."
+    )
+    return llm(finding.evidence[:2000], system=sys_msg, max_tokens=60).strip()
+
+
+def threat_model_js(js_bundle: str) -> str:
+    """G92 (v2.7.0) — AI threat-model the given JS bundle."""
+    import os as _os
+    if _os.environ.get("WPSECSCAN_NO_AI") or not is_configured():
+        return ""
+    if not js_bundle:
+        return ""
+    sys_msg = (
+        "You are a defensive security engineer. Read the JS code below and "
+        "list every attack surface it EXPOSES to a remote attacker: API "
+        "endpoints, auth tokens in localStorage, innerHTML/eval usages, "
+        "third-party CDN/script-src dependencies. Bullet points, ranked by "
+        "severity. Max 250 words."
+    )
+    return llm(js_bundle[:8000], system=sys_msg, max_tokens=600)
+
+
+def answer_compliance_question(question: str, report_dict: dict) -> str:
+    """G93 (v2.7.0) — answer a compliance question from the scan JSON."""
+    import json as _json
+    import os as _os
+    if _os.environ.get("WPSECSCAN_NO_AI") or not is_configured():
+        return ""
+    sys_msg = (
+        "You are a compliance auditor. Given a JSON wpsecscan scan report, "
+        "answer the question with a single Yes/No/Partial verdict, then a "
+        "one-paragraph rationale citing specific check_ids from the report. "
+        "If the report doesn't contain the relevant evidence, say so."
+    )
+    slim = {
+        "target": report_dict.get("target"),
+        "scanned_at": report_dict.get("scanned_at"),
+        "risk_score": report_dict.get("risk_score"),
+        "summary": report_dict.get("summary"),
+        "results": [{
+            "check_id": r.get("check_id"),
+            "findings": [{"severity": f.get("severity"), "title": f.get("title")}
+                          for f in (r.get("findings") or [])],
+        } for r in (report_dict.get("results") or [])],
+    }
+    prompt = f"Report:\n{_json.dumps(slim, indent=2)[:8000]}\n\nQuestion: {question}"
+    return llm(prompt, system=sys_msg, max_tokens=400)
+
+
+def changelog_narrator(old_report: dict, new_report: dict) -> str:
+    """G94 (v2.7.0) — natural-language summary of what changed between
+    two scan reports."""
+    import json as _json
+    import os as _os
+    if _os.environ.get("WPSECSCAN_NO_AI") or not is_configured():
+        return ""
+    sys_msg = (
+        "You are a security analyst. Write a SHORT (3-5 sentence) prose "
+        "summary of how this WordPress install changed between two "
+        "wpsecscan reports. Mention only NET-NEW issues, fixes, and "
+        "score deltas. Plain prose, no bullets, no tables."
+    )
+    def _slim(rep: dict) -> dict:
+        return {
+            "scanned_at": rep.get("scanned_at"),
+            "risk_score": rep.get("risk_score"),
+            "summary": rep.get("summary"),
+            "findings": [
+                (r.get("check_id"), f.get("severity"), f.get("title"))
+                for r in (rep.get("results") or [])
+                for f in (r.get("findings") or [])
+            ],
+        }
+    prompt = (
+        "OLD:\n" + _json.dumps(_slim(old_report))[:3000] + "\n\n"
+        "NEW:\n" + _json.dumps(_slim(new_report))[:3000]
+    )
+    return llm(prompt, system=sys_msg, max_tokens=400)
+
+
 def fix_pr_diff(finding) -> str:
     """G89 (v2.6.0) — draft a unified-diff patch alongside the PR body.
 
