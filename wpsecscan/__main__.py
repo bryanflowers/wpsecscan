@@ -1626,6 +1626,10 @@ SUBCOMMAND_HELP: tuple[tuple[str, str], ...] = (
     ("freeze URL",           "snapshot a site as .tar.gz for offline compare (item #65)"),
     ("attest URL",           "Sigstore-signed scan attestation, --keyless (item #66)"),
     ("compliance audit URL", "single-framework gap analysis, --framework F (item #68)"),
+    ("tournament URL A B",   "bake-off two scan configs (item #62)"),
+    ("ai-agent URL",         "AI-recommended follow-up probes (item #69)"),
+    ("triage interactive URL", "TUI walk-through of recent findings (item #70)"),
+    ("rotation N LIST",      "split portfolio into N daily-bucket cron entries (item #71)"),
 )
 
 SUBCOMMAND_NAMES: tuple[str, ...] = tuple(
@@ -1731,6 +1735,18 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
     elif cmd == "compliance":
         from .workflow_cmds import cmd_compliance_audit
         cmd_compliance_audit(args)
+    elif cmd == "tournament":
+        from .workflow_cmds import cmd_tournament
+        cmd_tournament(args)
+    elif cmd == "ai-agent":
+        from .workflow_cmds import cmd_ai_agent
+        cmd_ai_agent(args)
+    elif cmd == "triage":
+        from .workflow_cmds import cmd_triage
+        cmd_triage(args)
+    elif cmd == "rotation":
+        from .workflow_cmds import cmd_rotation
+        cmd_rotation(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
