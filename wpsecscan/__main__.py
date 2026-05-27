@@ -1643,6 +1643,7 @@ SUBCOMMAND_HELP: tuple[tuple[str, str], ...] = (
     ("install-completion",   "install shell completion to the right rc path (item #86)"),
     ("replay-prompt URL",    "TUI walking high-sev findings (item #85)"),
     ("undo",                 "print the last config-mutating action + revert command (item #87)"),
+    ("worker",               "Redis-queue distributed-scan worker (item #110)"),
 )
 
 SUBCOMMAND_NAMES: tuple[str, ...] = tuple(
@@ -1769,6 +1770,9 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
     elif cmd == "undo":
         from .cli_extras import cmd_undo
         cmd_undo(args)
+    elif cmd == "worker":
+        from .perf_v27 import cmd_worker
+        cmd_worker(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
