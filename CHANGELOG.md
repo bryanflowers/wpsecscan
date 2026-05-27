@@ -7,6 +7,45 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [v2.7.0] — 2026-05-27
+
+Tests: **778 passing + 2 platform-skipped**. Check count: **268 → 270**.
+Companion plugin: **1.3.0 → 1.4.0** (+6 endpoints). 22 commits, 11
+phases. Fifth forward-audit delivery — the remaining **96 items** from
+the post-v2.5.0 150-item brainstorm.
+
+See git log v2.6.0..v2.7.0 for the per-commit breakdown. Major themes:
+
+- Companion plugin v1.4.0 — 6 new REST endpoints (B38/B40/B41/B43/
+  B44/B45) + WP-CLI `wp wpsec` command + update-check AJAX.
+- 12 new reporters: share-link, Confluence/Notion live sync, PDF/UA
+  metadata, xlsx-pivot, risk-forecast, heatmap SVG, OpenVEX, speakable
+  JSON-LD, executive-TLDR, auto-PR patches, D3FEND mapping, GDPR DSR.
+- 20+ new CLI subcommands: compare-portfolios, changelog, replay HAR,
+  freeze, attest, compliance audit, tournament, ai-agent, triage,
+  rotation, install-completion, replay-prompt, undo, worker, learn,
+  audio-summary, marketplace, submit-cve.
+- 15 new integrations: Vault, 1Password/Bitwarden, Snyk, HackerOne,
+  VirusTotal/urlscan, Greynoise/AbuseIPDB, Sentinel KQL, AWS Security
+  Hub, GCP SCC, Slack Connect, Teams reaction-snooze, Linear Triage,
+  Asana/ClickUp/Monday, Statuspage, PagerDuty AIOps.
+- 4 new AI helpers: evidence summariser, JS threat-modeller, compliance
+  Q&A, changelog narrator.
+- 9 GUI extras: gauge, filter chips, bookmarks, colour tags, onboarding
+  tour, in-app changelog viewer, inline diff, pin-to-taskbar, fix-it
+  clipboard.
+- Real marketplace via GH-Pages-hosted index with cosign signature
+  verification.
+- Reproducible-build verifier + provenance graph + `--deterministic`.
+- 2 new checks: Trellis YAML audit + headless WP on Vercel/Netlify
+  detection; 1 perf-of-target check covering Core Web Vitals,
+  Lighthouse, DB query budget, CDN cache hit ratio, cold-start probe.
+- Web Push + iOS Shortcut + Watch complication + Android widget for
+  the existing mobile-api PWA.
+
+No public-API breaking changes. Every new feature is opt-in via
+CLI flag, env var, or explicit subcommand.
+
 ## [v2.6.0] — 2026-05-27
 
 Tests: **778 passing + 2 platform-skipped**. Check count: **226 → 268**

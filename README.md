@@ -6,7 +6,7 @@
 [![release](https://img.shields.io/github/v/release/bryanflowers/wpsecscan)](https://github.com/bryanflowers/wpsecscan/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/bryanflowers/wpsecscan/total)](https://github.com/bryanflowers/wpsecscan/releases)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![checks](https://img.shields.io/badge/checks-268-brightgreen)](FEATURES.md)
+[![checks](https://img.shields.io/badge/checks-270-brightgreen)](FEATURES.md)
 [![CVE sources](https://img.shields.io/badge/CVE%20sources-8-blue)](docs/data-sources.md)
 [![tests passing](https://img.shields.io/badge/tests-780%20passing-brightgreen)](tests/)
 [![PyPI](https://img.shields.io/pypi/v/wpsecscan)](https://pypi.org/project/wpsecscan/)
