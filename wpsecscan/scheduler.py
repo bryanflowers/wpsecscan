@@ -103,12 +103,17 @@ def matches(cron_expr: str, when: datetime) -> bool:
         hrs  = _parse_field(fields[1], 0, 23)
         dom  = _parse_field(fields[2], 1, 31)
         mon  = _parse_field(fields[3], 1, 12)
-        dow  = _parse_field(fields[4], 0, 6)
+        # POSIX cron day_of_week: 0=Sunday … 6=Saturday (7 also = Sunday).
+        # Python's datetime.weekday(): 0=Monday … 6=Sunday. Convert.
+        dow_raw = _parse_field(fields[4], 0, 7)
+        dow = {0 if d == 7 else d for d in dow_raw}
     except (ValueError, IndexError):
         return False
+    # 0=Sunday in our normalised dow; (weekday() + 1) % 7 gives the same scale.
+    weekday_cron = (when.weekday() + 1) % 7
     return (when.minute in mins and when.hour in hrs
             and when.day in dom and when.month in mon
-            and when.weekday() in dow)
+            and weekday_cron in dow)
 
 
 # ---------------------------------------------------------------------------

@@ -99,10 +99,12 @@ def render(report: ScanReport) -> str:
     body_rows = []
     for row in rows:
         sev = row["worst"]
+        # Defend against policy-engine producing a non-standard severity.
+        pill_style = sev_pill.get(sev, sev_pill["info"])
         body_rows.append(
             f"<tr>"
             f"<td><code>{escape(row['check_id'])}</code></td>"
-            f"<td><span class=pill style='{sev_pill[sev]}'>{sev.upper()}</span></td>"
+            f"<td><span class=pill style='{pill_style}'>{sev.upper()}</span></td>"
             f"<td>{escape(row['pci'])}</td>"
             f"<td>{escape(row['nist53'])}</td>"
             f"<td>{escape(row['iso2013'])}</td>"

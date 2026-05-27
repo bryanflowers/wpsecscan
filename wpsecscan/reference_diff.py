@@ -74,10 +74,29 @@ def build_reference_manifest(archive: Path, version: str) -> dict[str, str]:
     try:
         if archive.suffix.lower() == ".zip":
             with zipfile.ZipFile(archive) as zf:
+                # Reject path-traversal + symlink entries before extracting
+                # (same defence scan_zip.py uses for plugin .zips).
+                for info in zf.infolist():
+                    name = info.filename
+                    if name.startswith(("/", "\\")) or ".." in Path(name).parts:
+                        raise ValueError(f"refusing to extract traversal entry: {name!r}")
+                    # Symlink detection (Python <3.12 does not block these).
+                    if (info.external_attr >> 16) & 0xF000 == 0xA000:
+                        raise ValueError(f"refusing to extract symlink entry: {name!r}")
                 zf.extractall(tmp)
         elif str(archive).lower().endswith((".tar.gz", ".tgz")):
             with tarfile.open(archive, "r:gz") as tf:
-                tf.extractall(tmp)
+                for member in tf.getmembers():
+                    if member.name.startswith(("/", "\\")) or ".." in Path(member.name).parts:
+                        raise ValueError(f"refusing to extract traversal entry: {member.name!r}")
+                    if member.issym() or member.islnk():
+                        raise ValueError(f"refusing to extract symlink/hardlink: {member.name!r}")
+                # filter='data' (Python 3.12+) blocks unsafe entries even if the
+                # check above misses something. Older Pythons silently accept.
+                try:
+                    tf.extractall(tmp, filter="data")
+                except TypeError:
+                    tf.extractall(tmp)  # Python <3.12
         else:
             raise ValueError("reference archive must be .zip or .tar.gz")
         # WordPress zips usually contain a top-level "wordpress/" dir.

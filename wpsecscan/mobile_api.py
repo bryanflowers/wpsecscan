@@ -262,7 +262,12 @@ class _Handler(BaseHTTPRequestHandler):
         if path.startswith("/api/report/"):
             if not self._check_auth():
                 self.send_response(401); self.end_headers(); return
-            safe = unquote(path.removeprefix("/api/report/"))
+            raw = unquote(path.removeprefix("/api/report/"))
+            # Path-traversal guard: only the base filename survives, then we
+            # confirm the resolved file is actually inside reports_dir.
+            safe = Path(raw).name
+            if not safe or safe.startswith(".") or safe != raw:
+                self.send_response(404); self.end_headers(); return
             data = _read_one_report(safe)
             if data is None:
                 self.send_response(404); self.end_headers(); return

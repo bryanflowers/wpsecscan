@@ -447,37 +447,49 @@ async def _scan_one(target: str, args, console: Console):
     if getattr(args, "push_redmine", None):
         try:
             base, project_id = [s.strip() for s in args.push_redmine.split(",", 1)]
-            from . import issue_push as _ip
-            from .reporters.issue_export import github_payloads
-            payloads = github_payloads(report, getattr(args, "push_min_sev", "high"))
-            push_results.append(("redmine", _ip.push_redmine(target, payloads,
-                                                                base_url=base,
-                                                                project_id=project_id)))
-        except (ValueError, Exception) as e:  # noqa: BLE001
-            console.print(f"[yellow]--push-redmine failed: {e}[/yellow]")
+        except ValueError:
+            console.print("[yellow]--push-redmine expects 'BASE_URL,PROJECT_ID'[/yellow]")
+        else:
+            try:
+                from . import issue_push as _ip
+                from .reporters.issue_export import github_payloads
+                payloads = github_payloads(report, getattr(args, "push_min_sev", "high"))
+                push_results.append(("redmine", _ip.push_redmine(target, payloads,
+                                                                    base_url=base,
+                                                                    project_id=project_id)))
+            except Exception as e:  # noqa: BLE001
+                console.print(f"[yellow]--push-redmine failed: {e}[/yellow]")
     if getattr(args, "push_bugzilla", None):
         try:
             base, product, component = [s.strip() for s in args.push_bugzilla.split(",", 2)]
-            from . import issue_push as _ip
-            from .reporters.issue_export import github_payloads
-            payloads = github_payloads(report, getattr(args, "push_min_sev", "high"))
-            push_results.append(("bugzilla", _ip.push_bugzilla(target, payloads,
-                                                                  base_url=base,
-                                                                  product=product,
-                                                                  component=component)))
-        except (ValueError, Exception) as e:  # noqa: BLE001
-            console.print(f"[yellow]--push-bugzilla failed: {e}[/yellow]")
+        except ValueError:
+            console.print("[yellow]--push-bugzilla expects 'BASE_URL,PRODUCT,COMPONENT'[/yellow]")
+        else:
+            try:
+                from . import issue_push as _ip
+                from .reporters.issue_export import github_payloads
+                payloads = github_payloads(report, getattr(args, "push_min_sev", "high"))
+                push_results.append(("bugzilla", _ip.push_bugzilla(target, payloads,
+                                                                      base_url=base,
+                                                                      product=product,
+                                                                      component=component)))
+            except Exception as e:  # noqa: BLE001
+                console.print(f"[yellow]--push-bugzilla failed: {e}[/yellow]")
     if getattr(args, "push_trac", None):
         try:
             base, username = [s.strip() for s in args.push_trac.split(",", 1)]
-            from . import issue_push as _ip
-            from .reporters.issue_export import github_payloads
-            payloads = github_payloads(report, getattr(args, "push_min_sev", "high"))
-            push_results.append(("trac", _ip.push_trac(target, payloads,
-                                                          base_url=base,
-                                                          username=username)))
-        except (ValueError, Exception) as e:  # noqa: BLE001
-            console.print(f"[yellow]--push-trac failed: {e}[/yellow]")
+        except ValueError:
+            console.print("[yellow]--push-trac expects 'BASE_URL,USERNAME'[/yellow]")
+        else:
+            try:
+                from . import issue_push as _ip
+                from .reporters.issue_export import github_payloads
+                payloads = github_payloads(report, getattr(args, "push_min_sev", "high"))
+                push_results.append(("trac", _ip.push_trac(target, payloads,
+                                                              base_url=base,
+                                                              username=username)))
+            except Exception as e:  # noqa: BLE001
+                console.print(f"[yellow]--push-trac failed: {e}[/yellow]")
     for system, results in push_results:
         ok = sum(1 for r in results if r.get("ok"))
         skipped = sum(1 for r in results if r.get("skipped"))
