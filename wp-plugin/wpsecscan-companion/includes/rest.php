@@ -74,6 +74,12 @@ function wpsecscan_companion_register_routes() {
         'transient-cache-size'     => 'wpsecscan_companion_transient_cache_size_callback',
         'wp-mail-deliverability'   => 'wpsecscan_companion_wp_mail_deliverability_callback',
         'multisite-network-info'   => 'wpsecscan_companion_multisite_network_info_callback',
+        // ---- v1.3.0 (v2.6.0 P4) ----
+        'users-with-app-passwords' => 'wpsecscan_companion_users_with_app_passwords_callback', // B36
+        'recent-uploads'           => 'wpsecscan_companion_recent_uploads_callback',           // B37
+        'wp-cron-event-history'    => 'wpsecscan_companion_wp_cron_event_history_callback',    // B39
+        'admin-notice-content'     => 'wpsecscan_companion_admin_notice_content_callback',     // B42
+        'site-health-tests'        => 'wpsecscan_companion_site_health_tests_callback',        // B47
     ];
     foreach ( $routes as $slug => $callback ) {
         if ( function_exists( 'wpsecscan_companion_endpoint_enabled' )
@@ -1297,6 +1303,222 @@ function wpsecscan_companion_php_error_log_tail_callback( $request ) {
         'log_path'  => $log_path ?: '(not configured)',
         'lines'     => $lines,
         'count'     => count( $lines ),
+        'generated' => gmdate( 'c' ),
+    ] );
+}
+
+// ============================================================================
+// v1.3.0 (v2.6.0 P4) — new endpoints
+// ============================================================================
+
+/**
+ * B36 — /users-with-app-passwords
+ * Lists every user with at least one Application Password + age + last_used.
+ */
+function wpsecscan_companion_users_with_app_passwords_callback( $request ) {
+    if ( ! class_exists( 'WP_Application_Passwords' ) ) {
+        return rest_ensure_response( [ 'supported' => false, 'users' => [] ] );
+    }
+    $users = get_users( [ 'fields' => [ 'ID', 'user_login', 'user_email' ] ] );
+    $out = [];
+    foreach ( $users as $u ) {
+        $aps = WP_Application_Passwords::get_user_application_passwords( $u->ID );
+        if ( empty( $aps ) ) {
+            continue;
+        }
+        $entries = [];
+        foreach ( $aps as $ap ) {
+            $created   = isset( $ap['created'] )   ? (int) $ap['created']   : 0;
+            $last_used = isset( $ap['last_used'] ) ? (int) $ap['last_used'] : 0;
+            $entries[] = [
+                'name'      => isset( $ap['name'] ) ? (string) $ap['name'] : '',
+                'uuid'      => isset( $ap['uuid'] ) ? (string) $ap['uuid'] : '',
+                'created'   => $created   ? gmdate( 'c', $created )   : null,
+                'last_used' => $last_used ? gmdate( 'c', $last_used ) : null,
+                'last_ip'   => isset( $ap['last_ip'] ) ? (string) $ap['last_ip'] : '',
+            ];
+        }
+        $out[] = [
+            'user_id'       => (int) $u->ID,
+            'user_login'    => $u->user_login,
+            'email'         => $u->user_email,
+            'app_passwords' => $entries,
+        ];
+    }
+    return rest_ensure_response( [
+        'supported' => true,
+        'users'     => $out,
+        'generated' => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * B37 — /recent-uploads
+ * Files under wp-content/uploads/ newer than the install date.
+ * Default limit 50; cap at 200.
+ */
+function wpsecscan_companion_recent_uploads_callback( $request ) {
+    $limit      = max( 1, min( 200, (int) ( $request->get_param( 'limit' ) ?: 50 ) ) );
+    $dir        = wp_get_upload_dir();
+    $base       = isset( $dir['basedir'] ) ? (string) $dir['basedir'] : WP_CONTENT_DIR . '/uploads';
+    $install_ts = (int) get_option( 'wpsecscan_companion_install_ts', 0 );
+    if ( ! $install_ts ) {
+        $install_ts = strtotime( '2010-01-01' );
+    }
+    $files = [];
+    if ( is_dir( $base ) ) {
+        try {
+            $iter = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator( $base, FilesystemIterator::SKIP_DOTS ),
+                RecursiveIteratorIterator::SELF_FIRST
+            );
+            foreach ( $iter as $fileinfo ) {
+                if ( ! $fileinfo->isFile() ) {
+                    continue;
+                }
+                $mtime = $fileinfo->getMTime();
+                if ( $mtime <= $install_ts ) {
+                    continue;
+                }
+                $files[] = [
+                    'path'  => str_replace( $base . DIRECTORY_SEPARATOR, '', $fileinfo->getPathname() ),
+                    'size'  => $fileinfo->getSize(),
+                    'mtime' => gmdate( 'c', $mtime ),
+                    'ext'   => strtolower( pathinfo( $fileinfo->getFilename(), PATHINFO_EXTENSION ) ),
+                ];
+            }
+        } catch ( Throwable $e ) {
+            // ignore — partial result is fine
+        }
+    }
+    usort( $files, function ( $a, $b ) {
+        return strcmp( $b['mtime'], $a['mtime'] );
+    } );
+    return rest_ensure_response( [
+        'limit'     => $limit,
+        'count'     => count( array_slice( $files, 0, $limit ) ),
+        'uploads'   => array_slice( $files, 0, $limit ),
+        'generated' => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * B39 — /wp-cron-event-history
+ * Last 100 cron events. Falls back to deriving from _get_cron_array when
+ * we haven't logged history into a transient yet.
+ */
+function wpsecscan_companion_wp_cron_event_history_callback( $request ) {
+    $logged = (array) get_transient( 'wpsecscan_companion_cron_history' );
+    $events = [];
+    if ( ! empty( $logged ) ) {
+        $events = $logged;
+        $source = 'logged';
+    } else {
+        $crons  = function_exists( '_get_cron_array' ) ? _get_cron_array() : [];
+        $source = 'derived';
+        foreach ( (array) $crons as $ts => $hooks ) {
+            foreach ( (array) $hooks as $hook => $instances ) {
+                foreach ( (array) $instances as $instance ) {
+                    $events[] = [
+                        'hook'     => (string) $hook,
+                        'next_run' => gmdate( 'c', (int) $ts ),
+                        'schedule' => isset( $instance['schedule'] ) ? (string) $instance['schedule'] : 'oneoff',
+                        'interval' => isset( $instance['interval'] ) ? (int) $instance['interval'] : 0,
+                    ];
+                }
+            }
+        }
+        usort( $events, function ( $a, $b ) {
+            return strcmp( $a['next_run'], $b['next_run'] );
+        } );
+    }
+    return rest_ensure_response( [
+        'events'    => array_slice( $events, 0, 100 ),
+        'count'     => count( array_slice( $events, 0, 100 ) ),
+        'source'    => $source,
+        'generated' => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * B42 — /admin-notice-content
+ * wp_options rows that frequently store admin-notice / dismissed-notice
+ * state. Surfacing helps detect drift from compromised plugins.
+ */
+function wpsecscan_companion_admin_notice_content_callback( $request ) {
+    global $wpdb;
+    $tname = $wpdb->options;
+    $rows  = $wpdb->get_results( $wpdb->prepare(
+        "SELECT option_name, option_value FROM {$tname} "
+        . "WHERE option_name LIKE %s OR option_name LIKE %s LIMIT 50",
+        '%admin_notice%', '%dismissed%'
+    ), ARRAY_A );
+    $notices = [];
+    foreach ( (array) $rows as $row ) {
+        $val = (string) $row['option_value'];
+        if ( strlen( $val ) > 2000 ) {
+            $val = substr( $val, 0, 2000 ) . '...';
+        }
+        $notices[] = [
+            'name'          => (string) $row['option_name'],
+            'value_excerpt' => $val,
+        ];
+    }
+    return rest_ensure_response( [
+        'notices'   => $notices,
+        'count'     => count( $notices ),
+        'generated' => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * B47 — /site-health-tests
+ * Run WP core Site Health direct tests + return the JSON-ready array.
+ * Exposes Site Health over our token-gated REST surface so the scanner
+ * can pull it without admin-login + cookie management.
+ */
+function wpsecscan_companion_site_health_tests_callback( $request ) {
+    if ( ! class_exists( 'WP_Site_Health' ) ) {
+        $sh_path = ABSPATH . 'wp-admin/includes/class-wp-site-health.php';
+        if ( file_exists( $sh_path ) ) {
+            require_once $sh_path;
+        }
+    }
+    if ( ! class_exists( 'WP_Site_Health' ) ) {
+        return rest_ensure_response( [ 'supported' => false, 'tests' => [] ] );
+    }
+    $sh    = WP_Site_Health::get_instance();
+    $tests = $sh->get_tests();
+    $results = [];
+    foreach ( [ 'direct', 'async' ] as $kind ) {
+        if ( empty( $tests[ $kind ] ) ) {
+            continue;
+        }
+        foreach ( (array) $tests[ $kind ] as $test_name => $test ) {
+            $cb = isset( $test['test'] ) ? $test['test'] : null;
+            if ( ! $cb || ! is_callable( $cb ) ) {
+                continue;
+            }
+            try {
+                $result = call_user_func( $cb );
+                if ( ! is_array( $result ) ) {
+                    $result = [ 'raw' => $result ];
+                }
+                $results[] = [
+                    'name'   => (string) $test_name,
+                    'label'  => isset( $result['label'] )            ? (string) $result['label']            : '',
+                    'status' => isset( $result['status'] )           ? (string) $result['status']           : '',
+                    'badge'  => isset( $result['badge']['label'] )   ? (string) $result['badge']['label']   : '',
+                ];
+            } catch ( Throwable $e ) {
+                $results[] = [ 'name' => (string) $test_name, 'error' => $e->getMessage() ];
+            }
+        }
+    }
+    return rest_ensure_response( [
+        'supported' => true,
+        'tests'     => $results,
+        'count'     => count( $results ),
         'generated' => gmdate( 'c' ),
     ] );
 }
