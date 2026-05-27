@@ -1248,5 +1248,15 @@
     "pci_dss": "10.2.1",
     "nist_800_53": "AU-2",
     "iso_27001": "A.8.15"
+  },
+  "trellis_yaml_audit": {
+    "pci_dss": "8.2.1",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
+  },
+  "headless_vercel_netlify_detect": {
+    "pci_dss": "7.2.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.3"
   }
 }

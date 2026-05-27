@@ -297,6 +297,8 @@ from .block_style_variations_url import check as block_style_variations_url
 from .companion_v13 import check as companion_v13
 from .host_platform_detect import check as host_platform_detect
 from .companion_v14 import check as companion_v14
+from .trellis_yaml_audit import check as trellis_yaml_audit
+from .headless_vercel_netlify_detect import check as headless_vercel_netlify_detect
 
 # Authenticated — only when creds are provided
 from .authenticated import check as authenticated
@@ -588,6 +590,8 @@ ALL_CHECKS = [
     ("companion_v13",            "Companion v1.3 endpoint consumers (B36-B47)", companion_v13, False),
     ("host_platform_detect",     "Host stack / platform fingerprint (N136/N139/N140)", host_platform_detect, False),
     ("companion_v14",            "Companion v1.4 endpoint consumers (B38-B45)", companion_v14, False),
+    ("trellis_yaml_audit",       "Roots Trellis YAML exposure (N137)", trellis_yaml_audit, False),
+    ("headless_vercel_netlify_detect", "Headless WP on Vercel/Netlify with reachable REST (N138)", headless_vercel_netlify_detect, False),
     # ---- Round-58 aggressive checks ----
     ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
     ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),
