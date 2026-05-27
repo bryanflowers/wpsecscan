@@ -210,6 +210,35 @@ def fix_pr_body(finding) -> str:
                 system=sys_msg, max_tokens=500)
 
 
+def fix_pr_diff(finding) -> str:
+    """G89 (v2.6.0) — draft a unified-diff patch alongside the PR body.
+
+    Returns a single string containing one or more `diff --git ...` chunks
+    with `---` / `+++` / `@@` headers and `+`/`-` line markers, ready to
+    be saved as a `.patch` file and applied with `git apply`.
+
+    Returns empty string if no AI backend is configured.
+    """
+    import os as _os
+    if _os.environ.get("WPSECSCAN_NO_AI") or not is_configured():
+        return ""
+    sys_msg = (
+        "Output ONLY a unified diff (no prose) that fixes this WordPress "
+        "security finding. Use 'diff --git a/<file> b/<file>' headers, "
+        "'@@ line ranges @@' hunks, and +/- markers. Pick the canonical "
+        "WordPress file paths (wp-config.php, .htaccess, theme functions.php, "
+        "or the named plugin file). If the fix isn't a code change but a "
+        "wp-admin Setting toggle, output:\n"
+        "  # CONFIG-ONLY: <one-line description>\n"
+        "instead of a diff. No commentary."
+    )
+    return llm(
+        f"Title: {finding.title}\nEvidence: {finding.evidence}\n"
+        f"Remediation: {finding.remediation}\nURL: {finding.url}",
+        system=sys_msg, max_tokens=800,
+    )
+
+
 _CLIENT_SUMMARY_AUDIENCES = {
     "client": (
         "You are explaining a WordPress security finding to a non-technical client "

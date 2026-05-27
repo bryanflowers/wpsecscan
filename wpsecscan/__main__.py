@@ -222,6 +222,13 @@ async def _scan_one(target: str, args, console: Console):
                 n_flagged = _atr.flag_anomalies(report)
                 if n_flagged and not args.no_console:
                     console.print(f"[yellow]AI flagged {n_flagged} anomaly(ies) for human review.[/yellow]")
+            # G90 — false-positive predictor. Decorates extra.fp_score on
+            # every finding when the operator has snooze history.
+            if getattr(args, "ai_fp_predictor", False):
+                from . import ai_fp_predictor as _fp
+                n_scored = _fp.annotate_report(report)
+                if n_scored and not args.no_console:
+                    console.print(f"[cyan]FP predictor scored {n_scored} finding(s).[/cyan]")
             if (n_overrides or n_rules or n_suppressed) and not args.no_console:
                 console.print(
                     f"[yellow]Policy applied: "
@@ -349,6 +356,32 @@ async def _scan_one(target: str, args, console: Console):
         _ca.write(report, ca_p)
         if not args.no_console:
             console.print(f"[green]✓[/green] Compliance attestation matrix: [bold]{ca_p}[/bold]")
+
+    # G89 — AI fix-PR diff + body for the highest-severity finding from CHECK_ID
+    if getattr(args, "ai_fix_pr_diff", None):
+        check_id = args.ai_fix_pr_diff
+        from . import ai_assist as _ai
+        _SEV = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+        candidates = [f for r in report.results if r.check_id == check_id
+                       for f in r.findings]
+        if not candidates:
+            if not args.no_console:
+                console.print(f"[yellow]--ai-fix-pr-diff: no findings for check_id={check_id}[/yellow]")
+        elif not _ai.is_configured():
+            if not args.no_console:
+                console.print("[yellow]--ai-fix-pr-diff: no AI backend configured (set WPSECSCAN_OPENAI_API_KEY etc.)[/yellow]")
+        else:
+            top = max(candidates, key=lambda f: _SEV.get(f.severity, 0))
+            patch_p = out_dir / f"{stem}-{check_id}-fix.patch"
+            body_p  = out_dir / f"{stem}-{check_id}-fix.md"
+            diff = _ai.fix_pr_diff(top)
+            body = _ai.fix_pr_body(top)
+            if diff:
+                patch_p.write_text(diff + "\n", encoding="utf-8")
+            if body:
+                body_p.write_text(body + "\n", encoding="utf-8")
+            if not args.no_console:
+                console.print(f"[green]✓[/green] AI fix-PR drafted: {patch_p}, {body_p}")
 
     # #52 — board-room 1-page dashboard
     if getattr(args, "board_1pager", False):
@@ -957,6 +990,14 @@ def main() -> None:
                    help="#75: ask the AI to flag findings that look unusual for this "
                         "target's site class. Flagged findings get `extra.ai_anomaly`. "
                         "Needs an AI backend configured (otherwise no-op).")
+    p.add_argument("--ai-fp-predictor", action="store_true",
+                   help="G90: predict P(false-positive) per finding from the operator's "
+                        "snooze history; decorates extra.fp_score on every finding. "
+                        "No-op when ~/.wpsecscan/snoozes.json is empty.")
+    p.add_argument("--ai-fix-pr-diff", default=None, metavar="CHECK_ID",
+                   help="G89: for the highest-severity finding from CHECK_ID, ask the AI "
+                        "to draft a unified-diff patch + PR body; write to "
+                        "<stem>-fix.patch + <stem>-fix.md. Needs an AI backend.")
     p.add_argument("--push-min-sev", default="high", metavar="SEV",
                    help="Lowest severity to push to issue trackers (default: high).")
     p.add_argument("--notion-database", default=None, metavar="DATABASE_ID",
