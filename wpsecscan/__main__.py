@@ -444,6 +444,42 @@ async def _scan_one(target: str, args, console: Console):
         if not args.no_console:
             console.print(f"[green]✓[/green] OpenVEX: [bold]{vex_p}[/bold]")
 
+    # C59 — D3FEND mapping
+    if getattr(args, "d3fend_mapping", False):
+        from .reporters import d3fend_mapping as _d3
+        d3_p = out_dir / f"{stem}-d3fend.html"
+        _d3.write(report, d3_p)
+        if not args.no_console:
+            console.print(f"[green]✓[/green] D3FEND mapping: [bold]{d3_p}[/bold]")
+
+    # C60 — GDPR DSR-ready user-data report
+    if getattr(args, "gdpr_dsr_report", False):
+        from .reporters import gdpr_dsr_report as _gdpr
+        g_p = out_dir / f"{stem}-dsr.md"
+        _gdpr.write(report, g_p)
+        if not args.no_console:
+            console.print(f"[green]✓[/green] GDPR DSR report: [bold]{g_p}[/bold]")
+
+    # C57 — executive TL;DR
+    if getattr(args, "executive_tldr", False):
+        from .reporters import executive_tldr as _et
+        t_p = out_dir / f"{stem}-tldr.txt"
+        _et.write(report, t_p)
+        if not args.no_console:
+            console.print(f"[cyan]TL;DR:[/cyan] {_et.build(report)}")
+
+    # C50 — one-liner patches alongside auto-PR script
+    if getattr(args, "auto_pr_patches", False):
+        from . import auto_pr as _ap
+        patches_dir = out_dir / f"{stem}-patches"
+        n = _ap.write_one_liner_patches(report, patches_dir,
+                                          min_sev=getattr(args, "push_min_sev", "medium"))
+        if not args.no_console:
+            if n:
+                console.print(f"[green]✓[/green] Auto-PR one-liner patches: {n} files in {patches_dir}")
+            else:
+                console.print("[yellow]--auto-pr-patches: no eligible one-liner findings or AI backend missing[/yellow]")
+
     # C51 — Confluence / Notion live page sync
     if getattr(args, "live_sync", None):
         from .reporters import live_sync as _ls
@@ -1142,6 +1178,19 @@ def main() -> None:
     p.add_argument("--vex-export", action="store_true",
                    help="C56: write an OpenVEX 0.2 document mapping CVE findings to "
                         "affected/fixed/not_affected status. Complements --sbom.")
+    p.add_argument("--d3fend-mapping", action="store_true",
+                   help="C59: write an HTML view grouping findings by MITRE D3FEND "
+                        "defensive-technique ID.")
+    p.add_argument("--gdpr-dsr-report", action="store_true",
+                   help="C60: write a markdown SAR/DSR-ready audit-trail of findings "
+                        "that touched user-data fields.")
+    p.add_argument("--executive-tldr", action="store_true",
+                   help="C57: print + write a deterministic 3-sentence executive "
+                        "summary suitable for an email subject/body.")
+    p.add_argument("--auto-pr-patches", action="store_true",
+                   help="C50: ALONGSIDE the existing --auto-pr-repo gh-command script, "
+                        "write unified-diff .patch files for one-liner fixes "
+                        "(.htaccess / wp-config.php / header.php). Needs AI backend.")
     p.add_argument("--print-openapi", action="store_true",
                    help="#53: print the OpenAPI 3.1 schema for the WPSecScan JSON output to "
                         "stdout, then exit. Pipe to openapi-typescript / openapi-generator to "

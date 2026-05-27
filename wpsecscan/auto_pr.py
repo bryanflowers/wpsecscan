@@ -169,3 +169,52 @@ def write_script(report: ScanReport, path, *, repo: str, min_sev: str = "medium"
         _act.emit("artifact", f"auto-PR script: {len(fixes)} fix(es) → {Path(path).name}")
     except ImportError:
         pass
+
+
+# C50 (v2.7.0) — for one-liner fixes (.htaccess / wp-config.php / header.php),
+# write a unified-diff patch alongside the shell script so the operator can
+# `git apply` directly instead of pasting `gh` commands.
+
+_ONE_LINER_HINT_FILES = ("wp-config.php", ".htaccess", "wp-content/themes/*/header.php",
+                          "wp-content/themes/*/functions.php")
+
+
+def _looks_like_one_liner(finding) -> bool:
+    """Heuristic: the remediation field references a single config file?"""
+    rem = (finding.remediation or "").lower()
+    return any(p.split("/")[-1].lower() in rem for p in _ONE_LINER_HINT_FILES)
+
+
+def write_one_liner_patches(report: ScanReport, out_dir, *, min_sev: str = "medium") -> int:
+    """C50 — for each one-liner-fixable finding, ask the AI to draft a
+    unified diff + write `<out_dir>/<check_id>-<idx>-fix.patch`. Returns
+    the count of patches written. No-op if no AI backend or no matches."""
+    from pathlib import Path
+    try:
+        from . import ai_assist as _ai
+    except ImportError:
+        return 0
+    if not _ai.is_configured():
+        return 0
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    sev_rank = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+    min_n = sev_rank.get(min_sev, 2)
+    n = 0
+    for r in report.results:
+        for idx, f in enumerate(r.findings):
+            if sev_rank.get(f.severity, 0) < min_n:
+                continue
+            if not _looks_like_one_liner(f):
+                continue
+            diff = _ai.fix_pr_diff(f)
+            if not diff or len(diff) < 30:
+                continue
+            patch_path = out_dir / f"{r.check_id}-{idx}-fix.patch"
+            body_path  = out_dir / f"{r.check_id}-{idx}-fix.md"
+            patch_path.write_text(diff + "\n", encoding="utf-8")
+            body = _ai.fix_pr_body(f)
+            if body:
+                body_path.write_text(body + "\n", encoding="utf-8")
+            n += 1
+    return n
