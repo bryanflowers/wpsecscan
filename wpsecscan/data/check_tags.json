@@ -253,5 +253,9 @@
   "ai_plugin_prompt_storage":     {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1059", "attack_label": "Command & Scripting Interpreter", "cwe": "CWE-94", "d3fend": "D3-IAA"},
   "ai_agent_webhook_leak":        {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-862", "d3fend": "D3-IAA"},
   "mcp_endpoint_exposure":        {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-862", "d3fend": "D3-IAA"},
-  "wp_playground_sqlite":         {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1005", "attack_label": "Data from Local System", "cwe": "CWE-540", "d3fend": "D3-FA"}
+  "wp_playground_sqlite":         {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1005", "attack_label": "Data from Local System", "cwe": "CWE-540", "d3fend": "D3-FA"},
+  "block_bindings_exposure":      {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-IAA"},
+  "interactivity_api_state_leak": {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1005", "attack_label": "Data from Local System", "cwe": "CWE-200", "d3fend": "D3-FA"},
+  "wp_cli_http_exposure":         {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-78", "d3fend": "D3-EAL"},
+  "app_passwords_stale_audit":    {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1078", "attack_label": "Valid Accounts", "cwe": "CWE-1392", "d3fend": "D3-CRO"}
 }
