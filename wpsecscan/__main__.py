@@ -111,6 +111,12 @@ async def _scan_one(target: str, args, console: Console):
     # Item #72 — hwkey gate. Runs first so we never start an aggressive
     # check before authorisation is confirmed; passthrough for passive scans.
     _check_aggressive_hwkey_gate(args)
+    # Item #81 (v2.6.0) — --tldr suppresses console + reporters; the final
+    # one-line tldr is printed at the end of _amain. Force the suppressing
+    # flags here so downstream reporter selection doesn't fight us.
+    if getattr(args, "tldr", False):
+        args.no_console = True
+        args.json_only = True  # skip HTML rendering work
     # Round-56: wrap the scan in a live multi-panel dashboard when stdout
     # is a TTY and the user hasn't asked for plain output.
     use_live = (not args.no_console
@@ -649,6 +655,20 @@ async def _amain(args) -> int:
             worst = max(worst, code)
             if report and html_filename:
                 all_reports.append((report, html_filename))
+            # Item #81 — emit one-line summary to stdout (always, even with
+            # no_console suppressing console output) and short-circuit.
+            if getattr(args, "tldr", False) and report is not None:
+                _SEV_RANK = {"info": 0, "low": 1, "medium": 2,
+                              "high": 3, "critical": 4}
+                worst_sev = report.worst_severity() or "info"
+                s = report.summary
+                print(f"{t} score={report.risk_score}/100 "
+                       f"worst={worst_sev} "
+                       f"crit={s.get('critical', 0)} high={s.get('high', 0)} "
+                       f"med={s.get('medium', 0)} low={s.get('low', 0)} "
+                       f"info={s.get('info', 0)}")
+                # Exit code = severity rank of the worst finding
+                return _SEV_RANK.get(worst_sev, 0)
 
     if (args.dashboard or args.agency_dashboard) and all_reports:
         out_dir = _outdir(args.out)
@@ -994,6 +1014,10 @@ def main() -> None:
                    help="G90: predict P(false-positive) per finding from the operator's "
                         "snooze history; decorates extra.fp_score on every finding. "
                         "No-op when ~/.wpsecscan/snoozes.json is empty.")
+    p.add_argument("--tldr", action="store_true",
+                   help="Item #81: print a one-line summary (score/worst-sev/finding-count) "
+                        "to stdout and suppress all other output. Exit code = worst severity "
+                        "number (0=info, 1=low, 2=medium, 3=high, 4=critical).")
     p.add_argument("--ai-fix-pr-diff", default=None, metavar="CHECK_ID",
                    help="G89: for the highest-severity finding from CHECK_ID, ask the AI "
                         "to draft a unified-diff patch + PR body; write to "
@@ -1455,6 +1479,8 @@ SUBCOMMAND_HELP: tuple[tuple[str, str], ...] = (
     ("scan-zip FILE",        "pre-install plugin/theme zip static scan (item #77)"),
     ("reference-diff",       "diff live file-monitor vs clean WP archive (item #79)"),
     ("mobile-api",           "installable PWA + REST for phones (item #80)"),
+    # v2.6.0
+    ("kev URL",              "CISA KEV-only fast scan (item #67)"),
 )
 
 SUBCOMMAND_NAMES: tuple[str, ...] = tuple(
@@ -1540,9 +1566,58 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_reference_diff(args)
     elif cmd == "mobile-api":
         _cmd_mobile_api(args)
+    elif cmd == "kev":
+        _cmd_kev(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
+
+
+def _cmd_kev(args: list[str]) -> None:
+    """Item #67 — `wpsecscan kev URL [--no-refresh]` — CISA KEV-only fast scan.
+
+    Runs the standard scan against URL then post-filters findings to those
+    whose extra.cve is in the current CISA KEV catalogue. Exit code is the
+    KEV-match count (0 = clean, >0 = act now).
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_kev.__doc__.strip()); return
+    url = args[0]
+    if "://" not in url:
+        url = "https://" + url
+    # Build a minimal argv and re-invoke the scan with --no-console + JSON-only,
+    # then filter. Simplest implementation: just call into the scan pipeline.
+    import subprocess
+    import json as _j
+    cmd = [sys.executable, "-m", "wpsecscan", url, "--json-only", "--no-console",
+           "--no-update-check"]
+    print(f"[kev] scanning {url}…", file=sys.stderr)
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    # Find the saved JSON snapshot (every scan writes ~/.wpsecscan/reports/<host>.json).
+    from . import history as _h
+    snaps = _h.snapshot_history(url)
+    if not snaps:
+        print("[kev] scan produced no snapshot", file=sys.stderr); sys.exit(2)
+    snap = snaps[-1]
+    data = _j.loads(snap.read_text(encoding="utf-8"))
+    from .models import ScanReport, CheckResult, Finding
+    results = [CheckResult(
+        check_id=r["check_id"], check_name=r.get("check_name", ""),
+        findings=[Finding(severity=f["severity"], title=f.get("title", ""),
+                            evidence=f.get("evidence", ""), remediation=f.get("remediation", ""),
+                            url=f.get("url", ""), extra=f.get("extra") or {})
+                    for f in r.get("findings", [])],
+    ) for r in data.get("results", [])]
+    report = ScanReport(target=data.get("target", url), scanned_at=data.get("scanned_at", ""),
+                         duration_ms=int(data.get("duration_ms", 0)), results=results)
+    from . import kev as _kev
+    kept = _kev.filter_findings_to_kev(report)
+    print(f"[kev] {kept} finding(s) match the current CISA KEV catalogue.")
+    for r in report.results:
+        for f in r.findings:
+            cves = ",".join(f.extra.get("kev_match", [])) if isinstance(f.extra, dict) else ""
+            print(f"  [{f.severity:8s}] {f.title}  ({cves})")
+    sys.exit(0 if kept == 0 else 1)
 
 
 def _cmd_report(args: list[str]) -> None:
