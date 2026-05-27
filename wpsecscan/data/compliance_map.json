@@ -1238,5 +1238,10 @@
     "pci_dss": "8.3.7",
     "nist_800_53": "IA-5",
     "iso_27001": "A.5.16"
+  },
+  "host_platform_detect": {
+    "pci_dss": "n/a",
+    "nist_800_53": "CM-7",
+    "iso_27001": "A.8.9"
   }
 }

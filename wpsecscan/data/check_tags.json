@@ -290,5 +290,6 @@
   "font_library_api_ssrf":        {"owasp": "A10:2021", "owasp_label": "Server-Side Request Forgery", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-918", "d3fend": "D3-NTA"},
   "rest_schema_field_leak":       {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-IAA"},
   "block_style_variations_url":   {"owasp": "A10:2021", "owasp_label": "Server-Side Request Forgery", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-918", "d3fend": "D3-NTA"},
-  "companion_v13":                {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1078", "attack_label": "Valid Accounts", "cwe": "CWE-1392", "d3fend": "D3-IAA"}
+  "companion_v13":                {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1078", "attack_label": "Valid Accounts", "cwe": "CWE-1392", "d3fend": "D3-IAA"},
+  "host_platform_detect":         {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-IAA"}
 }

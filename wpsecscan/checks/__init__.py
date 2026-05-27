@@ -295,6 +295,7 @@ from .font_library_api_ssrf import check as font_library_api_ssrf
 from .rest_schema_field_leak import check as rest_schema_field_leak
 from .block_style_variations_url import check as block_style_variations_url
 from .companion_v13 import check as companion_v13
+from .host_platform_detect import check as host_platform_detect
 
 # Authenticated — only when creds are provided
 from .authenticated import check as authenticated
@@ -584,6 +585,7 @@ ALL_CHECKS = [
     ("rest_schema_field_leak",   "REST schema-callback field leak (O144)", rest_schema_field_leak, False),
     ("block_style_variations_url","Block-style URL-prop SSRF (O145)", block_style_variations_url, False),
     ("companion_v13",            "Companion v1.3 endpoint consumers (B36-B47)", companion_v13, False),
+    ("host_platform_detect",     "Host stack / platform fingerprint (N136/N139/N140)", host_platform_detect, False),
     # ---- Round-58 aggressive checks ----
     ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
     ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),
