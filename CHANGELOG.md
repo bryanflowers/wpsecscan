@@ -7,6 +7,100 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [v2.6.0] — 2026-05-27
+
+Tests: **778 passing + 2 platform-skipped**. Check count: **226 → 268**
+(+42 new). Companion plugin: **1.2.1 → 1.3.0** (+5 endpoints).
+
+Fourth forward-audit delivery — 54 of the brainstormed 150 items
+selected, weighted toward "most up-to-date" threat coverage (A1–A35 +
+O141–O145) per user direction.
+
+### Phase 1 — modern threats A1–A11 (3 commits)
+
+**A1** AI plugin prompt-injection surface audit · **A2** AI chatbot
+relay-endpoint + key leak · **A3** MCP (Model Context Protocol)
+endpoint exposure · **A4** WP Playground / SQLite database-file
+exposure · **A5** Gutenberg Block-Bindings custom-source audit · **A6**
+Interactivity-API hydration PII leak · **A7** WP-CLI-over-HTTP endpoint
+exposure · **A8** Application Passwords stale-token audit (auth) ·
+**A9** WooCommerce Store API namespace drift · **A10** WC Subscriptions
+duplicate-renewal race patch audit · **A11** Stripe / WooPayments
+webhook signature audit.
+
+### Phase 2 — modern threats A12–A28 (3 commits)
+
+**A12** Klaviyo / Mailchimp list-ID enumeration · **A13** WP Multisite
+SSO HMAC-key reuse audit · **A14** Algolia/Elasticsearch frontend
+write-key leak · **A15** S3/R2/GCS shadow-bucket takeover · **A16**
+Vercel/Netlify preview-URL leak · **A17** JWT-Auth plugin secret-key
+audit · **A18** PWA service-worker precaches admin URLs · **A19** AMP
+plugin transitional-mode open-redirect · **A20** Tracking cookies
+firing pre-consent (ePrivacy/GDPR) · **A21** GDPR DSR ajax-action auth
+check · **A22** REST plugin-install endpoint auth audit · **A23**
+Form-builder file-upload bypass advisory · **A24** theme.json
+font-source SSRF audit · **A25** Search-result `<mark>` reflected XSS
+(active probe) · **A26** Site Health debug-dump SMTP credential leak ·
+**A27** Polylang/WPML/TranslatePress API-key leak · **A28** WooCommerce
+REST key scope advisory.
+
+### Phase 3 — modern threats + WP 6.5/6.7/6.8 (3 commits)
+
+**A29** Service-worker origin-wide scope hijack · **A30** HSTS preload
+list vs header mismatch · **A31** CT-log shadow-certificate detection ·
+**A32** Captcha sitekey placeholder/domain audit · **A33**
+Discord/Slack/Telegram invite leak · **A34** Composer/npm typosquat
+dependency advisory · **A35** CI-workflow (.github/workflows/) YAML
+exposure on webroot · **O141** WP 6.8 Speculation-Rules audit · **O142**
+WP 6.7 HTML-API breaks CSP nonces · **O143** WP 6.5 Font Library SSRF
+audit · **O144** REST schema-callback field leak · **O145**
+Block-Style-Variations URL-prop SSRF.
+
+### Phase 4 — companion plugin v1.3.0 (1 commit)
+
+**B36** `/users-with-app-passwords` · **B37** `/recent-uploads` · **B39**
+`/wp-cron-event-history` · **B42** `/admin-notice-content` · **B47**
+`/site-health-tests` (exposes WP core Site Health over token-gated REST).
+Single scanner consumer `companion_v13.py` covers all five; no-op
+without `--companion-token`.
+
+### Phase 5 — AI + host-specific + polish (3 commits)
+
+**G88** Local-model support via WPSECSCAN_OLLAMA_URL — verified ALREADY
+SHIPPED in `ai_assist._call_ollama` since v2.3.0; noted in audit trail
+for honesty. **G89** New `ai_assist.fix_pr_diff(finding)` + CLI flag
+`--ai-fix-pr-diff CHECK_ID` writes `<stem>-CID-fix.patch` +
+`<stem>-CID-fix.md`. **G90** New `wpsecscan/ai_fp_predictor.py` — pure-
+Python Bayes classifier over snooze history; CLI flag
+`--ai-fp-predictor` decorates `extra.fp_score` per finding.
+
+**N136 + N139 + N140** Host platform detect — single
+`host_platform_detect.py` covers Bedrock/Sage/Trellis (Roots),
+WP Engine, Kinsta, Pantheon, Cloudways, WordPress VIP via response
+headers + paths; emits per-platform advisories about platform-managed
+controls (e.g. WPE ignores .htaccess; VIP enforces 2FA so
+suppress duplicate checks).
+
+**#67** New `wpsecscan kev URL` subcommand — CISA KEV-only fast-scan.
+New `wpsecscan/kev.py` fetches the official catalogue (6h TTL cache)
+and `filter_findings_to_kev()` keeps only findings whose
+`extra.cve`/`extra.cves` appear in KEV. Exit 0 = clean, 1 = act now.
+
+**#81** New `--tldr` flag — one-line summary to stdout
+(`URL score=N/100 worst=SEV crit=… high=… …`); exit code = severity
+rank 0–4. Suppresses all other output. Use:
+`watch -n 60 wpsecscan https://x.com --tldr`.
+
+### Notes
+
+- `pyproject.toml` / `__init__.py` / `installer/wpsecscan-setup.nsi`
+  bumped to 2.6.0.
+- `wp-plugin/wpsecscan-companion` bumped 1.2.1 → 1.3.0 with 5 new
+  endpoints inheriting all v1.2 hardening (token-pin, per-endpoint
+  toggles, access webhook, HTTPS-only + private-IP-blocked).
+- No public-API breaking changes. Every new check defaults to passive
+  and is opt-out via `policy.yml` if not relevant.
+
 ## [v2.5.0] — 2026-05-27
 
 Tests: **667 passing**. Third forward-audit delivery — all 80 items
