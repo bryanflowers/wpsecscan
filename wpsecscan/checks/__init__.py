@@ -265,6 +265,12 @@ from .app_passwords_stale_audit import check as app_passwords_stale_audit
 from .woo_blocks_checkout_drift import check as woo_blocks_checkout_drift
 from .woo_subscriptions_renewal_race import check as woo_subscriptions_renewal_race
 from .stripe_webhook_audit import check as stripe_webhook_audit
+from .lead_gen_list_id_enum import check as lead_gen_list_id_enum
+from .multisite_sso_key_reuse import check as multisite_sso_key_reuse
+from .algolia_elastic_frontend_keys import check as algolia_elastic_frontend_keys
+from .bucket_shadow_takeover import check as bucket_shadow_takeover
+from .vercel_preview_url_leak import check as vercel_preview_url_leak
+from .jwt_auth_plugin_audit import check as jwt_auth_plugin_audit
 
 # Authenticated — only when creds are provided
 from .authenticated import check as authenticated
@@ -524,6 +530,12 @@ ALL_CHECKS = [
     ("woo_blocks_checkout_drift", "WooCommerce Store API namespace drift (A9)", woo_blocks_checkout_drift, False),
     ("woo_subscriptions_renewal_race", "WC Subscriptions duplicate-renewal race patch audit (A10)", woo_subscriptions_renewal_race, False),
     ("stripe_webhook_audit",     "Stripe / WooPayments webhook signature audit (A11)", stripe_webhook_audit, False),
+    ("lead_gen_list_id_enum",    "Klaviyo / Mailchimp list-ID enumeration (A12)", lead_gen_list_id_enum, False),
+    ("multisite_sso_key_reuse",  "WP Multisite SSO key reuse audit (A13)", multisite_sso_key_reuse, False),
+    ("algolia_elastic_frontend_keys", "Algolia / ES write-key leak in frontend JS (A14)", algolia_elastic_frontend_keys, False),
+    ("bucket_shadow_takeover",   "S3 / R2 / GCS shadow-bucket takeover (A15)", bucket_shadow_takeover, False),
+    ("vercel_preview_url_leak",  "Vercel / Netlify preview-URL leak (A16)", vercel_preview_url_leak, False),
+    ("jwt_auth_plugin_audit",    "JWT-Auth plugin secret-key audit (A17)", jwt_auth_plugin_audit, False),
     # ---- Round-58 aggressive checks ----
     ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
     ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),

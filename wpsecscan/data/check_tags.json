@@ -260,5 +260,11 @@
   "app_passwords_stale_audit":    {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1078", "attack_label": "Valid Accounts", "cwe": "CWE-1392", "d3fend": "D3-CRO"},
   "woo_blocks_checkout_drift":    {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-1188", "d3fend": "D3-NTA"},
   "woo_subscriptions_renewal_race": {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1078", "attack_label": "Valid Accounts", "cwe": "CWE-362", "d3fend": "D3-MA"},
-  "stripe_webhook_audit":         {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1565.001", "attack_label": "Stored Data Manipulation", "cwe": "CWE-345", "d3fend": "D3-MA"}
+  "stripe_webhook_audit":         {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1565.001", "attack_label": "Stored Data Manipulation", "cwe": "CWE-345", "d3fend": "D3-MA"},
+  "lead_gen_list_id_enum":        {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1589", "attack_label": "Gather Victim Identity Information", "cwe": "CWE-200", "d3fend": "D3-IAA"},
+  "multisite_sso_key_reuse":      {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552.001", "attack_label": "Credentials In Files", "cwe": "CWE-321", "d3fend": "D3-CRO"},
+  "algolia_elastic_frontend_keys":{"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552.001", "attack_label": "Credentials In Files", "cwe": "CWE-798", "d3fend": "D3-CRO"},
+  "bucket_shadow_takeover":       {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1583.006", "attack_label": "Web Services", "cwe": "CWE-1188", "d3fend": "D3-DNS"},
+  "vercel_preview_url_leak":      {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-IAA"},
+  "jwt_auth_plugin_audit":        {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1606", "attack_label": "Forge Web Credentials", "cwe": "CWE-347", "d3fend": "D3-CRO"}
 }
