@@ -117,8 +117,44 @@ def matches(cron_expr: str, when: datetime) -> bool:
 # Public API
 # ---------------------------------------------------------------------------
 
+def validate_cron(cron_expr: str) -> None:
+    """L2: validate a cron expression at add() time. Raises ValueError
+    with a useful message instead of silently never firing.
+
+    We do not support named fields (`MON`, `JAN`, `@hourly`) — explicit
+    numeric ranges only. Anyone copy-pasting a `@daily` from cron docs
+    sees the error immediately rather than wondering why their schedule
+    never ran.
+    """
+    fields = cron_expr.split()
+    if len(fields) != 5:
+        raise ValueError(
+            f"cron expression must have 5 fields (min hr dom mon dow); got {len(fields)}: "
+            f"{cron_expr!r}"
+        )
+    ranges = ((0, 59, "minute"), (0, 23, "hour"), (1, 31, "day_of_month"),
+              (1, 12, "month"), (0, 7, "day_of_week"))
+    for f, (lo, hi, name) in zip(fields, ranges):
+        # Strip step/range chars to leave bare numeric tokens.
+        bare = f.replace("*", "0").replace("/", ",").replace("-", ",")
+        for tok in bare.split(","):
+            if not tok:
+                continue
+            try:
+                int(tok)
+            except ValueError:
+                raise ValueError(
+                    f"cron {name!r} field {f!r}: named fields like "
+                    f"'MON' / 'JAN' / '@hourly' are not supported. "
+                    f"Use numeric ranges (e.g. {lo}-{hi})."
+                ) from None
+
+
 def add(cron_expr: str, target: str, flags: list[str] | None = None,
          name: str = "") -> CronEntry:
+    # L2: surface bad cron expressions at add time, not silently at the
+    # 100th tick when the user wonders why nothing ran.
+    validate_cron(cron_expr)
     entries = _load()
     entry = CronEntry(cron_expr=cron_expr, target=target,
                        flags=list(flags or []), name=name or target)

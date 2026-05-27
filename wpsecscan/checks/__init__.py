@@ -523,16 +523,25 @@ def _load_disabled_checks() -> set[str]:
     Lazy + cached-by-call so the GUI's disable grid can flip values at runtime
     and the next scan picks them up without a restart.
     """
+    import json
+    import sys
+    from pathlib import Path
+    import os
+    home = os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan")
+    f = Path(home) / "disabled_checks.json"
+    if not f.exists():
+        return set()
     try:
-        import json
-        from pathlib import Path
-        import os
-        home = os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan")
-        f = Path(home) / "disabled_checks.json"
-        if not f.exists():
-            return set()
         return set(json.loads(f.read_text(encoding="utf-8")) or [])
-    except (OSError, ValueError, Exception):  # noqa: BLE001
+    except json.JSONDecodeError as e:
+        # L3: warn loudly — silently re-enabling all previously-disabled
+        # checks on a corrupt JSON file would surprise the operator with
+        # a flood of findings they thought were suppressed.
+        print(f"warning: {f} is malformed JSON ({e}); ALL previously-disabled "
+               f"checks are now re-enabled. Fix or remove the file.",
+               file=sys.stderr)
+        return set()
+    except OSError:
         return set()
 
 

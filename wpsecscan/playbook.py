@@ -51,7 +51,13 @@ def _data_dir() -> Path:
     return Path(__file__).resolve().parent / "data"
 
 
+# Q10 — thread-safe cache. The scanner runs checks concurrently, so two
+# threads could race into _load() and both compute the cache. A simple
+# Lock around the assignment is enough; the redundant read on a cache hit
+# is unlocked + fast.
+import threading as _threading
 _CACHE: dict | None = None
+_CACHE_LOCK = _threading.Lock()
 
 
 def _user_playbook_path() -> Path:
@@ -70,27 +76,32 @@ def _load() -> dict:
     global _CACHE
     if _CACHE is not None:
         return _CACHE
-    out: dict = {}
-    f = _data_dir() / "exploit_playbook.json"
-    if f.exists():
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-            out = {k: v for k, v in data.items()
-                    if not k.startswith("_") and isinstance(v, dict)}
-        except (OSError, json.JSONDecodeError):
-            out = {}
-    user_f = _user_playbook_path()
-    if user_f.exists():
-        try:
-            user_data = json.loads(user_f.read_text(encoding="utf-8")) or {}
-            for cid, entry in user_data.items():
-                if cid.startswith("_") or not isinstance(entry, dict):
-                    continue
-                out[cid] = entry  # user entries replace bundled ones
-        except (OSError, json.JSONDecodeError):
-            pass
-    _CACHE = out
-    return _CACHE
+    with _CACHE_LOCK:
+        # Double-checked locking — another thread may have populated
+        # the cache between the unlocked check above and our lock acquire.
+        if _CACHE is not None:
+            return _CACHE
+        out: dict = {}
+        f = _data_dir() / "exploit_playbook.json"
+        if f.exists():
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                out = {k: v for k, v in data.items()
+                        if not k.startswith("_") and isinstance(v, dict)}
+            except (OSError, json.JSONDecodeError):
+                out = {}
+        user_f = _user_playbook_path()
+        if user_f.exists():
+            try:
+                user_data = json.loads(user_f.read_text(encoding="utf-8")) or {}
+                for cid, entry in user_data.items():
+                    if cid.startswith("_") or not isinstance(entry, dict):
+                        continue
+                    out[cid] = entry  # user entries replace bundled ones
+            except (OSError, json.JSONDecodeError):
+                pass
+        _CACHE = out
+        return _CACHE
 
 
 def get_playbook(check_id: str) -> dict | None:

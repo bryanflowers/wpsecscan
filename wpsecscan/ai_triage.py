@@ -545,20 +545,29 @@ def apply_all_enabled(report) -> dict:
 # Item #75 — alert-fatigue triage that runs on every scan
 # ============================================================
 
-def auto_snooze_info(report) -> int:
+def auto_snooze_info(report, *, dry_run: bool = False) -> int:
     """Drop every info-severity finding from `report.results`.
-    No AI call — pure heuristic noise reduction so reporters surface
-    what humans should look at. Returns the count of dropped findings.
+
+    NOTE — SIDE EFFECT: when `dry_run` is False (default), this mutates
+    `report.results` in place by removing info-severity findings. Pass
+    `dry_run=True` to get the count without mutating anything (useful for
+    a 'how many would I snooze?' preview before opting in).
+
+    Pure heuristic noise reduction, no AI call. Snoozes are appended to
+    ~/.wpsecscan/auto-triage.log when mutating (skipped on dry-run).
+    Returns the count of info findings detected.
     """
     import time as _t
     home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
     log_path = home / "auto-triage.log"
     n = 0
-    try:
-        home.mkdir(parents=True, exist_ok=True)
-        log_fh = log_path.open("a", encoding="utf-8")
-    except OSError:
-        log_fh = None
+    log_fh = None
+    if not dry_run:
+        try:
+            home.mkdir(parents=True, exist_ok=True)
+            log_fh = log_path.open("a", encoding="utf-8")
+        except OSError:
+            log_fh = None
     try:
         for r in report.results:
             keep = []
@@ -568,9 +577,11 @@ def auto_snooze_info(report) -> int:
                     if log_fh:
                         log_fh.write(f"{_t.strftime('%Y-%m-%dT%H:%M:%S')}  snoozed-info  "
                                       f"{report.target}  {r.check_id}: {f.title}\n")
-                    continue
+                    if not dry_run:
+                        continue
                 keep.append(f)
-            r.findings = keep
+            if not dry_run:
+                r.findings = keep
     finally:
         if log_fh:
             log_fh.close()

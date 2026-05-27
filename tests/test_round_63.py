@@ -9,6 +9,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 
 # ============================================================
 # aggregate-cve-feed.py — basic shape + skip logic
@@ -129,11 +131,10 @@ def test_aggregator_write_output(tmp_path):
     assert len(data["vulns"]) == 2
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                     reason="symlinks require admin on Windows; behaviour tested on POSIX only")
 def test_aggregator_write_output_symlink_guard(tmp_path):
     """Symlink at the output path is unlinked before write (defence in depth)."""
-    import sys
-    if sys.platform == "win32":
-        return
     agg = _load_aggregator()
     out = tmp_path / "vuln-db.json"
     out.symlink_to(tmp_path / "nonexistent-target")
@@ -201,10 +202,9 @@ def test_db_save_cache_with_sources(tmp_path, monkeypatch):
     assert data["vulns"][0]["slug"] == "foo"
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                     reason="symlinks require admin on Windows; behaviour tested on POSIX only")
 def test_db_save_cache_strips_symlink(tmp_path, monkeypatch):
-    import sys
-    if sys.platform == "win32":
-        return
     from wpsecscan import db
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     cp = db.cache_path()

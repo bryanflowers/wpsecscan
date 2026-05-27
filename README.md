@@ -8,7 +8,7 @@
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![checks](https://img.shields.io/badge/checks-226-brightgreen)](FEATURES.md)
 [![CVE sources](https://img.shields.io/badge/CVE%20sources-8-blue)](docs/data-sources.md)
-[![tests passing](https://img.shields.io/badge/tests-667%20passing-brightgreen)](tests/)
+[![tests passing](https://img.shields.io/badge/tests-780%20passing-brightgreen)](tests/)
 [![PyPI](https://img.shields.io/pypi/v/wpsecscan)](https://pypi.org/project/wpsecscan/)
 [![SLSA Level 3](https://img.shields.io/badge/SLSA-Level%203-success)](docs/verify-release.md)
 [![Sigstore signed](https://img.shields.io/badge/Sigstore-signed-blueviolet)](docs/verify-release.md)
@@ -144,7 +144,7 @@ python -m venv .venv
 pip install .
 python run.py https://example.com         # CLI
 python run_gui.py                          # GUI
-pytest                                     # 598 tests
+pytest                                     # 780 tests
 ```
 
 ---

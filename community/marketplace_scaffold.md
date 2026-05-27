@@ -1,5 +1,13 @@
 # WPSecScan check marketplace — design scaffold
 
+> **⚠️ STATUS: DESIGN PROPOSAL — NOT IMPLEMENTED.**
+> Commands (`marketplace list/search/install/verify`) and the
+> `marketplace.wpsecscan.com` index referenced below do not exist.
+> What *is* shipped today: `wpsecscan check new SLUG` scaffolds a
+> local custom check, and `wpsecscan check publish SLUG` appends to
+> `~/.wpsecscan/marketplace.json` which the operator can hand-upload
+> to a Gist. A centralised marketplace remains future work.
+
 Round-64 #124 — third parties can publish + share custom checks via a
 marketplace. Not yet implemented; this is the design.
 

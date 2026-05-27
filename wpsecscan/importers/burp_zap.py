@@ -147,9 +147,12 @@ def autoimport(path: Path, target_override: str = "") -> ScanReport:
     """Sniff the XML root to pick the right importer."""
     tree = ET.parse(str(path))
     root = tree.getroot()
+    # L1: the previous `"OWASPZAP" in (root.text or "")` branch was dead —
+    # root.text is the whitespace/text BEFORE the first child element,
+    # almost always None or "". `"zap" in tag` matches both
+    # <OWASPZAPReport> and <ZAPReport>; that's the only check we need.
     tag = (root.tag or "").lower()
-    text = (root.text or "")
-    if "zap" in tag or "OWASPZAP" in text:
+    if "zap" in tag:
         return import_zap(path, target_override)
     # Burp's root is <issues>.
     return import_burp(path, target_override)
