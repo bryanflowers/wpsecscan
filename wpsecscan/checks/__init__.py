@@ -289,6 +289,11 @@ from .turnstile_sitekey_reuse import check as turnstile_sitekey_reuse
 from .admin_invite_link_scan import check as admin_invite_link_scan
 from .composer_npm_typosquat import check as composer_npm_typosquat
 from .github_actions_workflow_leak import check as github_actions_workflow_leak
+from .speculation_rules_audit import check as speculation_rules_audit
+from .html_api_csp_nonce import check as html_api_csp_nonce
+from .font_library_api_ssrf import check as font_library_api_ssrf
+from .rest_schema_field_leak import check as rest_schema_field_leak
+from .block_style_variations_url import check as block_style_variations_url
 
 # Authenticated — only when creds are provided
 from .authenticated import check as authenticated
@@ -572,6 +577,11 @@ ALL_CHECKS = [
     ("admin_invite_link_scan",   "Discord/Slack/Telegram invite leak (A33)", admin_invite_link_scan, False),
     ("composer_npm_typosquat",   "Composer/npm typosquat dep advisory (A34)", composer_npm_typosquat, False),
     ("github_actions_workflow_leak","CI workflow YAML exposed on webroot (A35)", github_actions_workflow_leak, False),
+    ("speculation_rules_audit",  "WP 6.8 Speculation Rules audit (O141)", speculation_rules_audit, False),
+    ("html_api_csp_nonce",       "WP 6.7 HTML API breaks CSP nonces (O142)", html_api_csp_nonce, False),
+    ("font_library_api_ssrf",    "WP 6.5 Font Library SSRF audit (O143)", font_library_api_ssrf, False),
+    ("rest_schema_field_leak",   "REST schema-callback field leak (O144)", rest_schema_field_leak, False),
+    ("block_style_variations_url","Block-style URL-prop SSRF (O145)", block_style_variations_url, False),
     # ---- Round-58 aggressive checks ----
     ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
     ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),

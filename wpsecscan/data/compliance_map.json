@@ -1208,5 +1208,30 @@
     "pci_dss": "6.3.1",
     "nist_800_53": "CM-7",
     "iso_27001": "A.8.9"
+  },
+  "speculation_rules_audit": {
+    "pci_dss": "6.4.3",
+    "nist_800_53": "SC-5",
+    "iso_27001": "A.8.6"
+  },
+  "html_api_csp_nonce": {
+    "pci_dss": "6.4.3",
+    "nist_800_53": "SC-7",
+    "iso_27001": "A.8.27"
+  },
+  "font_library_api_ssrf": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
+  },
+  "rest_schema_field_leak": {
+    "pci_dss": "7.2.1",
+    "nist_800_53": "AC-3",
+    "iso_27001": "A.8.3"
+  },
+  "block_style_variations_url": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "SI-10",
+    "iso_27001": "A.8.28"
   }
 }

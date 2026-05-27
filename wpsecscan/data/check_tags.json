@@ -284,5 +284,10 @@
   "turnstile_sitekey_reuse":      {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1566", "attack_label": "Phishing", "cwe": "CWE-1188", "d3fend": "D3-IAA"},
   "admin_invite_link_scan":       {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1071.001", "attack_label": "Web Protocols", "cwe": "CWE-829", "d3fend": "D3-NTA"},
   "composer_npm_typosquat":       {"owasp": "A06:2021", "owasp_label": "Vulnerable & Outdated Components", "attack": "T1195.001", "attack_label": "Compromise Software Dependencies", "cwe": "CWE-1357", "d3fend": "D3-SBA"},
-  "github_actions_workflow_leak": {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1552.001", "attack_label": "Credentials In Files", "cwe": "CWE-538", "d3fend": "D3-CRO"}
+  "github_actions_workflow_leak": {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1552.001", "attack_label": "Credentials In Files", "cwe": "CWE-538", "d3fend": "D3-CRO"},
+  "speculation_rules_audit":      {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1499", "attack_label": "Endpoint Denial of Service", "cwe": "CWE-400", "d3fend": "D3-NTA"},
+  "html_api_csp_nonce":           {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1059.007", "attack_label": "JavaScript", "cwe": "CWE-1021", "d3fend": "D3-FA"},
+  "font_library_api_ssrf":        {"owasp": "A10:2021", "owasp_label": "Server-Side Request Forgery", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-918", "d3fend": "D3-NTA"},
+  "rest_schema_field_leak":       {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-IAA"},
+  "block_style_variations_url":   {"owasp": "A10:2021", "owasp_label": "Server-Side Request Forgery", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-918", "d3fend": "D3-NTA"}
 }
