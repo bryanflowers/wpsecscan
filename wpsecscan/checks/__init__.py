@@ -559,15 +559,9 @@ def _load_custom_checks() -> None:
         import importlib.util
         import os
         from pathlib import Path
-        home = os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan")
-        # Two search paths: legacy ~/.wpsecscan/plugins/*.py and the #56
-        # canonical location ~/.wpsecscan/checks/*.py. Plus the marketplace
-        # download dir ~/.wpsecscan/marketplace/checks/*.py.
-        search_dirs = [
-            Path(home) / "plugins",
-            Path(home) / "checks",
-            Path(home) / "marketplace" / "checks",
-        ]
+        # Q9: single source of truth for custom-check search paths.
+        from .._util import custom_check_dirs
+        search_dirs = custom_check_dirs()
         existing_ids = {cid for cid, _n, _f, _a in ALL_CHECKS}
         py_files: list[Path] = []
         for d in search_dirs:

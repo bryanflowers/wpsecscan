@@ -1653,10 +1653,9 @@ def _cmd_check(args: list[str]) -> None:
         return
     if args[0] == "list-custom":
         from .checks import ALL_CHECKS
-        home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
-        custom_dirs = [home / "plugins", home / "checks", home / "marketplace" / "checks"]
+        from ._util import custom_check_dirs
         custom_ids: set[str] = set()
-        for d in custom_dirs:
+        for d in custom_check_dirs():
             if d.exists():
                 custom_ids.update(p.stem for p in d.glob("*.py"))
         rows = [(cid, cname, agg) for cid, cname, _fn, agg in ALL_CHECKS if cid in custom_ids]

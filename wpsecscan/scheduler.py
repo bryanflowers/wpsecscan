@@ -41,13 +41,10 @@ class CronEntry:
 
 
 def _load() -> list[CronEntry]:
-    p = _store()
-    if not p.exists():
-        return []
-    try:
-        raw = json.loads(p.read_text(encoding="utf-8")) or []
-    except (OSError, ValueError):
-        return []
+    # Q6: shared loader logs a stderr warning on corruption so the
+    # operator notices, rather than silently losing scheduled scans.
+    from ._util import load_home_json
+    raw = load_home_json("cron-schedule.json", []) or []
     out = []
     for e in raw:
         out.append(CronEntry(
