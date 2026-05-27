@@ -36,6 +36,12 @@ dependencies = [
     "jinja2>=3.1,<4",
     "rich>=13.7,<14",
     "openpyxl>=3.1,<4",
+    # Q8: keyring is needed by the `wpsecscan creds` default-CLI surface
+    # (post-v2.5.0). Previously in [ui] extra; default install silently
+    # fell back to plain JSON. creds_vault still gracefully handles the
+    # missing-keyring case so headless installs without a backend keep
+    # working (the FailBackend check in creds_vault._have_keyring).
+    "keyring>=24",
 ]
 
 [project.optional-dependencies]
@@ -47,9 +53,10 @@ browser = ["playwright>=1.40"]
 yaml = ["pyyaml>=6.0"]
 # Distributed CVE-DB cache + RBAC bcrypt hashing
 ops = ["redis>=5.0", "bcrypt>=4.0"]
-# Optional Pillow for GUI image rendering + pystray for minimize-to-tray (#56)
-# + keyring for OS-keychain credential storage (#42)
-ui = ["Pillow>=10", "pystray>=0.19", "keyring>=24"]
+# Optional Pillow for GUI image rendering + pystray for minimize-to-tray (#56).
+# (keyring moved to default `dependencies` in v2.5.1 because the `wpsecscan
+# creds` CLI surface is no longer GUI-only.)
+ui = ["Pillow>=10", "pystray>=0.19"]
 # S5 — defusedxml protects the burp/zap importer against billion-laughs
 # entity-expansion DoS on hostile XML reports. Stdlib ElementTree falls
 # back with a stderr warning when this isn't installed.

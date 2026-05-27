@@ -800,35 +800,24 @@ def _apply_config_and_profile(parser, args) -> None:
 
 def main() -> None:
     # ---- Subcommand dispatch (round-60): keep before argparse so existing
-    # `wpsecscan <url>` invocations stay backward-compatible.
-    if len(sys.argv) >= 2 and sys.argv[1] in (
-        "sites", "schedule", "digest", "ai-cost", "db", "ai-options", "analytics",
-        "compare", "badge", "paths", "report", "annotate", "check", "config",
-        "verify-release", "watch", "portfolio", "refix", "snooze", "diff-tree",
-        "pr-comment", "publish", "only", "doctor",
-    ):
+    # `wpsecscan <url>` invocations stay backward-compatible. The list of
+    # subcommand names is centralised in SUBCOMMAND_NAMES so it can never
+    # drift from the dispatch table again.
+    if len(sys.argv) >= 2 and sys.argv[1] in SUBCOMMAND_NAMES:
         _dispatch_subcommand(sys.argv[1], sys.argv[2:])
         return
 
+    # Auto-generate the help epilog from the same single source of truth.
+    epilog_lines = ["Subcommands (run `wpsecscan <name> --help` for per-command usage):", ""]
+    for usage, desc in SUBCOMMAND_HELP:
+        epilog_lines.append(f"  {usage:24s}  {desc}")
     p = argparse.ArgumentParser(
         prog="wpsecscan",
         description=(
             "WPSecScan — defensive WordPress security scanner. "
             "Use only on sites you own or have written permission to test."
         ),
-        epilog=(
-            "Subcommands (use as: wpsecscan <subcommand> <args>):\n"
-            "  sites          manage a list of sites (add | list | scan | remove)\n"
-            "  schedule       install/uninstall scheduled scans (Windows Task Scheduler etc.)\n"
-            "  digest         configure SMTP / webhook digest of new findings\n"
-            "  ai-cost        print AI-triage cost summary\n"
-            "  ai-options     read/set Advanced AI-triage toggles\n"
-            "  analytics      manage opt-in usage analytics\n"
-            "  db             vuln DB management (status | update | signatures | source-stats | subscribe | alert-check)\n"
-            "  compare URL    diff the two most-recent saved snapshots of URL\n"
-            "  badge URL      emit a shields.io-style status-badge SVG\n"
-            "\nRun  wpsecscan <subcommand> --help  for per-subcommand usage.\n"
-        ),
+        epilog="\n".join(epilog_lines) + "\n",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("target", nargs="?", help="URL to scan (e.g. https://example.com)")
@@ -1377,6 +1366,59 @@ def main() -> None:
         print(f"FATAL: {e}\nCrash report: {cp}", file=sys.stderr)
         code = 1
     sys.exit(code)
+
+
+# Single source of truth for every CLI subcommand name. Used by both the
+# pre-argparse dispatch guard in main() AND by the --help epilog so they
+# can never drift apart again. (Pre-v2.5.1 bug: 14 new subcommands were
+# wired into _dispatch_subcommand but missing from the guard tuple, which
+# meant `wpsecscan creds list` was silently parsed as a target URL.)
+SUBCOMMAND_HELP: tuple[tuple[str, str], ...] = (
+    # Legacy (pre-v2.5.0)
+    ("sites",                "manage a list of sites (add|list|scan|remove)"),
+    ("schedule",             "install/uninstall scheduled scans (Task Scheduler etc.)"),
+    ("digest",               "configure SMTP / webhook digest of new findings; sub: schedule"),
+    ("ai-cost",              "print AI-triage cost summary"),
+    ("ai-options",           "read/set Advanced AI-triage toggles"),
+    ("analytics",            "manage opt-in usage analytics"),
+    ("db",                   "vuln-DB management (status|update|signatures|...)"),
+    ("compare URL",          "diff the two most-recent saved snapshots of URL"),
+    ("badge URL",            "emit a shields.io-style status-badge SVG"),
+    ("paths",                "list known scanner paths (cache, reports, snapshots)"),
+    ("report",               "report open|path URL — open the most-recent report"),
+    ("annotate",             "attach annotations to a saved scan snapshot"),
+    ("check",                "check list|list-custom|new SLUG|publish SLUG"),
+    ("config",               "show or edit the wpsecscan config file"),
+    ("verify-release",       "verify the running binary's Sigstore signature"),
+    ("watch",                "delta-watch daemon — re-scan every N seconds"),
+    ("portfolio",            "render a portfolio dashboard for many sites"),
+    ("refix",                "re-run one check + write a remediation receipt"),
+    ("snooze",               "suppress findings matching a pattern for N days"),
+    ("diff-tree",            "diff two saved snapshots as a tree"),
+    ("pr-comment URL",       "post (or update) a PR comment with CVE matches"),
+    ("publish",              "publish a finding-set to the daemon REST API"),
+    ("only CHECK_ID URL",    "run ONLY the named check (ad-hoc testing)"),
+    ("doctor",               "one-shot env audit of optional deps + tokens"),
+    # v2.5.0
+    ("diff-agency OLD NEW",  "diff two agency dashboards (item #55)"),
+    ("playbook",             "user playbook authoring (add|show|rm|list, item #59)"),
+    ("slack-app",            "Slack slash-command listener (item #63)"),
+    ("pr-status REPO SHA URL", "GitHub Check Run status (item #62)"),
+    ("dashboard-templates",  "dump Datadog/NewRelic dashboard JSON (item #66)"),
+    ("creds",                "credential vault CRUD (add|get|list|rm|rotate|use, items #68/69/71)"),
+    ("sso",                  "SAML / OIDC SSO configure for the daemon (item #70)"),
+    ("hwkey",                "hwkey gate enable/disable/grant for --aggressive (item #72)"),
+    ("cron-schedule",        "POSIX-cron scheduled scans (add|list|rm|run, item #73)"),
+    ("sla report URL",       "finding-level SLA tracker (item #74)"),
+    ("import-pentest FILE",  "import Burp/ZAP project XML (item #76)"),
+    ("scan-zip FILE",        "pre-install plugin/theme zip static scan (item #77)"),
+    ("reference-diff",       "diff live file-monitor vs clean WP archive (item #79)"),
+    ("mobile-api",           "installable PWA + REST for phones (item #80)"),
+)
+
+SUBCOMMAND_NAMES: tuple[str, ...] = tuple(
+    entry.split()[0] for entry, _ in SUBCOMMAND_HELP
+)
 
 
 def _dispatch_subcommand(cmd: str, args: list[str]) -> None:

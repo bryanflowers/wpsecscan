@@ -100,6 +100,51 @@ def parse_kv_args(
     return kv, bool_kv, extras  # type: ignore[return-value]
 
 
+# ---------------------------------------------------------------------------
+# Q7 — schema-versioned state files
+# ---------------------------------------------------------------------------
+
+CURRENT_SCHEMA_VERSION = 1
+
+
+def load_versioned_json(filename: str, default: Any,
+                          *, expected_version: int = CURRENT_SCHEMA_VERSION) -> Any:
+    """Read a {"_version": N, "data": ...} wrapper from ~/.wpsecscan/{filename}.
+
+    Backward-compat: unwrapped legacy data (no `_version` key) is accepted
+    silently and treated as version 1. A version higher than expected logs
+    a stderr warning so a future v2.6 → v2.5 downgrade is visible.
+    """
+    raw = load_home_json(filename, None)
+    if raw is None:
+        return default
+    if isinstance(raw, dict) and "_version" in raw and "data" in raw:
+        v = raw.get("_version")
+        if isinstance(v, int) and v > expected_version:
+            print(f"warning: ~/.wpsecscan/{filename} is schema v{v}; "
+                   f"this build expects v{expected_version}. Older fields "
+                   f"may be ignored; consider upgrading wpsecscan.",
+                   file=sys.stderr)
+        return raw["data"]
+    # Legacy / unwrapped — treat as v1.
+    return raw
+
+
+def save_versioned_json(filename: str, data: Any,
+                          *, version: int = CURRENT_SCHEMA_VERSION) -> None:
+    """Atomically write {"_version": N, "data": ...} to ~/.wpsecscan/{filename}.
+
+    Atomic via os.replace; the partial file is at `{filename}.tmp.{pid}`
+    during the write so a crash mid-write leaves the previous version intact.
+    """
+    p = home_dir() / filename
+    p.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"_version": version, "data": data}
+    tmp = p.with_suffix(p.suffix + f".tmp.{os.getpid()}")
+    tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    os.replace(tmp, p)
+
+
 def custom_check_dirs() -> list[Path]:
     """Return the canonical list of dirs the scanner loads user checks
     from. Order matters — earlier entries take precedence on duplicate

@@ -41,10 +41,11 @@ class CronEntry:
 
 
 def _load() -> list[CronEntry]:
-    # Q6: shared loader logs a stderr warning on corruption so the
-    # operator notices, rather than silently losing scheduled scans.
-    from ._util import load_home_json
-    raw = load_home_json("cron-schedule.json", []) or []
+    # Q6 + Q7: shared loader gives schema-version awareness AND warns on
+    # corruption so the operator notices, rather than silently losing
+    # scheduled scans. Accepts legacy unwrapped lists (pre-v2.5.1) too.
+    from ._util import load_versioned_json
+    raw = load_versioned_json("cron-schedule.json", []) or []
     out = []
     for e in raw:
         out.append(CronEntry(
@@ -59,10 +60,9 @@ def _load() -> list[CronEntry]:
 
 
 def _save(entries: list[CronEntry]) -> None:
-    p = _store()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps([asdict(e) for e in entries], indent=2),
-                  encoding="utf-8")
+    # Q7: write with schema-version stamp so v2.6+ can migrate cleanly.
+    from ._util import save_versioned_json
+    save_versioned_json("cron-schedule.json", [asdict(e) for e in entries])
 
 
 # ---------------------------------------------------------------------------
