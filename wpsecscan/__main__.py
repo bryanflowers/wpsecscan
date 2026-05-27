@@ -397,6 +397,62 @@ async def _scan_one(target: str, args, console: Console):
         if not args.no_console:
             console.print(f"[green]✓[/green] Board 1-pager: [bold]{bp_p}[/bold]")
 
+    # C49 — per-finding share link
+    if getattr(args, "share_finding", None):
+        try:
+            cid, idx_str = args.share_finding.split("#", 1)
+            idx = int(idx_str)
+            from .reporters import share_link as _sl
+            share_p = out_dir / f"{stem}-{cid}-{idx}.share.json"
+            _sl.write(report, cid, idx, share_p)
+            if not args.no_console:
+                console.print(f"[green]✓[/green] Share-link: [bold]{share_p}[/bold]")
+        except (ValueError, Exception) as e:  # noqa: BLE001
+            console.print(f"[yellow]--share-finding failed: {e}[/yellow]")
+
+    # C54 — risk-score forecast
+    if getattr(args, "risk_forecast", False):
+        from .reporters import risk_forecast as _rf
+        fc = _rf.forecast(report.target)
+        if not args.no_console:
+            console.print(f"[cyan]{_rf.render_text(fc)}[/cyan]")
+        (out_dir / f"{stem}-forecast.json").write_text(
+            __import__("json").dumps(fc, indent=2), encoding="utf-8",
+        )
+
+    # C55 — finding heatmap SVG
+    if getattr(args, "heatmap_svg", False):
+        from .reporters import finding_heatmap as _fh
+        hm_p = out_dir / f"{stem}-heatmap.svg"
+        _fh.write(report.target, hm_p)
+        if not args.no_console:
+            console.print(f"[green]✓[/green] Finding heatmap SVG: [bold]{hm_p}[/bold]")
+
+    # C51 — Confluence / Notion live page sync
+    if getattr(args, "live_sync", None):
+        from .reporters import live_sync as _ls
+        backends = (args.live_sync or "").lower()
+        if backends in ("confluence", "both"):
+            # Best body = the HTML report if available, else a tiny summary
+            html_body = ""
+            try:
+                html_body = (out_dir / f"{stem}.html").read_text(encoding="utf-8")
+            except OSError:
+                html_body = f"<p>WPSecScan score: {report.risk_score}/100 at {report.scanned_at}</p>"
+            ok, msg = _ls.sync_confluence(html_body)
+            if not args.no_console:
+                console.print(f"[cyan]live-sync confluence: {msg}[/cyan]")
+        if backends in ("notion", "both"):
+            text = (
+                f"WPSecScan — {report.target}\n"
+                f"Scanned: {report.scanned_at}\n"
+                f"Risk score: {report.risk_score}/100\n"
+                f"Findings: {len(report.all_findings)}"
+            )
+            ok, msg = _ls.sync_notion(text)
+            if not args.no_console:
+                console.print(f"[cyan]live-sync notion: {msg}[/cyan]")
+
     # #61 — live SIEM forwarders (Splunk HEC / Datadog Logs / Loki / Beats)
     if (getattr(args, "siem_splunk", None) or getattr(args, "siem_datadog", None)
             or getattr(args, "siem_loki", None) or getattr(args, "siem_beats", None)
@@ -1053,6 +1109,17 @@ def main() -> None:
     p.add_argument("--board-1pager", action="store_true",
                    help="#52: write a single-landscape-page board-room risk dashboard "
                         "(three big numbers, three sentences, three actions to ratify).")
+    p.add_argument("--share-finding", default=None, metavar="CHECK_ID#INDEX",
+                   help="C49: write a per-finding share-link JSON-LD blob with HMAC signature. "
+                        "Example: --share-finding headers#0 writes the first finding from "
+                        "the 'headers' check.")
+    p.add_argument("--live-sync", default=None, metavar="confluence|notion|both",
+                   help="C51: push the agency dashboard to Confluence and/or Notion on each "
+                        "scan. Reads WPSECSCAN_CONFLUENCE_* and WPSECSCAN_NOTION_* env vars.")
+    p.add_argument("--risk-forecast", action="store_true",
+                   help="C54: print a 30/60/90-day risk-score projection from snapshot history.")
+    p.add_argument("--heatmap-svg", action="store_true",
+                   help="C55: write a per-finding heatmap SVG showing presence across recent scans.")
     p.add_argument("--print-openapi", action="store_true",
                    help="#53: print the OpenAPI 3.1 schema for the WPSecScan JSON output to "
                         "stdout, then exit. Pipe to openapi-typescript / openapi-generator to "
