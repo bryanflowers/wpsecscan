@@ -286,6 +286,9 @@ from .service_worker_scope_hijack import check as service_worker_scope_hijack
 from .hsts_preload_mismatch import check as hsts_preload_mismatch
 from .ct_log_shadow_cert import check as ct_log_shadow_cert
 from .turnstile_sitekey_reuse import check as turnstile_sitekey_reuse
+from .admin_invite_link_scan import check as admin_invite_link_scan
+from .composer_npm_typosquat import check as composer_npm_typosquat
+from .github_actions_workflow_leak import check as github_actions_workflow_leak
 
 # Authenticated — only when creds are provided
 from .authenticated import check as authenticated
@@ -566,6 +569,9 @@ ALL_CHECKS = [
     ("hsts_preload_mismatch",    "HSTS preload list vs header mismatch (A30)", hsts_preload_mismatch, False),
     ("ct_log_shadow_cert",       "CT-log shadow certificate detection (A31)", ct_log_shadow_cert, False),
     ("turnstile_sitekey_reuse",  "Captcha sitekey placeholder / domain audit (A32)", turnstile_sitekey_reuse, False),
+    ("admin_invite_link_scan",   "Discord/Slack/Telegram invite leak (A33)", admin_invite_link_scan, False),
+    ("composer_npm_typosquat",   "Composer/npm typosquat dep advisory (A34)", composer_npm_typosquat, False),
+    ("github_actions_workflow_leak","CI workflow YAML exposed on webroot (A35)", github_actions_workflow_leak, False),
     # ---- Round-58 aggressive checks ----
     ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
     ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),

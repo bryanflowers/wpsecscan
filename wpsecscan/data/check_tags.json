@@ -281,5 +281,8 @@
   "service_worker_scope_hijack":  {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1554", "attack_label": "Compromise Client Software Binary", "cwe": "CWE-1188", "d3fend": "D3-FA"},
   "hsts_preload_mismatch":        {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1557", "attack_label": "Adversary-in-the-Middle", "cwe": "CWE-319", "d3fend": "D3-CRO"},
   "ct_log_shadow_cert":           {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1556.004", "attack_label": "Network Provider MITM", "cwe": "CWE-295", "d3fend": "D3-CRO"},
-  "turnstile_sitekey_reuse":      {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1566", "attack_label": "Phishing", "cwe": "CWE-1188", "d3fend": "D3-IAA"}
+  "turnstile_sitekey_reuse":      {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1566", "attack_label": "Phishing", "cwe": "CWE-1188", "d3fend": "D3-IAA"},
+  "admin_invite_link_scan":       {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1071.001", "attack_label": "Web Protocols", "cwe": "CWE-829", "d3fend": "D3-NTA"},
+  "composer_npm_typosquat":       {"owasp": "A06:2021", "owasp_label": "Vulnerable & Outdated Components", "attack": "T1195.001", "attack_label": "Compromise Software Dependencies", "cwe": "CWE-1357", "d3fend": "D3-SBA"},
+  "github_actions_workflow_leak": {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1552.001", "attack_label": "Credentials In Files", "cwe": "CWE-538", "d3fend": "D3-CRO"}
 }
