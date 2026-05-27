@@ -43,7 +43,11 @@ def web_push_register(endpoint: str, p256dh: str, auth: str) -> str:
         "added_at": int(__import__("time").time()),
     })
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(subs, indent=2), encoding="utf-8")
+    # B7 (v2.7.1) — atomic 0o600 write so push-subscription endpoints
+    # (which reveal operator's PWA deployment) aren't world-readable.
+    fd = os.open(str(p), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(json.dumps(subs, indent=2).encode("utf-8"))
     return sid
 
 

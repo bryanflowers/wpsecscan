@@ -7,6 +7,71 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [v2.7.1] — 2026-05-27
+
+Security hot-fix on top of v2.7.0. Three audits run in parallel against
+the v2.7.0 surface surfaced three security-critical bugs plus five
+medium-severity bugs concentrated in the new v2.7.0 modules. This
+release fixes all eight; tidy + arch + missing-coverage items are
+deferred to v2.8.0.
+
+Companion plugin: **1.4.0 → 1.4.1** (3 fixes).
+
+Tests: **778 → 790 passing + 2 platform-skipped** (+12 regression
+tests pinning the fixes below).
+
+### Security
+
+- **S1** `marketplace install` (`marketplace_v27.py`) accepted ANY
+  scheme + host for the package source URL — `file:///etc/shadow` would
+  read local files; `http://evil.com/backdoor.py` would write arbitrary
+  Python into `~/.wpsecscan/marketplace/checks/` and load it next scan.
+  Now: source URL must be `https://`, host must match the marketplace
+  index origin, slug must match `^[a-zA-Z0-9_-]{1,64}$`, and the
+  Sigstore signature is verified inline (use `--allow-unsigned` to
+  opt out for local development).
+- **S2** `push_linear_triage` / `push_monday` (`integrations_v27.py`)
+  built GraphQL mutations with f-string substitution. Finding titles
+  flow from scan data which can contain operator-controlled text — a
+  crafted title could break out of the string literal. Both backends
+  now pass user-controlled values via GraphQL `variables`; query
+  strings are static.
+- **S3** `wp wpsec token` (companion `includes/cli.php`) wrote
+  `'created_at'` but `rest.php` reads `'created'`. Every CLI-generated
+  token compared as instantly expired. Companion plugin bumped to
+  1.4.1.
+
+### Bug fixes
+
+- **B1** `cmd_worker` (`perf_v27.py`) — Redis queue entries are now
+  required to start with `http://` or `https://` before being passed
+  to subprocess.run; a target like `--config /etc/passwd` would
+  otherwise have been interpreted as a CLI flag.
+- **B2** `cmd_freeze` (`workflow_cmds.py`) — tarball arcnames now use
+  `Path(...).name` so a maliciously-named snapshot can't escape its
+  prefix on extraction (defence-in-depth; snapshot files normally
+  contain no path separators).
+- **B3** companion test-connection AJAX (`includes/admin.php`) — now
+  CSRF-protected with `check_ajax_referer`.
+- **B4** companion `/plugin-license-keys` (`includes/rest.php`) — mask
+  reduced from 4-char prefix + exact length to 2-char prefix +
+  bucketed length (short/medium/long); the endpoint still reports
+  "license-key option exists" without leaking key shape.
+- **B5** companion `/page-cache-info` (`includes/rest.php`) — per-file
+  realpath boundary check skips symlinks that escape `WP_CONTENT_DIR`
+  (cache_size_bytes / cache_file_count would otherwise include files
+  outside the WP install).
+- **B6** `statuspage_incident` (`integrations_v27.py`) — wraps
+  `int(os.environ.get("STATUSPAGE_THRESHOLD"))` in try/except;
+  malformed values now fall back to 50 with a stderr warning instead
+  of an unhandled ValueError.
+- **B7** `web_push_register` (`mobile_v27.py`) — `web-push-subs.json`
+  now written via `os.open(..., O_WRONLY|O_CREAT|O_TRUNC, 0o600)` so
+  subscription endpoints aren't world-readable.
+- **B8** `cmd_replay_prompt` (`cli_extras.py`) — `replay-prompt-log.json`
+  now written atomically via temp-file + `os.replace` so concurrent
+  replay sessions can't corrupt the log.
+
 ## [v2.7.0] — 2026-05-27
 
 Tests: **778 passing + 2 platform-skipped**. Check count: **268 → 270**.

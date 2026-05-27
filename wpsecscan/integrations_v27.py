@@ -566,7 +566,17 @@ def statuspage_incident(report) -> tuple[bool, str]:
     create an investigating-state incident on statuspage.io."""
     tok = os.environ.get("STATUSPAGE_TOKEN", "")
     page = os.environ.get("STATUSPAGE_PAGE_ID", "")
-    threshold = int(os.environ.get("STATUSPAGE_THRESHOLD", "50"))
+    # B6 (v2.7.1) — defensively coerce STATUSPAGE_THRESHOLD; a non-integer
+    # value previously raised an unhandled ValueError that broke the
+    # whole emit pipeline.
+    raw_threshold = os.environ.get("STATUSPAGE_THRESHOLD", "50")
+    try:
+        threshold = int(raw_threshold)
+    except ValueError:
+        import sys as _sys
+        print(f"warning: STATUSPAGE_THRESHOLD={raw_threshold!r} is not an "
+               "integer; falling back to 50.", file=_sys.stderr)
+        threshold = 50
     if not (tok and page):
         return False, "set STATUSPAGE_TOKEN + STATUSPAGE_PAGE_ID"
     if report.risk_score > threshold:

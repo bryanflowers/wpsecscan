@@ -221,14 +221,15 @@ def cmd_freeze(args: list[str]) -> None:
         ts = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
         out_path = Path.cwd() / f"wpsecscan-freeze-{safe}-{ts}.tar.gz"
 
+    # B2 (v2.7.1) — strip any directory separators from snapshot filenames
+    # before they become tarball arcnames. Defence-in-depth so a recipient
+    # extracting the .tar.gz can't be tricked into writing outside the
+    # extraction root by a hostile snapshot filename.
     with tarfile.open(out_path, "w:gz") as tf:
-        # Most-recent snapshot
         latest = snaps[-1]
-        tf.add(str(latest), arcname=f"snapshots/{latest.name}")
-        # All snapshots for full historical context
+        tf.add(str(latest), arcname=f"snapshots/{Path(latest.name).name}")
         for snap in snaps:
-            tf.add(str(snap), arcname=f"history/{snap.name}")
-        # OpenAPI schema (so future-version readers know the JSON shape)
+            tf.add(str(snap), arcname=f"history/{Path(snap.name).name}")
         try:
             sch = Path(__file__).parent / "data" / "openapi-scan-report.json"
             if sch.exists():

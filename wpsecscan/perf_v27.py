@@ -63,6 +63,14 @@ def cmd_worker(args: list[str]) -> None:
         target = popped[1].decode("utf-8", errors="replace").strip()
         if not target:
             continue
+        # B1 (v2.7.1) — refuse anything that doesn't look like an http(s)
+        # URL. Without this guard, a malicious Redis-queue producer can
+        # inject a value starting with `-` (e.g. `--config /etc/passwd`)
+        # which argparse interprets as a CLI flag, not a positional URL.
+        if not target.startswith(("http://", "https://")):
+            print(f"[worker] refusing non-URL queue entry: {target[:80]!r}",
+                  file=sys.stderr)
+            continue
         print(f"[worker] scanning {target}")
         try:
             subprocess.run(

@@ -116,7 +116,11 @@ def cmd_replay_prompt(args: list[str]) -> None:
         log_p = home_dir() / "replay-prompt-log.json"
         existing = load_home_json("replay-prompt-log.json", [])
         existing.extend(actions)
-        log_p.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+        # B8 (v2.7.1) — atomic temp+rename so concurrent replay sessions
+        # can't corrupt the log mid-write.
+        tmp_p = log_p.with_suffix(f".json.tmp.{os.getpid()}")
+        tmp_p.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+        os.replace(tmp_p, log_p)
         print(f"\n{len(actions)} action(s) logged to {log_p}")
 
 
