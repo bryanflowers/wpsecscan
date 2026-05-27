@@ -257,5 +257,8 @@
   "block_bindings_exposure":      {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-IAA"},
   "interactivity_api_state_leak": {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1005", "attack_label": "Data from Local System", "cwe": "CWE-200", "d3fend": "D3-FA"},
   "wp_cli_http_exposure":         {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-78", "d3fend": "D3-EAL"},
-  "app_passwords_stale_audit":    {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1078", "attack_label": "Valid Accounts", "cwe": "CWE-1392", "d3fend": "D3-CRO"}
+  "app_passwords_stale_audit":    {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1078", "attack_label": "Valid Accounts", "cwe": "CWE-1392", "d3fend": "D3-CRO"},
+  "woo_blocks_checkout_drift":    {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-1188", "d3fend": "D3-NTA"},
+  "woo_subscriptions_renewal_race": {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1078", "attack_label": "Valid Accounts", "cwe": "CWE-362", "d3fend": "D3-MA"},
+  "stripe_webhook_audit":         {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1565.001", "attack_label": "Stored Data Manipulation", "cwe": "CWE-345", "d3fend": "D3-MA"}
 }

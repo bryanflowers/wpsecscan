@@ -262,6 +262,9 @@ from .block_bindings_exposure import check as block_bindings_exposure
 from .interactivity_api_state_leak import check as interactivity_api_state_leak
 from .wp_cli_http_exposure import check as wp_cli_http_exposure
 from .app_passwords_stale_audit import check as app_passwords_stale_audit
+from .woo_blocks_checkout_drift import check as woo_blocks_checkout_drift
+from .woo_subscriptions_renewal_race import check as woo_subscriptions_renewal_race
+from .stripe_webhook_audit import check as stripe_webhook_audit
 
 # Authenticated — only when creds are provided
 from .authenticated import check as authenticated
@@ -518,6 +521,9 @@ ALL_CHECKS = [
     ("interactivity_api_state_leak", "Interactivity-API hydration state PII leak (A6)", interactivity_api_state_leak, False),
     ("wp_cli_http_exposure",     "WP-CLI-over-HTTP endpoint exposure (A7)", wp_cli_http_exposure, False),
     ("app_passwords_stale_audit","Application Passwords stale-token audit (A8, auth)", app_passwords_stale_audit, False),
+    ("woo_blocks_checkout_drift", "WooCommerce Store API namespace drift (A9)", woo_blocks_checkout_drift, False),
+    ("woo_subscriptions_renewal_race", "WC Subscriptions duplicate-renewal race patch audit (A10)", woo_subscriptions_renewal_race, False),
+    ("stripe_webhook_audit",     "Stripe / WooPayments webhook signature audit (A11)", stripe_webhook_audit, False),
     # ---- Round-58 aggressive checks ----
     ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
     ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),
