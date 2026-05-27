@@ -253,6 +253,12 @@ from .a11y_wcag_aaa import check as a11y_wcag_aaa
 # Round-64 Wild card — Brand monitor (#170)
 from .brand_monitor import check as brand_monitor
 
+# ---- v2.6.0 — modern threats (A1-A35 + O141-O145) ----
+from .ai_plugin_prompt_storage import check as ai_plugin_prompt_storage
+from .ai_agent_webhook_leak import check as ai_agent_webhook_leak
+from .mcp_endpoint_exposure import check as mcp_endpoint_exposure
+from .wp_playground_sqlite import check as wp_playground_sqlite
+
 # Authenticated — only when creds are provided
 from .authenticated import check as authenticated
 
@@ -499,6 +505,11 @@ ALL_CHECKS = [
     # ---- Round-64 Group J — Accessibility (#99) + Wild card (#170) ----
     ("a11y_wcag_aaa",            "WCAG 2.2 AAA-level accessibility extras (#99)", a11y_wcag_aaa, False),
     ("brand_monitor",            "Typosquat-of-your-domain brand monitor (#170)", brand_monitor, False),
+    # ---- v2.6.0 — modern threats (A1-A35 + O141-O145) ----
+    ("ai_plugin_prompt_storage", "AI plugin prompt-injection surface (A1)", ai_plugin_prompt_storage, False),
+    ("ai_agent_webhook_leak",    "AI chatbot relay-endpoint / key leak (A2)", ai_agent_webhook_leak, False),
+    ("mcp_endpoint_exposure",    "MCP (Model Context Protocol) endpoint exposure (A3)", mcp_endpoint_exposure, False),
+    ("wp_playground_sqlite",     "WP Playground / SQLite database file exposure (A4)", wp_playground_sqlite, False),
     # ---- Round-58 aggressive checks ----
     ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
     ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),
