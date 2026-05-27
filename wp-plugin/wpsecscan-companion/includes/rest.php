@@ -1552,13 +1552,23 @@ function wpsecscan_companion_plugin_license_keys_callback( $request ) {
         ), ARRAY_A );
         foreach ( (array) $r as $row ) {
             $val = (string) $row['option_value'];
-            // Mask: keep first 4 chars + length
-            $masked = ( strlen( $val ) > 4 )
-                ? substr( $val, 0, 4 ) . '***' . '[' . strlen( $val ) . ' chars]'
-                : '[' . strlen( $val ) . ' chars]';
+            // B4 (v2.7.1) — bucketed length instead of exact-length disclosure,
+            // 2-char prefix instead of 4. Reduces brute-force search space.
+            $len = strlen( $val );
+            if ( $len === 0 ) {
+                $bucket = 'empty';
+            } elseif ( $len < 16 ) {
+                $bucket = 'short';
+            } elseif ( $len < 64 ) {
+                $bucket = 'medium';
+            } else {
+                $bucket = 'long';
+            }
+            $masked = ( $len > 2 ) ? substr( $val, 0, 2 ) . '***' : '***';
             $rows[ $row['option_name'] ] = [
                 'option_name'  => (string) $row['option_name'],
                 'value_masked' => $masked,
+                'length_bucket'=> $bucket,
                 'looks_empty'  => trim( $val ) === '',
             ];
         }
@@ -1623,16 +1633,28 @@ function wpsecscan_companion_page_cache_info_callback( $request ) {
     $size_bytes = 0;
     $file_count = 0;
     if ( is_dir( $cache_dir ) ) {
+        // B5 (v2.7.1) — confine the walk to realpath(WP_CONTENT_DIR) so a
+        // symlink inside wp-content/cache/ pointing at /etc/ can't be
+        // crawled to leak the existence + size of files outside the web
+        // root via cache_size_bytes / cache_file_count.
+        $cache_real = realpath( $cache_dir );
+        $boundary   = realpath( WP_CONTENT_DIR );
         try {
             $iter = new RecursiveIteratorIterator(
                 new RecursiveDirectoryIterator( $cache_dir, FilesystemIterator::SKIP_DOTS )
             );
             foreach ( $iter as $f ) {
-                if ( $f->isFile() ) {
-                    $size_bytes += $f->getSize();
-                    $file_count++;
-                    if ( $file_count > 50000 ) { break; }  // cap walk
+                if ( ! $f->isFile() ) {
+                    continue;
                 }
+                $rp = realpath( $f->getPathname() );
+                if ( $rp === false || $boundary === false
+                        || strpos( $rp, $boundary . DIRECTORY_SEPARATOR ) !== 0 ) {
+                    continue;  // skip anything that escapes WP_CONTENT_DIR
+                }
+                $size_bytes += $f->getSize();
+                $file_count++;
+                if ( $file_count > 50000 ) { break; }  // cap walk
             }
         } catch ( Throwable $e ) {
             // ignore

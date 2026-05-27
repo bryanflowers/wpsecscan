@@ -433,24 +433,31 @@ def push_linear_triage(report) -> tuple[bool, str]:
     if not (tok and team):
         return False, "set LINEAR_API_KEY and LINEAR_TRIAGE_TEAM_ID"
     n = 0
+    # S2 (v2.7.1) — use parameterised GraphQL with variables so finding
+    # titles can't break out of the string literal via backslash + quote
+    # injection. The previous f-string + chr(34)→chr(39) substitution
+    # was defeated by titles like `"\")` (the replace eats the quote,
+    # leaving \') which terminates the literal).
+    q = (
+        "mutation IssueCreate($input: IssueCreateInput!) { "
+        "issueCreate(input: $input) { issue { id } } }"
+    )
     for r in report.results:
         for f in r.findings:
             if f.severity not in ("high", "critical"):
                 continue
-            q = (
-                "mutation { issueCreate(input: { "
-                f"teamId: \"{team}\", "
-                f"title: \"{f.title.replace(chr(34), chr(39))[:200]}\", "
-                f"description: \"WPSecScan\\n{r.check_id}\\n{(f.evidence or '')[:500].replace(chr(34), chr(39))}\", "
-                "state: \"triage\" "
-                "}) { issue { id } } }"
-            )
+            variables = {"input": {
+                "teamId": team,
+                "title": (f.title or "")[:200],
+                "description": f"WPSecScan\n{r.check_id}\n{(f.evidence or '')[:500]}",
+                "stateId": None,  # operator's Triage state is set by team config
+            }}
             try:
                 with httpx.Client(timeout=10.0) as c:
                     rr = c.post(
                         "https://api.linear.app/graphql",
                         headers={"Authorization": tok, "Content-Type": "application/json"},
-                        json={"query": q},
+                        json={"query": q, "variables": variables},
                     )
                     if rr.status_code == 200:
                         n += 1
@@ -522,22 +529,26 @@ def push_monday(report) -> tuple[bool, str]:
     if not (tok and board):
         return False, "set MONDAY_TOKEN + MONDAY_BOARD_ID"
     n = 0
+    # S2 — parameterised mutation, same fix as push_linear_triage.
+    q = (
+        "mutation CreateItem($board: Int!, $name: String!) { "
+        "create_item (board_id: $board, item_name: $name) { id } }"
+    )
+    try:
+        board_int = int(board)
+    except ValueError:
+        return False, f"MONDAY_BOARD_ID must be an integer, got {board!r}"
     for r in report.results:
         for f in r.findings:
             if f.severity not in ("high", "critical"):
                 continue
-            q = (
-                "mutation { create_item ( "
-                f"board_id: {board}, "
-                f"item_name: \"{f.title.replace(chr(34), chr(39))[:200]}\" "
-                ") { id } }"
-            )
+            variables = {"board": board_int, "name": (f.title or "")[:200]}
             try:
                 with httpx.Client(timeout=10.0) as c:
                     rr = c.post(
                         "https://api.monday.com/v2",
                         headers={"Authorization": tok, "Content-Type": "application/json"},
-                        json={"query": q},
+                        json={"query": q, "variables": variables},
                     )
                     if rr.status_code == 200:
                         n += 1

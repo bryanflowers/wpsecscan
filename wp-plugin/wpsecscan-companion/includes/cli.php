@@ -61,9 +61,13 @@ class WPSecScan_Companion_CLI {
      */
     public function token( $args, $assoc_args ) {
         $token = wp_generate_password( 32, false, false );
+        // S3 (v2.7.1) — the canonical key in rest.php's check_token() is
+        // 'created' (not 'created_at'). The previous mismatch made every
+        // CLI-issued token compute time() - 0 > TTL, so the token was
+        // always expired — `wp wpsec token` was completely broken.
         $stored = [
             'token'      => wp_hash_password( $token ),
-            'created_at' => time(),
+            'created'    => time(),
             'use_count'  => 0,
         ];
         update_option( WPSECSCAN_COMPANION_TOKEN_OPTION, $stored, false );
@@ -84,7 +88,7 @@ class WPSecScan_Companion_CLI {
         $token = wp_generate_password( 32, false, false );
         update_option( WPSECSCAN_COMPANION_TOKEN_OPTION, [
             'token'      => wp_hash_password( $token ),
-            'created_at' => time(),
+            'created'    => time(),  // S3: canonical key per rest.php
             'use_count'  => 0,
         ], false );
         $passed = 0;

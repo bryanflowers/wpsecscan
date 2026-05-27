@@ -29,6 +29,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -40,6 +41,47 @@ _INDEX_URL = os.environ.get(
     "https://bryanflowers.github.io/wpsecscan/marketplace.json",
 )
 _CACHE_TTL = 6 * 3600
+
+# S1 (v2.7.1) — slug + source-URL guards for `marketplace install`.
+# A malicious or MITM'd marketplace index could otherwise (a) return a
+# slug containing path-traversal sequences, or (b) return a source_url
+# pointing at file:// / a foreign host / a non-HTTPS URL — leading to
+# arbitrary file read or RCE via the installed-then-auto-loaded .py.
+import re as _re
+import urllib.parse as _urlparse
+
+_SLUG_RE = _re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+
+
+def _safe_slug(slug: str) -> bool:
+    return bool(_SLUG_RE.match(slug))
+
+
+def _allowed_install_origin() -> str:
+    """Return the netloc that source_url values are allowed to point at.
+    Derived from the marketplace index URL — operators who self-host the
+    index also self-host the checks; the trust boundary is one origin."""
+    return _urlparse.urlparse(_INDEX_URL).netloc.lower()
+
+
+def _safe_source_url(src_url: str) -> tuple[bool, str]:
+    """Return (ok, reason) for a marketplace source_url. Rejects:
+      - schemes other than https://
+      - hosts not matching the marketplace index origin
+      - raw IPs (defence-in-depth against DNS-rebinding)
+    """
+    try:
+        p = _urlparse.urlparse(src_url)
+    except (ValueError, AttributeError):
+        return False, "URL does not parse"
+    if p.scheme != "https":
+        return False, f"scheme must be https (got {p.scheme!r})"
+    if not p.netloc:
+        return False, "URL has no host"
+    if p.netloc.lower() != _allowed_install_origin():
+        return False, (f"host {p.netloc!r} doesn't match marketplace origin "
+                        f"{_allowed_install_origin()!r}")
+    return True, ""
 
 
 def _cache_path() -> Path:
@@ -130,29 +172,57 @@ def cmd_marketplace(args: list[str]) -> None:
 
     if sub == "install":
         if len(args) < 2:
-            print("usage: wpsecscan marketplace install SLUG", file=sys.stderr); sys.exit(64)
+            print("usage: wpsecscan marketplace install SLUG [--allow-unsigned]",
+                  file=sys.stderr)
+            sys.exit(64)
         slug = args[1]
+        allow_unsigned = "--allow-unsigned" in args[2:]
+        # S1: slug sanitation — refuses path-traversal AND any character
+        # not in the marketplace's allow-list. Catches a malicious index
+        # returning slug='../../evil' or 'a;rm -rf /'.
+        if not _safe_slug(slug):
+            print(f"refusing install: slug {slug!r} fails ^[a-zA-Z0-9_-]{{1,64}}$",
+                  file=sys.stderr); sys.exit(2)
         entry = next((c for c in checks if c.get("slug") == slug), None)
         if not entry:
             print(f"{slug!r} not in marketplace", file=sys.stderr); sys.exit(2)
         src_url = entry.get("source_url", "")
         if not src_url:
             print(f"no source_url for {slug!r}", file=sys.stderr); sys.exit(2)
+        # S1: source-URL guard — scheme must be https, host must match the
+        # marketplace index origin. Without this a malicious index can
+        # set source_url to file:///etc/passwd or http://attacker.com/
+        # backdoor.py (which then gets loaded as Python at next scan).
+        ok, reason = _safe_source_url(src_url)
+        if not ok:
+            print(f"refusing install: source_url rejected ({reason})",
+                  file=sys.stderr); sys.exit(2)
+        sig_url = entry.get("sigstore_sig_url", "")
+        pem_url = entry.get("sigstore_pem_url", "")
+        if not (sig_url and pem_url) and not allow_unsigned:
+            # S1: unsigned checks require an explicit opt-in. The previous
+            # behaviour was to install + print a # WARN comment, which
+            # operators routinely missed.
+            print(f"refusing install: {slug!r} has no Sigstore signature.\n"
+                   f"Re-run with `--allow-unsigned` to install anyway, OR\n"
+                   f"ask the author to publish sigstore_sig_url + "
+                   f"sigstore_pem_url in the marketplace index.",
+                   file=sys.stderr)
+            sys.exit(3)
         target = home_dir() / "marketplace" / "checks" / f"{slug}.py"
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
             with urllib.request.urlopen(src_url, timeout=15) as r:
                 target.write_bytes(r.read())
-        except Exception as e:  # noqa: BLE001
+        except (urllib.error.URLError, OSError, ValueError) as e:
             print(f"download failed: {e}", file=sys.stderr); sys.exit(2)
         print(f"installed: {target}")
-        sig_url = entry.get("sigstore_sig_url", "")
-        pem_url = entry.get("sigstore_pem_url", "")
         if sig_url and pem_url:
             print(f"# Verify the signature:")
             print(f"  wpsecscan marketplace verify {slug}")
         else:
-            print("# WARN: this check has no Sigstore signature — re-verify the source URL before use.")
+            print("# Installed without signature (--allow-unsigned). "
+                   "Re-verify the source URL before use.")
         return
 
     if sub == "verify":

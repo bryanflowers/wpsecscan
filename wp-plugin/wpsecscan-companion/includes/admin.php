@@ -375,7 +375,12 @@ function wpsecscan_companion_render_admin_page() {
  * every enabled endpoint locally, returning a per-endpoint pass/fail JSON.
  */
 function wpsecscan_companion_test_connection_ajax() {
-    if ( ! current_user_can( 'manage_options' ) ) {
+    // B3 (v2.7.1) — CSRF guard. capability-only was insufficient: any
+    // admin-authenticated page on the same origin could trigger this
+    // and burn the operator's test token. The check-update AJAX added
+    // in v2.7.0 (line 455) gets this right; bringing this one in line.
+    if ( ! current_user_can( 'manage_options' )
+            || ! check_ajax_referer( 'wpsecscan_companion_admin', '_wpnonce', false ) ) {
         wp_send_json_error( [ 'error' => 'forbidden' ], 403 );
     }
     // Issue an out-of-band single-use token. We bypass the user-facing
