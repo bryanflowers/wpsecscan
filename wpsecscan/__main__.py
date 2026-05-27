@@ -1644,6 +1644,8 @@ SUBCOMMAND_HELP: tuple[tuple[str, str], ...] = (
     ("replay-prompt URL",    "TUI walking high-sev findings (item #85)"),
     ("undo",                 "print the last config-mutating action + revert command (item #87)"),
     ("worker",               "Redis-queue distributed-scan worker (item #110)"),
+    ("learn",                "interactive tutorial mode, no scan (item #116)"),
+    ("audio-summary URL",    "TTS MP3 of the exec summary (item #118)"),
 )
 
 SUBCOMMAND_NAMES: tuple[str, ...] = tuple(
@@ -1773,6 +1775,12 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
     elif cmd == "worker":
         from .perf_v27 import cmd_worker
         cmd_worker(args)
+    elif cmd == "learn":
+        from .edu_v27 import cmd_learn
+        cmd_learn(args)
+    elif cmd == "audio-summary":
+        from .edu_v27 import cmd_audio_summary
+        cmd_audio_summary(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
