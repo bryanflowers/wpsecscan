@@ -57,9 +57,21 @@ def _render_pdf_reportlab(report: ScanReport, path: Path) -> None:
         "info":     ParagraphStyle("sev-i", parent=body_s, textColor=HexColor("#2c3e50"), fontName="Helvetica-Bold"),
     }
 
-    doc = SimpleDocTemplate(str(path), pagesize=letter,
-                            leftMargin=0.6 * inch, rightMargin=0.6 * inch,
-                            topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+    # C52 — PDF/UA-friendly metadata. reportlab's "tagged" PDF support is
+    # limited; we set the document title/author/lang/subject so screen
+    # readers expose a proper title + language, and use SimpleDocTemplate's
+    # title= which writes /Title in the PDF /Info dict. Full PDF/UA
+    # structure tree is reportlab >= 4.x territory and noted in
+    # docs/accessibility.md as a follow-up.
+    doc = SimpleDocTemplate(
+        str(path), pagesize=letter,
+        leftMargin=0.6 * inch, rightMargin=0.6 * inch,
+        topMargin=0.5 * inch, bottomMargin=0.5 * inch,
+        title=f"WPSecScan Auditor Report — {report.target}",
+        author="WPSecScan",
+        subject=f"Security audit, score {report.risk_score}/100, scanned {report.scanned_at}",
+        lang="en",
+    )
     flow: list = []
     flow.append(Paragraph("WPSecScan Auditor Report", title_s))
     flow.append(Paragraph(f"<b>Target:</b> {_html.escape(report.target)}", body_s))

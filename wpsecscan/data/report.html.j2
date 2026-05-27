@@ -212,6 +212,19 @@
   }
   footer{text-align:center;color:var(--muted);font-size:12px;padding:24px}
 </style>
+{# C58 — Speakable JSON-LD: VoiceOver / smart speakers can read the
+   summary aloud via this hint. cssSelector points at the executive-
+   summary block in <body>. #}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "speakable": {
+    "@type": "SpeakableSpecification",
+    "cssSelector": [".exec-summary", ".risk-score", "header h1"]
+  }
+}
+</script>
 </head>
 <body>
 <button class="printbtn" onclick="_wpsecPrint()">🖨 Print / Save as PDF</button>

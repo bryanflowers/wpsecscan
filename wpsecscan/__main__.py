@@ -428,6 +428,22 @@ async def _scan_one(target: str, args, console: Console):
         if not args.no_console:
             console.print(f"[green]✓[/green] Finding heatmap SVG: [bold]{hm_p}[/bold]")
 
+    # C53 — xlsx with pre-built pivot tables
+    if getattr(args, "xlsx_pivot", False):
+        from .reporters import xlsx_pivot as _xp
+        xp_p = out_dir / f"{stem}-pivot.xlsx"
+        _xp.write(report, xp_p)
+        if not args.no_console:
+            console.print(f"[green]✓[/green] xlsx with pivots: [bold]{xp_p}[/bold]")
+
+    # C56 — OpenVEX export
+    if getattr(args, "vex_export", False):
+        from .reporters import vex_export as _vex
+        vex_p = out_dir / f"{stem}-vex.json"
+        _vex.write(report, vex_p)
+        if not args.no_console:
+            console.print(f"[green]✓[/green] OpenVEX: [bold]{vex_p}[/bold]")
+
     # C51 — Confluence / Notion live page sync
     if getattr(args, "live_sync", None):
         from .reporters import live_sync as _ls
@@ -1120,6 +1136,12 @@ def main() -> None:
                    help="C54: print a 30/60/90-day risk-score projection from snapshot history.")
     p.add_argument("--heatmap-svg", action="store_true",
                    help="C55: write a per-finding heatmap SVG showing presence across recent scans.")
+    p.add_argument("--xlsx-pivot", action="store_true",
+                   help="C53: write an .xlsx with pre-built pivot sheets (by-severity, "
+                        "by-check, severity×check_id heatmap).")
+    p.add_argument("--vex-export", action="store_true",
+                   help="C56: write an OpenVEX 0.2 document mapping CVE findings to "
+                        "affected/fixed/not_affected status. Complements --sbom.")
     p.add_argument("--print-openapi", action="store_true",
                    help="#53: print the OpenAPI 3.1 schema for the WPSecScan JSON output to "
                         "stdout, then exit. Pipe to openapi-typescript / openapi-generator to "
