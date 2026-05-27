@@ -80,6 +80,13 @@ function wpsecscan_companion_register_routes() {
         'wp-cron-event-history'    => 'wpsecscan_companion_wp_cron_event_history_callback',    // B39
         'admin-notice-content'     => 'wpsecscan_companion_admin_notice_content_callback',     // B42
         'site-health-tests'        => 'wpsecscan_companion_site_health_tests_callback',        // B47
+        // ---- v1.4.0 (v2.7.0 Phase A) ----
+        'plugin-license-keys'      => 'wpsecscan_companion_plugin_license_keys_callback',     // B38
+        'active-network-requests'  => 'wpsecscan_companion_active_network_requests_callback', // B40
+        'page-cache-info'          => 'wpsecscan_companion_page_cache_info_callback',         // B41
+        'database-encoding'        => 'wpsecscan_companion_database_encoding_callback',       // B43
+        'customizer-bookmarks'     => 'wpsecscan_companion_customizer_bookmarks_callback',    // B44
+        'widget-block-html'        => 'wpsecscan_companion_widget_block_html_callback',       // B45
     ];
     foreach ( $routes as $slug => $callback ) {
         if ( function_exists( 'wpsecscan_companion_endpoint_enabled' )
@@ -1520,5 +1527,211 @@ function wpsecscan_companion_site_health_tests_callback( $request ) {
         'tests'     => $results,
         'count'     => count( $results ),
         'generated' => gmdate( 'c' ),
+    ] );
+}
+
+// ============================================================================
+// v1.4.0 (v2.7.0 Phase A) — new endpoints
+// ============================================================================
+
+/**
+ * B38 — /plugin-license-keys
+ * Surfaces every wp_options row whose name resembles a plugin license-
+ * key store (license_key, *_api_key, etc.) — confirms operator uses
+ * legitimately-licensed plugins.
+ */
+function wpsecscan_companion_plugin_license_keys_callback( $request ) {
+    global $wpdb;
+    $tname = $wpdb->options;
+    $patterns = [ '%_license_key', '%_license%', '%_api_key%', '%_subscription%' ];
+    $rows = [];
+    foreach ( $patterns as $pat ) {
+        $r = $wpdb->get_results( $wpdb->prepare(
+            "SELECT option_name, option_value FROM {$tname} WHERE option_name LIKE %s LIMIT 100",
+            $pat
+        ), ARRAY_A );
+        foreach ( (array) $r as $row ) {
+            $val = (string) $row['option_value'];
+            // Mask: keep first 4 chars + length
+            $masked = ( strlen( $val ) > 4 )
+                ? substr( $val, 0, 4 ) . '***' . '[' . strlen( $val ) . ' chars]'
+                : '[' . strlen( $val ) . ' chars]';
+            $rows[ $row['option_name'] ] = [
+                'option_name'  => (string) $row['option_name'],
+                'value_masked' => $masked,
+                'looks_empty'  => trim( $val ) === '',
+            ];
+        }
+    }
+    return rest_ensure_response( [
+        'license_options' => array_values( $rows ),
+        'count'           => count( $rows ),
+        'generated'       => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * B40 — /active-network-requests
+ * Outbound wp_remote_* requests over the last 24h, logged via a transient
+ * the plugin populates from a 'http_api_debug' filter hook (opt-in).
+ */
+function wpsecscan_companion_active_network_requests_callback( $request ) {
+    $log = (array) get_transient( 'wpsecscan_companion_outbound_log' );
+    $count_24h = count( $log );
+    $hosts = [];
+    foreach ( $log as $entry ) {
+        $h = isset( $entry['host'] ) ? (string) $entry['host'] : '';
+        if ( $h ) {
+            $hosts[ $h ] = ( $hosts[ $h ] ?? 0 ) + 1;
+        }
+    }
+    arsort( $hosts );
+    return rest_ensure_response( [
+        'count_24h'    => $count_24h,
+        'top_hosts'    => array_slice( $hosts, 0, 20, true ),
+        'logger_active'=> ! empty( $log ),
+        'generated'    => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * B41 — /page-cache-info
+ * Which page-cache plugin is active + cache dir size + whether logged-
+ * in user pages are being cached (privacy leak).
+ */
+function wpsecscan_companion_page_cache_info_callback( $request ) {
+    $known = [
+        'wp-rocket/wp-rocket.php'                            => 'WP Rocket',
+        'w3-total-cache/w3-total-cache.php'                  => 'W3 Total Cache',
+        'wp-super-cache/wp-cache.php'                        => 'WP Super Cache',
+        'litespeed-cache/litespeed-cache.php'                => 'LiteSpeed Cache',
+        'cache-enabler/cache-enabler.php'                    => 'Cache Enabler',
+        'wp-optimize/wp-optimize.php'                        => 'WP-Optimize',
+        'autoptimize/autoptimize.php'                        => 'Autoptimize',
+        'sg-cachepress/sg-cachepress.php'                    => 'SiteGround Optimizer',
+        'redis-cache/redis-cache.php'                        => 'Redis Object Cache',
+    ];
+    $active = (array) get_option( 'active_plugins', [] );
+    $detected = [];
+    foreach ( $known as $slug => $name ) {
+        if ( in_array( $slug, $active, true ) ) {
+            $detected[] = $name;
+        }
+    }
+    // Cache dir size — best-effort scan of wp-content/cache/
+    $cache_dir = WP_CONTENT_DIR . '/cache';
+    $size_bytes = 0;
+    $file_count = 0;
+    if ( is_dir( $cache_dir ) ) {
+        try {
+            $iter = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator( $cache_dir, FilesystemIterator::SKIP_DOTS )
+            );
+            foreach ( $iter as $f ) {
+                if ( $f->isFile() ) {
+                    $size_bytes += $f->getSize();
+                    $file_count++;
+                    if ( $file_count > 50000 ) { break; }  // cap walk
+                }
+            }
+        } catch ( Throwable $e ) {
+            // ignore
+        }
+    }
+    return rest_ensure_response( [
+        'plugins_detected' => $detected,
+        'cache_dir'        => $cache_dir,
+        'cache_size_bytes' => $size_bytes,
+        'cache_file_count' => $file_count,
+        'generated'        => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * B43 — /database-encoding
+ * MySQL connection charset + per-table charset/collation. Mismatched
+ * utf8/utf8mb4 enables homograph SQLi via emoji injection.
+ */
+function wpsecscan_companion_database_encoding_callback( $request ) {
+    global $wpdb;
+    $conn_charset = method_exists( $wpdb, 'get_charset_collate' ) ? $wpdb->get_charset_collate() : '';
+    $client_charset = $wpdb->charset;
+    $tables = (array) $wpdb->get_results(
+        "SELECT TABLE_NAME, TABLE_COLLATION FROM information_schema.tables "
+        . "WHERE TABLE_SCHEMA = DATABASE() LIMIT 200",
+        ARRAY_A
+    );
+    $mismatched = [];
+    foreach ( $tables as $t ) {
+        $coll = (string) ( $t['TABLE_COLLATION'] ?? '' );
+        if ( $coll && stripos( $coll, 'utf8mb4' ) === false ) {
+            $mismatched[] = [
+                'table'     => (string) $t['TABLE_NAME'],
+                'collation' => $coll,
+            ];
+        }
+    }
+    return rest_ensure_response( [
+        'connection_charset' => (string) $client_charset,
+        'connection_collate' => (string) $conn_charset,
+        'table_count'        => count( $tables ),
+        'non_utf8mb4_tables' => $mismatched,
+        'mismatched_count'   => count( $mismatched ),
+        'generated'          => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * B44 — /customizer-bookmarks
+ * theme_mod values that contain raw HTML (potential XSS vector when
+ * rendered by a theme template).
+ */
+function wpsecscan_companion_customizer_bookmarks_callback( $request ) {
+    $theme = get_stylesheet();
+    $mods = get_option( "theme_mods_{$theme}", [] );
+    $risky = [];
+    foreach ( (array) $mods as $key => $val ) {
+        if ( ! is_string( $val ) ) { continue; }
+        if ( preg_match( '/<\s*(script|iframe|object|embed|svg|on\w+\s*=)/i', $val ) ) {
+            $risky[] = [
+                'key'           => (string) $key,
+                'value_excerpt' => substr( $val, 0, 300 ),
+            ];
+        }
+    }
+    return rest_ensure_response( [
+        'theme'           => $theme,
+        'risky_modifiers' => $risky,
+        'count'           => count( $risky ),
+        'generated'       => gmdate( 'c' ),
+    ] );
+}
+
+/**
+ * B45 — /widget-block-html
+ * Block-widget HTML stored in wp_options (widget_block etc.); surface
+ * any raw <script> / <iframe> embeds.
+ */
+function wpsecscan_companion_widget_block_html_callback( $request ) {
+    global $wpdb;
+    $rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT option_name, option_value FROM {$wpdb->options} "
+        . "WHERE option_name LIKE %s OR option_name LIKE %s LIMIT 50",
+        'widget_%', 'sidebars_widgets'
+    ), ARRAY_A );
+    $risky = [];
+    foreach ( (array) $rows as $row ) {
+        $val = (string) $row['option_value'];
+        if ( preg_match( '/<\s*(script|iframe|object|embed|on\w+\s*=)/i', $val ) ) {
+            $risky[] = [
+                'option_name'   => (string) $row['option_name'],
+                'value_excerpt' => substr( $val, 0, 300 ),
+            ];
+        }
+    }
+    return rest_ensure_response( [
+        'risky_widgets' => $risky,
+        'count'         => count( $risky ),
+        'generated'     => gmdate( 'c' ),
     ] );
 }
