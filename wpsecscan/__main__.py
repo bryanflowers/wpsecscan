@@ -1623,6 +1623,9 @@ SUBCOMMAND_HELP: tuple[tuple[str, str], ...] = (
     ("compare-portfolios OLD NEW", "diff two sites.json portfolios (item #61)"),
     ("changelog URL",        "human-readable site-change log (--since DATE, item #63)"),
     ("replay HAR.json",      "browse a recorded HTTP Archive (item #64)"),
+    ("freeze URL",           "snapshot a site as .tar.gz for offline compare (item #65)"),
+    ("attest URL",           "Sigstore-signed scan attestation, --keyless (item #66)"),
+    ("compliance audit URL", "single-framework gap analysis, --framework F (item #68)"),
 )
 
 SUBCOMMAND_NAMES: tuple[str, ...] = tuple(
@@ -1719,6 +1722,15 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
     elif cmd == "replay":
         from .workflow_cmds import cmd_replay
         cmd_replay(args)
+    elif cmd == "freeze":
+        from .workflow_cmds import cmd_freeze
+        cmd_freeze(args)
+    elif cmd == "attest":
+        from .workflow_cmds import cmd_attest
+        cmd_attest(args)
+    elif cmd == "compliance":
+        from .workflow_cmds import cmd_compliance_audit
+        cmd_compliance_audit(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)

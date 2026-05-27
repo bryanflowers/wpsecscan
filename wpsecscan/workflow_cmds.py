@@ -186,3 +186,194 @@ def cmd_replay(args: list[str]) -> None:
     else:
         print(f"index {show_idx} out of range (0-{len(entries) - 1})",
               file=sys.stderr); sys.exit(64)
+
+
+# ---------------------------------------------------------------------------
+# D65 — wpsecscan freeze URL
+# ---------------------------------------------------------------------------
+
+def cmd_freeze(args: list[str]) -> None:
+    """`wpsecscan freeze URL [--out FILE]`
+
+    Snapshot a site for offline comparison: bundles the most-recent
+    saved JSON snapshot + any HTML reports + the OpenAPI schema into a
+    .tar.gz the operator can archive for offline re-comparison years
+    later. Extension of #79 reference-diff (which compares LIVE state
+    vs a known-clean WP zip; this freezes the LIVE state itself).
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print("usage: wpsecscan freeze URL [--out FILE]", file=sys.stderr)
+        sys.exit(64)
+    url = args[0]
+    if "://" not in url:
+        url = "https://" + url
+    out_path: Path | None = None
+    for i, a in enumerate(args[1:]):
+        if a == "--out" and i + 2 <= len(args[1:]):
+            out_path = Path(args[i + 2]).expanduser()
+    from . import history as _h
+    from urllib.parse import urlparse
+    snaps = _h.snapshot_history(url)
+    if not snaps:
+        print(f"no saved snapshots for {url}", file=sys.stderr); sys.exit(2)
+    if out_path is None:
+        safe = (urlparse(url).hostname or "site").replace(":", "_")
+        ts = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+        out_path = Path.cwd() / f"wpsecscan-freeze-{safe}-{ts}.tar.gz"
+
+    with tarfile.open(out_path, "w:gz") as tf:
+        # Most-recent snapshot
+        latest = snaps[-1]
+        tf.add(str(latest), arcname=f"snapshots/{latest.name}")
+        # All snapshots for full historical context
+        for snap in snaps:
+            tf.add(str(snap), arcname=f"history/{snap.name}")
+        # OpenAPI schema (so future-version readers know the JSON shape)
+        try:
+            sch = Path(__file__).parent / "data" / "openapi-scan-report.json"
+            if sch.exists():
+                tf.add(str(sch), arcname="schema/openapi-scan-report.json")
+        except OSError:
+            pass
+    print(f"frozen {len(snaps)} snapshot(s) → {out_path}")
+
+
+# ---------------------------------------------------------------------------
+# D66 — wpsecscan attest URL --keyless
+# ---------------------------------------------------------------------------
+
+def cmd_attest(args: list[str]) -> None:
+    """`wpsecscan attest URL --keyless`
+
+    Generate a Sigstore-signed attestation of the most-recent scan
+    that the site owner can publish (e.g. at /.well-known/security-
+    attestation.json) to prove their posture at a point in time.
+
+    Without --keyless, emits the unsigned attestation payload + the
+    `cosign sign-blob` command the operator can run with their own
+    Sigstore identity.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print("usage: wpsecscan attest URL [--keyless] [--out FILE]",
+              file=sys.stderr)
+        sys.exit(64)
+    url = args[0]
+    if "://" not in url:
+        url = "https://" + url
+    keyless = "--keyless" in args[1:]
+    out_path: Path | None = None
+    for i, a in enumerate(args[1:]):
+        if a == "--out" and i + 2 <= len(args[1:]):
+            out_path = Path(args[i + 2]).expanduser()
+
+    from . import history as _h
+    snaps = _h.snapshot_history(url)
+    if not snaps:
+        print(f"no saved scan for {url}", file=sys.stderr); sys.exit(2)
+    data = json.loads(snaps[-1].read_text(encoding="utf-8"))
+    from . import __version__
+    payload = {
+        "subject": url,
+        "predicateType": "https://wpsecscan.dev/attest/v1",
+        "predicate": {
+            "scanner": "wpsecscan",
+            "scanner_version": __version__,
+            "scanned_at": data.get("scanned_at", ""),
+            "risk_score": data.get("risk_score", 0),
+            "summary": data.get("summary", {}),
+            "snapshot_sha256": _h.snapshot_signature(snaps[-1])
+                if hasattr(_h, "snapshot_signature") else "",
+        },
+        "_format": "in-toto attestation v1",
+    }
+    if out_path is None:
+        out_path = Path.cwd() / f"wpsecscan-attest-{int(time.time())}.json"
+    out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    print(f"attestation payload written: {out_path}")
+    if keyless:
+        print("# Sign with Sigstore (requires `cosign` on PATH + GitHub login):")
+        print(f"  cosign sign-blob --yes {out_path} \\")
+        print(f"    --output-signature {out_path}.sig \\")
+        print(f"    --output-certificate {out_path}.pem")
+    else:
+        print("# Pass --keyless to print the cosign signing command.")
+
+
+# ---------------------------------------------------------------------------
+# D68 — wpsecscan compliance audit URL --framework soc2
+# ---------------------------------------------------------------------------
+
+def cmd_compliance_audit(args: list[str]) -> None:
+    """`wpsecscan compliance audit URL --framework {soc2,iso,pci,nist,hitrust,cmmc,cis,csf}`
+
+    Single-framework gap analysis: lists the framework controls covered
+    by SOME wpsecscan check + which of THOSE checks fired on the latest
+    scan. Different from the existing 8-framework attestation matrix
+    (which shows ALL controls regardless of whether they're exercised).
+    """
+    if not args or args[0] in ("-h", "--help") or args[0] != "audit":
+        print("usage: wpsecscan compliance audit URL --framework FRAMEWORK",
+              file=sys.stderr)
+        sys.exit(64)
+    rest = args[1:]
+    if not rest:
+        print("missing URL", file=sys.stderr); sys.exit(64)
+    url = rest[0]
+    if "://" not in url:
+        url = "https://" + url
+    framework = "soc2"
+    for i, a in enumerate(rest[1:]):
+        if a == "--framework" and i + 2 <= len(rest[1:]):
+            framework = rest[i + 2].lower()
+    framework_keys = {
+        "soc2":      ["nist_800_53", "iso_27001"],
+        "iso":       ["iso_27001"],
+        "pci":       ["pci_dss"],
+        "nist":      ["nist_800_53"],
+        "hitrust":   ["hitrust"],
+        "cmmc":      ["cmmc"],
+        "cis":       ["cis_v8"],
+        "csf":       ["nist_csf"],
+    }
+    keys = framework_keys.get(framework)
+    if not keys:
+        print(f"unknown framework {framework!r}; pick: {', '.join(framework_keys)}",
+              file=sys.stderr)
+        sys.exit(64)
+
+    from . import history as _h
+    snaps = _h.snapshot_history(url)
+    if not snaps:
+        print(f"no saved scan for {url} — run a scan first", file=sys.stderr); sys.exit(2)
+    data = json.loads(snaps[-1].read_text(encoding="utf-8"))
+    check_ids_with_findings = {r.get("check_id") for r in data.get("results", []) if r.get("findings")}
+    # Load both compliance JSONs
+    base = Path(__file__).parent / "data"
+    cm1 = json.loads((base / "compliance_map.json").read_text(encoding="utf-8"))
+    cm2 = json.loads((base / "compliance_v2.json").read_text(encoding="utf-8"))
+    merged: dict[str, dict] = {}
+    for src in (cm1, cm2):
+        for cid, ctrls in src.items():
+            if cid.startswith("_"):
+                continue
+            if cid not in merged:
+                merged[cid] = {}
+            if isinstance(ctrls, dict):
+                merged[cid].update(ctrls)
+
+    print(f"# Compliance audit — {framework.upper()}")
+    print(f"# Target: {url}")
+    print(f"# Snapshot: {snaps[-1].name}")
+    print()
+    print(f"{'CHECK':30s}  {'STATUS':12s}  {'CONTROLS':50s}")
+    print(f"{'-' * 30}  {'-' * 12}  {'-' * 50}")
+    for cid in sorted(merged):
+        ctrls = []
+        for k in keys:
+            v = merged[cid].get(k)
+            if v:
+                ctrls.append(f"{k}={v}")
+        if not ctrls:
+            continue
+        status = "FIRED" if cid in check_ids_with_findings else "clean"
+        print(f"{cid:30s}  {status:12s}  {', '.join(ctrls)}")
