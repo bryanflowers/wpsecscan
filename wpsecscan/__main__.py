@@ -960,6 +960,14 @@ def _apply_config_and_profile(parser, args) -> None:
 
 
 def main() -> None:
+    # F83 (v2.7.0): enable VT-mode ANSI on legacy cmd.exe / PowerShell so
+    # rich's colours render natively (no-op on macOS / Linux + on modern
+    # Windows Terminal where VT is already on).
+    try:
+        from .cli_extras import enable_win_ansi
+        enable_win_ansi()
+    except ImportError:
+        pass
     # ---- Subcommand dispatch (round-60): keep before argparse so existing
     # `wpsecscan <url>` invocations stay backward-compatible. The list of
     # subcommand names is centralised in SUBCOMMAND_NAMES so it can never
@@ -1122,6 +1130,8 @@ def main() -> None:
                    help="G90: predict P(false-positive) per finding from the operator's "
                         "snooze history; decorates extra.fp_score on every finding. "
                         "No-op when ~/.wpsecscan/snoozes.json is empty.")
+    p.add_argument("--quiet", "-q", dest="no_console", action="store_true",
+                   help="F82: alias for --no-console; suppress per-check console output.")
     p.add_argument("--tldr", action="store_true",
                    help="Item #81: print a one-line summary (score/worst-sev/finding-count) "
                         "to stdout and suppress all other output. Exit code = worst severity "
@@ -1630,6 +1640,9 @@ SUBCOMMAND_HELP: tuple[tuple[str, str], ...] = (
     ("ai-agent URL",         "AI-recommended follow-up probes (item #69)"),
     ("triage interactive URL", "TUI walk-through of recent findings (item #70)"),
     ("rotation N LIST",      "split portfolio into N daily-bucket cron entries (item #71)"),
+    ("install-completion",   "install shell completion to the right rc path (item #86)"),
+    ("replay-prompt URL",    "TUI walking high-sev findings (item #85)"),
+    ("undo",                 "print the last config-mutating action + revert command (item #87)"),
 )
 
 SUBCOMMAND_NAMES: tuple[str, ...] = tuple(
@@ -1747,6 +1760,15 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
     elif cmd == "rotation":
         from .workflow_cmds import cmd_rotation
         cmd_rotation(args)
+    elif cmd == "install-completion":
+        from .cli_extras import cmd_install_completion
+        cmd_install_completion(args)
+    elif cmd == "replay-prompt":
+        from .cli_extras import cmd_replay_prompt
+        cmd_replay_prompt(args)
+    elif cmd == "undo":
+        from .cli_extras import cmd_undo
+        cmd_undo(args)
     else:
         print(f"unknown subcommand: {cmd}", file=sys.stderr)
         sys.exit(2)
