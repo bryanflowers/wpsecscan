@@ -2038,7 +2038,10 @@ def _cmd_check(args: list[str]) -> None:
             sys.exit(64)
         name = slug.replace("_", " ").title()
         for i, a in enumerate(args[2:]):
-            if a == "--name" and i + 3 < len(args) + 2:
+            # C7 (v2.7.2) — was `i + 3 < len(args) + 2` which simplifies
+            # to `i + 1 < len(args)`, allowing `args[i+3]` to IndexError
+            # when --name is the last token with no value following.
+            if a == "--name" and i + 3 < len(args):
                 name = args[i + 3]
         home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
         out_dir = home / "checks"
@@ -3419,7 +3422,8 @@ def _cmd_pr_status(args: list[str]) -> None:
     url = args[2]
     fail_on = "high"
     for i, a in enumerate(args[3:]):
-        if a == "--fail-on" and i + 4 < len(args) + 3:
+        # C7 (v2.7.2) — was `i + 4 < len(args) + 3` (off-by-one).
+        if a == "--fail-on" and i + 4 < len(args):
             fail_on = args[i + 4]
     from . import history as _h
     snaps = _h.snapshot_history(url)
@@ -3594,7 +3598,8 @@ def _cmd_diff_agency(args: list[str]) -> None:
     new_p = Path(args[1]).expanduser()
     out_p = Path("agency-diff.html")
     for i, a in enumerate(args[2:]):
-        if a == "--out" and i + 3 < len(args) + 2:
+        # C7 (v2.7.2) — was `i + 3 < len(args) + 2` (off-by-one).
+        if a == "--out" and i + 3 < len(args):
             out_p = Path(args[i + 3]).expanduser()
     if not old_p.exists():
         print(f"OLD dashboard not found: {old_p}", file=sys.stderr); sys.exit(2)

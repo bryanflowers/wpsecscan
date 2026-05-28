@@ -26,11 +26,17 @@ def _hmac_key() -> bytes:
         key_path.parent.mkdir(parents=True, exist_ok=True)
         if key_path.is_symlink():
             key_path.unlink()
-        key_path.write_bytes(os.urandom(32))
+        # C3 (v2.7.2) — atomic O_CREAT|O_EXCL with mode 0o600 so there
+        # is no window between create-and-chmod where another local
+        # user could read the freshly-written HMAC key.
         try:
-            os.chmod(key_path, 0o600)
-        except OSError:
-            pass
+            fd = os.open(str(key_path),
+                          os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            # Another process raced us to create it; just read theirs.
+            return key_path.read_bytes()
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(os.urandom(32))
     return key_path.read_bytes()
 
 

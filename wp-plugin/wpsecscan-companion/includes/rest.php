@@ -1345,10 +1345,14 @@ function wpsecscan_companion_users_with_app_passwords_callback( $request ) {
                 'last_ip'   => isset( $ap['last_ip'] ) ? (string) $ap['last_ip'] : '',
             ];
         }
+        // C8 (v2.7.2 / companion 1.4.2) — return a SHA-256 hash of the
+        // user email, matching the diagnostics.php pattern. The previous
+        // plaintext leak gave any holder of the (replayable, time-limited)
+        // companion token a free list of every operator user email.
         $out[] = [
             'user_id'       => (int) $u->ID,
             'user_login'    => $u->user_login,
-            'email'         => $u->user_email,
+            'email_sha256'  => $u->user_email ? hash( 'sha256', strtolower( trim( $u->user_email ) ) ) : '',
             'app_passwords' => $entries,
         ];
     }

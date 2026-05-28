@@ -51,8 +51,23 @@ def reproducible_build_verify(version: str | None = None) -> tuple[bool, str]:
         sdist = sdists[0]
         # Unpack + re-build
         import tarfile
+        # C10 (v2.7.2) — apply the `data` extraction filter so a
+        # malicious sdist downloaded from a compromised PyPI mirror
+        # can't write outside `work` via `..` path entries or
+        # absolute member names. `data` is the safest preset (rejects
+        # absolute paths, parent-dir traversal, and any unsafe modes).
+        # On Python < 3.12 the kwarg is accepted but a DeprecationWarning
+        # is emitted; on 3.14 it becomes mandatory.
         with tarfile.open(sdist) as tf:
-            tf.extractall(work)
+            try:
+                tf.extractall(work, filter="data")
+            except TypeError:
+                # Python < 3.12 — pre-validate every member manually.
+                for m in tf.getmembers():
+                    name = m.name
+                    if name.startswith("/") or ".." in Path(name).parts:
+                        return False, f"sdist contains unsafe member: {name!r}"
+                tf.extractall(work)
         srcs = [p for p in work.iterdir() if p.is_dir() and p.name.startswith("wpsecscan-")]
         if not srcs:
             return False, "no source dir after sdist unpack"

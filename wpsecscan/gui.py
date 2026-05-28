@@ -1828,18 +1828,38 @@ class App:
         # Windows native toast (background — never block GUI)
         def _toast_worker():
             try:
+                import base64
                 import subprocess
-                ps = (
-                    'powershell -NoProfile -WindowStyle Hidden -Command '
-                    '"[void][Windows.UI.Notifications.ToastNotificationManager,'
-                    'Windows.UI.Notifications,ContentType=WindowsRuntime];'
-                    f'$xml=[Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent(0);'
-                    f'$xml.GetElementsByTagName(\'text\')[0].AppendChild($xml.CreateTextNode(\'WPSecScan critical finding\')) | Out-Null;'
-                    f'$xml.GetElementsByTagName(\'text\')[1].AppendChild($xml.CreateTextNode(\'{check_name}: {finding_title[:60]}\')) | Out-Null;'
-                    f'$toast=[Windows.UI.Notifications.ToastNotification]::new($xml);'
-                    f'[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier(\'WPSecScan\').Show($toast)"'
+                # C5 (v2.7.2) — base64-EncodedCommand path so a finding
+                # title containing single-quote / double-quote / newline
+                # can't break out of the PS literal and inject commands.
+                # The PS script itself uses single-quoted string literals
+                # (which can't be escaped from); we double up any single
+                # quotes inside the user-controlled strings.
+                def _ps_lit(s: str) -> str:
+                    # In PS single-quoted strings, '' is the only escape.
+                    return s.replace("'", "''")
+                body = f"{_ps_lit(check_name)}: {_ps_lit(finding_title[:60])}"
+                script = (
+                    "[void][Windows.UI.Notifications.ToastNotificationManager,"
+                    "Windows.UI.Notifications,ContentType=WindowsRuntime];"
+                    "$xml=[Windows.UI.Notifications.ToastNotificationManager]::"
+                    "GetTemplateContent(0);"
+                    "$xml.GetElementsByTagName('text')[0]."
+                    "AppendChild($xml.CreateTextNode('WPSecScan critical finding')) "
+                    "| Out-Null;"
+                    f"$xml.GetElementsByTagName('text')[1]."
+                    f"AppendChild($xml.CreateTextNode('{body}')) | Out-Null;"
+                    "$toast=[Windows.UI.Notifications.ToastNotification]::new($xml);"
+                    "[Windows.UI.Notifications.ToastNotificationManager]::"
+                    "CreateToastNotifier('WPSecScan').Show($toast)"
                 )
-                subprocess.Popen(ps, shell=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+                subprocess.Popen(
+                    ["powershell", "-NoProfile", "-WindowStyle", "Hidden",
+                     "-EncodedCommand", encoded],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
             except Exception:  # noqa: BLE001
                 pass
         import threading

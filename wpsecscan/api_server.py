@@ -246,7 +246,9 @@ def serve(host: str = "127.0.0.1", port: int = 8765, *, token: str | None = None
               "The token is the only thing between attackers and your scan history. "
               "Prefer 127.0.0.1 + an SSH tunnel.")
     print(f"WPSecScan API listening on http://{host}:{port}")
-    print(f"Auth: Authorization: Bearer {token[:6]}***")
+    # C11 (v2.7.2) — was `{token[:6]}***`, which echoed 37.5% of a
+    # 16-char token to stdout (often logged or screen-captured).
+    print(f"Auth: Authorization: Bearer <set, {len(token)} chars>")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -7,6 +7,7 @@ distinct from a missing-HTTPS finding because the FINAL URL is HTTPS;
 only the intermediate hop is broken.
 """
 from __future__ import annotations
+import os
 from urllib.parse import urlparse
 
 import httpx
@@ -27,8 +28,14 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     chain: list[str] = [login_url]
     schemes: list[str] = [urlparse(login_url).scheme]
     try:
+        # C9 (v2.7.2) — verify=False was unconditional; an on-path
+        # attacker could forge the redirect-chain probe with a self-
+        # signed cert, suppressing the http-hop finding. We honour the
+        # operator's WPSECSCAN_INSECURE_TLS opt-in (used elsewhere in
+        # the codebase) instead.
+        _insecure = os.environ.get("WPSECSCAN_INSECURE_TLS", "").lower() in ("1", "true", "yes")
         async with httpx.AsyncClient(timeout=10.0, follow_redirects=False,
-                                     verify=False) as c:
+                                     verify=not _insecure) as c:
             current = login_url
             for hop in range(5):
                 r = await c.get(current)

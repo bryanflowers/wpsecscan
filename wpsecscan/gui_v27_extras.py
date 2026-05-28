@@ -141,16 +141,24 @@ def offer_pin_to_taskbar() -> tuple[bool, str]:
     if not target.exists():
         return False, f"wpsecscan-gui.exe not found at {target}"
     # Use PowerShell to create the .lnk (no pywin32 dependency).
+    import base64
     import subprocess
     lnk = start_menu / "WPSecScan.lnk"
-    ps_cmd = (
+    # C6 (v2.7.2) — base64 EncodedCommand so an apostrophe in the user
+    # profile path (legal on NTFS) can't break out of the PS string
+    # literals. Single-quoted PS literals escape only via doubling.
+    def _ps_lit(s: str) -> str:
+        return str(s).replace("'", "''")
+    script = (
         f"$ws = New-Object -ComObject WScript.Shell; "
-        f"$lnk = $ws.CreateShortcut('{lnk}'); "
-        f"$lnk.TargetPath = '{target}'; "
+        f"$lnk = $ws.CreateShortcut('{_ps_lit(lnk)}'); "
+        f"$lnk.TargetPath = '{_ps_lit(target)}'; "
         f"$lnk.Save()"
     )
+    encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
     try:
-        subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd],
+        subprocess.run(["powershell", "-NoProfile",
+                         "-EncodedCommand", encoded],
                         capture_output=True, timeout=10, check=False)
         if lnk.exists():
             return True, f"shortcut created: {lnk}"
