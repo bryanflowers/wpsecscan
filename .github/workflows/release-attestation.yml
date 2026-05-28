@@ -22,7 +22,11 @@ jobs:
   attest:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      # C27 (v2.7.2) — SHA-pin every action; this workflow holds
+      # id-token: write + contents: write + attestations: write so
+      # the blast radius of a tag-poisoned action would be release-
+      # publishing rights. Update via Dependabot.
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           ref: ${{ github.event.release.tag_name || inputs.tag || 'main' }}
 
@@ -32,36 +36,49 @@ jobs:
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           mkdir artifacts
-          gh release download "$TAG" --dir artifacts/ --pattern "*.exe" --pattern "*.zip" || true
+          # C23 (v2.7.2) — also attest the sdist (.tar.gz) and wheel
+          # (.whl) so the PyPI-published artifacts get SLSA provenance,
+          # not just the .exe binaries.
+          gh release download "$TAG" --dir artifacts/ \
+            --pattern "*.exe" --pattern "*.zip" \
+            --pattern "*.tar.gz" --pattern "*.whl" || true
           ls -la artifacts/
 
       - name: Generate SHA256SUMS
         run: |
           cd artifacts
-          sha256sum *.exe *.zip > SHA256SUMS.txt 2>/dev/null || true
+          # C23 — include sdist + wheel in the checksum file too.
+          sha256sum *.exe *.zip *.tar.gz *.whl > SHA256SUMS.txt 2>/dev/null || true
           cat SHA256SUMS.txt
 
       - name: Generate SLSA build provenance attestation
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32  # v4.1.0
         with:
-          subject-path: 'artifacts/*.exe,artifacts/*.zip'
+          # C23 — attestation subject covers PyPI artifacts too.
+          subject-path: 'artifacts/*.exe,artifacts/*.zip,artifacts/*.tar.gz,artifacts/*.whl'
 
       - name: Install cosign for Sigstore signing
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62  # v3.10.0
 
       - name: Sign artifacts with Sigstore (keyless)
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
           cd artifacts
-          for f in *.exe *.zip; do
+          # C23 — sign sdist + wheel too.
+          for f in *.exe *.zip *.tar.gz *.whl; do
             [ -f "$f" ] || continue
             cosign sign-blob --yes "$f" --output-signature "$f.sig" --output-certificate "$f.pem"
           done
 
       - name: Generate CycloneDX SBOM
         run: |
-          pip install --quiet cyclonedx-bom
+          # C25 (v2.7.2) — pin cyclonedx-bom to a known version. An
+          # unpinned package install in this job (which holds id-token:
+          # write + contents: write) would let a compromised PyPI
+          # release of cyclonedx-bom run arbitrary code with release
+          # publishing rights.
+          pip install --quiet 'cyclonedx-bom==4.4.3'
           cyclonedx-py environment -o artifacts/sbom.cyclonedx.json || \
             cyclonedx-py requirements -i requirements.txt -o artifacts/sbom.cyclonedx.json
 
@@ -88,6 +105,10 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "cosign verify-blob wpsecscan.exe \\" >> $GITHUB_STEP_SUMMARY
           echo "  --signature wpsecscan.exe.sig --certificate wpsecscan.exe.pem \\" >> $GITHUB_STEP_SUMMARY
-          echo "  --certificate-identity-regexp 'https://github.com/bryanflowers/wpsecscan' \\" >> $GITHUB_STEP_SUMMARY
+          # C24 (v2.7.2) — identity regexp pinned to the release-
+          # attestation workflow path so a compromise of any other
+          # workflow in this repo can't produce a valid cert that
+          # users would mistake for a release-attestation signature.
+          echo "  --certificate-identity-regexp 'https://github.com/bryanflowers/wpsecscan/\\.github/workflows/release-attestation\\.yml@refs/tags/.*' \\" >> $GITHUB_STEP_SUMMARY
           echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

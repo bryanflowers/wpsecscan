@@ -41,37 +41,45 @@ dependencies = [
     # fell back to plain JSON. creds_vault still gracefully handles the
     # missing-keyring case so headless installs without a backend keep
     # working (the FailBackend check in creds_vault._have_keyring).
-    "keyring>=24",
+    # C26 (v2.7.2) — upper bound on keyring; v25+ tends to break the
+    # backend-detection API. Without an upper bound `pip install` will
+    # pull majors that change behaviour silently.
+    "keyring>=24,<26",
 ]
 
 [project.optional-dependencies]
+# C26 (v2.7.2) — every optional dep now has an upper-bound. Without one
+# `pip install 'wpsecscan[ui]'` would silently pull the next major of
+# Pillow / reportlab / etc., any of which can introduce a breaking
+# change OR (in Pillow's case) a fresh CVE. Bumps are still possible
+# but become a deliberate code review.
 # Real PDF executive / attestation reports
-pdf = ["reportlab>=4.0"]
+pdf = ["reportlab>=4.0,<5"]
 # Headless DOM-XSS check + per-finding screenshots
-browser = ["playwright>=1.40"]
+browser = ["playwright>=1.40,<2"]
 # Daemon mode YAML config
-yaml = ["pyyaml>=6.0"]
+yaml = ["pyyaml>=6.0,<7"]
 # Distributed CVE-DB cache + RBAC bcrypt hashing
-ops = ["redis>=5.0", "bcrypt>=4.0"]
+ops = ["redis>=5.0,<7", "bcrypt>=4.0,<5"]
 # Optional Pillow for GUI image rendering + pystray for minimize-to-tray (#56).
 # (keyring moved to default `dependencies` in v2.5.1 because the `wpsecscan
 # creds` CLI surface is no longer GUI-only.)
-ui = ["Pillow>=10", "pystray>=0.19"]
+ui = ["Pillow>=10,<12", "pystray>=0.19,<0.20"]
 # S5 — defusedxml protects the burp/zap importer against billion-laughs
 # entity-expansion DoS on hostile XML reports. Stdlib ElementTree falls
 # back with a stderr warning when this isn't installed.
-security = ["defusedxml>=0.7"]
+security = ["defusedxml>=0.7,<0.8"]
 # Everything optional in one install
 all = [
-    "reportlab>=4.0",
-    "playwright>=1.40",
-    "pyyaml>=6.0",
-    "redis>=5.0",
-    "bcrypt>=4.0",
-    "Pillow>=10",
-    "pystray>=0.19",
-    "keyring>=24",
-    "defusedxml>=0.7",
+    "reportlab>=4.0,<5",
+    "playwright>=1.40,<2",
+    "pyyaml>=6.0,<7",
+    "redis>=5.0,<7",
+    "bcrypt>=4.0,<5",
+    "Pillow>=10,<12",
+    "pystray>=0.19,<0.20",
+    "keyring>=24,<26",
+    "defusedxml>=0.7,<0.8",
 ]
 # Test deps (also installed by CI)
 test = ["pytest>=7.4"]

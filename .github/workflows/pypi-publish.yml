@@ -2,15 +2,24 @@ name: pypi-publish
 
 # Item #66 — Publish to PyPI (and TestPyPI for dry runs).
 #
-# Two trigger modes:
-#   1. workflow_dispatch with environment=testpypi   → TestPyPI (token-auth)
-#   2. workflow_dispatch with environment=pypi      → real PyPI (token-auth)
+# C22 (v2.7.2) — migrated from API-token auth to PyPI Trusted
+# Publishing (OIDC). No long-lived token in repo secrets; PyPI's
+# identity provider validates the GitHub Actions OIDC subject
+# matches the trusted-publisher config on the PyPI project.
 #
-# Both indexes use API-token auth. Tokens stored as repo secrets:
-#   TEST_PYPI_API_TOKEN  (issued at https://test.pypi.org/manage/account/token/)
-#   PYPI_API_TOKEN       (issued at https://pypi.org/manage/account/token/)
-# Mirrored for rotation reference in C:\Users\bryan\migration\HANDOFF.md.
-# See docs/release-pypi.md for the runbook.
+# REQUIRED MANUAL SETUP (one-time, per environment):
+#   1. https://pypi.org/manage/project/wpsecscan/settings/publishing/
+#        Owner: bryanflowers
+#        Repository: wpsecscan
+#        Workflow filename: pypi-publish.yml
+#        Environment name: pypi
+#   2. Same on https://test.pypi.org/.../publishing/ but environment=testpypi
+#
+# Once set, this workflow runs without any TEST_PYPI_API_TOKEN /
+# PYPI_API_TOKEN secret. Token-auth path retained ONLY as
+# emergency fallback under the comment block below — re-enable
+# by uncommenting `user:`/`password:` and removing the OIDC
+# permission. See docs/release-pypi.md.
 
 on:
   workflow_dispatch:
@@ -25,15 +34,19 @@ on:
           - pypi
 
 permissions:
-  contents: read   # token-auth path doesn't need id-token: write
+  contents: read
 
 jobs:
   build:
     name: Build sdist + wheel
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v5
+      # C27 (v2.7.2) — all actions SHA-pinned; mutable major tags
+      # let an attacker who compromises an action repo's tag push
+      # arbitrary code into our pipeline. Update via Dependabot
+      # (see .github/dependabot.yml).
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
           python-version: "3.12"
       - name: Install build deps
@@ -46,7 +59,7 @@ jobs:
           twine check dist/*
           ls -l dist/
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
         with:
           name: wpsecscan-dist-${{ github.sha }}
           path: dist/
@@ -56,19 +69,22 @@ jobs:
     if: github.event.inputs.environment == 'testpypi'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # C22 — Trusted Publishing OIDC
     environment:
       name: testpypi
       url: https://test.pypi.org/project/wpsecscan/
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7.0.0
         with:
           name: wpsecscan-dist-${{ github.sha }}
           path: dist/
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # release/v1 @ v1.14.0
         with:
           repository-url: https://test.pypi.org/legacy/
-          user: __token__
-          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          # C22 — OIDC: no user/password lines. Trusted Publishing
+          # negotiates via id-token. Re-enable token path here only
+          # if Trusted Publishing is not yet configured on TestPyPI.
           skip-existing: true
 
   publish-pypi:
@@ -76,17 +92,17 @@ jobs:
     if: github.event.inputs.environment == 'pypi'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # C22 — Trusted Publishing OIDC
     environment:
       name: pypi
       url: https://pypi.org/project/wpsecscan/
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7.0.0
         with:
           name: wpsecscan-dist-${{ github.sha }}
           path: dist/
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # release/v1 @ v1.14.0
         with:
-          # Default endpoint is https://upload.pypi.org/legacy/ — leave unset.
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          # C22 — OIDC: no user/password lines. See setup comment at top.
           skip-existing: true
