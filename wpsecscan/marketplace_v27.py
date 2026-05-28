@@ -84,6 +84,36 @@ def _safe_source_url(src_url: str) -> tuple[bool, str]:
     return True, ""
 
 
+# C1 (v2.7.2) — sigstore_sig_url + sigstore_pem_url must come from the
+# same trusted origin as the marketplace index. Without this, a malicious
+# index could point them at attacker-controlled cert+sig pairs and
+# combined with the wildcard cosign identity the verification would
+# rubber-stamp arbitrary payloads. The trust model is "marketplace =
+# single origin"; sig/pem ride the same wire.
+_safe_aux_url = _safe_source_url
+
+
+_AUTHOR_HANDLE_RE = _re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,38}$")
+
+
+def _cosign_identity_regexp(author_handle: str) -> str | None:
+    """Return a cosign --certificate-identity-regexp anchored to the
+    author's GitHub Actions OIDC subject, or None if the handle is
+    missing/malformed (caller must refuse the verify in that case).
+
+    Matches: https://github.com/<handle>/<repo>/.github/workflows/<file>
+    on any ref. Sigstore-fulcio puts the workflow path here for any
+    OIDC-issued cert from GitHub Actions, so this is what cosign sees.
+    """
+    if not _AUTHOR_HANDLE_RE.match(author_handle or ""):
+        return None
+    quoted = _re.escape(author_handle)
+    return rf"^https://github\.com/{quoted}/[^/]+/\.github/workflows/.+"
+
+
+_COSIGN_OIDC_ISSUER = "https://token.actions.githubusercontent.com"
+
+
 def _cache_path() -> Path:
     return home_dir() / "marketplace-cache.json"
 
@@ -209,6 +239,18 @@ def cmd_marketplace(args: list[str]) -> None:
                    f"sigstore_pem_url in the marketplace index.",
                    file=sys.stderr)
             sys.exit(3)
+        # C1 (v2.7.2) — sig/pem URLs must come from the trusted
+        # marketplace origin too. v2.7.1 S1 only validated source_url.
+        if sig_url:
+            ok, reason = _safe_aux_url(sig_url)
+            if not ok:
+                print(f"refusing install: sigstore_sig_url rejected ({reason})",
+                      file=sys.stderr); sys.exit(2)
+        if pem_url:
+            ok, reason = _safe_aux_url(pem_url)
+            if not ok:
+                print(f"refusing install: sigstore_pem_url rejected ({reason})",
+                      file=sys.stderr); sys.exit(2)
         target = home_dir() / "marketplace" / "checks" / f"{slug}.py"
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -237,6 +279,23 @@ def cmd_marketplace(args: list[str]) -> None:
         if not (sig and pem):
             print(f"{slug!r} has no signature — refusing.")
             sys.exit(1)
+        # C1 (v2.7.2) — sig/pem URLs must come from the trusted
+        # marketplace origin. Without this guard a MITM/malicious
+        # index could supply attacker-controlled cert+sig pairs that
+        # would pass cosign's content-integrity check.
+        for label, u in (("sigstore_sig_url", sig), ("sigstore_pem_url", pem)):
+            ok, reason = _safe_aux_url(u)
+            if not ok:
+                print(f"refusing verify: {label} rejected ({reason})",
+                      file=sys.stderr); sys.exit(2)
+        # C1 (v2.7.2) — cosign identity must be pinned to the index's
+        # author_handle + the GitHub Actions OIDC issuer. The previous
+        # wildcard `.+` regexp meant ANY Sigstore-signed blob passed.
+        identity_re = _cosign_identity_regexp(entry.get("author_handle", ""))
+        if identity_re is None:
+            print(f"refusing verify: index entry has missing/invalid "
+                   f"author_handle (required to pin Sigstore identity)",
+                   file=sys.stderr); sys.exit(2)
         import shutil
         if not shutil.which("cosign"):
             print("install cosign + retry: https://docs.sigstore.dev/cosign/", file=sys.stderr)
@@ -256,8 +315,8 @@ def cmd_marketplace(args: list[str]) -> None:
                 ["cosign", "verify-blob", str(local),
                   "--signature", str(td / "sig.txt"),
                   "--certificate", str(td / "cert.pem"),
-                  "--certificate-identity-regexp", ".+",
-                  "--certificate-oidc-issuer-regexp", ".+"],
+                  "--certificate-identity-regexp", identity_re,
+                  "--certificate-oidc-issuer", _COSIGN_OIDC_ISSUER],
                 capture_output=True, text=True,
             )
             if res.returncode == 0:

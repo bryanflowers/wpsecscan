@@ -91,7 +91,11 @@ def verify_chain() -> tuple[bool, int, str]:
         if entry.get("prev_hmac", "") != prev_hmac:
             return False, i, f"line {i}: prev_hmac mismatch"
         expected = hmac.new(key, json.dumps(entry, sort_keys=True).encode("utf-8"), hashlib.sha256).hexdigest()
-        if expected != stored_hmac:
+        # C2 (v2.7.2) — constant-time compare so an attacker who can
+        # append entries to the log and re-run verify_chain can't
+        # extract a valid HMAC byte-by-byte from the timing of the
+        # mismatch error.
+        if not hmac.compare_digest(expected, stored_hmac or ""):
             return False, i, f"line {i}: HMAC mismatch (tampered or chain broken)"
         prev_hmac = stored_hmac
     return True, len(lines), ""
