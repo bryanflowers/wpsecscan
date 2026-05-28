@@ -370,7 +370,16 @@ def push_gcp_scc(report) -> tuple[bool, str]:
                     },
                 )
                 n += 1
-            except Exception:  # noqa: BLE001
+            # C21 (v2.7.2) — log GCP-side push failures to stderr
+            # instead of swallowing silently. Pre-fix code returned
+            # "N findings pushed" with N silently understated when
+            # the GCP client raised; operators couldn't tell
+            # partial-success from full-success.
+            except Exception as _exc:  # noqa: BLE001
+                import sys as _sys
+                print(f"[gcp-scc] skipped finding {r.check_id}/{fid}: "
+                       f"{type(_exc).__name__}: {str(_exc)[:200]}",
+                       file=_sys.stderr)
                 continue
     return True, f"GCP SCC: {n} findings pushed"
 

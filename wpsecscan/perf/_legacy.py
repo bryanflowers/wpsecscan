@@ -46,16 +46,21 @@ class BloomFilter:
 _memo_cache: dict[str, list] = {}
 
 
+# C20 (v2.7.2) — switched from SHA-1 to SHA-256 (truncated to 16 hex
+# chars). SHA-1 collisions (SHAttered) combined with the truncation
+# created a real risk that a crafted response body could collide
+# with a legitimate cached entry, serving stale findings for an
+# unrelated response.
 def memoize_check(check_id: str, response_body: bytes, findings: list) -> None:
-    """Store check output keyed by SHA1(response body). Bounded at 500 entries."""
-    key = f"{check_id}:{hashlib.sha1(response_body).hexdigest()[:16]}"
+    """Store check output keyed by SHA256(response body). Bounded at 500 entries."""
+    key = f"{check_id}:{hashlib.sha256(response_body).hexdigest()[:16]}"
     _memo_cache[key] = list(findings)
     while len(_memo_cache) > 500:
         _memo_cache.pop(next(iter(_memo_cache)))
 
 
 def lookup_memo(check_id: str, response_body: bytes) -> list | None:
-    key = f"{check_id}:{hashlib.sha1(response_body).hexdigest()[:16]}"
+    key = f"{check_id}:{hashlib.sha256(response_body).hexdigest()[:16]}"
     return _memo_cache.get(key)
 
 

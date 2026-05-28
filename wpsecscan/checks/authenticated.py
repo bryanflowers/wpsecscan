@@ -250,7 +250,13 @@ def _auth_debug(host: str, step: str, response: httpx.Response | None = None,
                     lines.append(f"  header: {k}: [REDACTED ({len(str(v))} chars)]")
                 else:
                     lines.append(f"  header: {k}: {v}")
-            body = (response.text or "")[:500].replace("\n", " ")
+            # C18 (v2.7.2) — pipe through mask_private so partial
+            # nonces / JWTs / cookies in the WP login HTML response
+            # don't leak into the auth-debug log file (which lives
+            # under ~/.wpsecscan and may be uploaded as part of a
+            # bug report).
+            from ..ai_safety import mask_private as _mask
+            body = _mask((response.text or "")[:500]).replace("\n", " ")
             lines.append(f"  body[:500]: {body}")
         if extra:
             lines.append(f"  note: {extra}")

@@ -10,7 +10,7 @@ useragentstring.com top-100 list as of 2026-05.
 """
 from __future__ import annotations
 
-import random
+import secrets
 
 
 _POOL = (
@@ -46,7 +46,11 @@ _POOL = (
 
 
 def random_ua() -> str:
-    return random.choice(_POOL)
+    # C19 (v2.7.2) — secrets.choice instead of random.choice. The
+    # random module is reseeded deterministically by
+    # trust_v27.set_deterministic_seed(), which would make the UA
+    # rotation sequence predictable to a WAF.
+    return secrets.choice(_POOL)
 
 
 def pool_size() -> int:
