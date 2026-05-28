@@ -7,6 +7,123 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [v2.7.2] — 2026-05-28
+
+Mega bug-check audit hot-fix. A 6-agent parallel sweep (security,
+correctness, concurrency/IO, crypto/secrets, PHP companion,
+dependencies/supply-chain) flagged 27 actionable findings on top of
+v2.7.1. This release ships fixes for all of them across 5 commits.
+Tests: 790 → 818 passing + 2 platform-skipped. Companion plugin:
+1.4.1 → 1.4.2.
+
+### Security — Critical
+
+- **C1** `marketplace_v27.py` (install + verify) — sigstore sig/pem
+  URLs were fetched from any host (v2.7.1 S1 only protected
+  `source_url`), AND cosign was invoked with wildcard identity +
+  issuer regexps. Combined: a malicious or MITM'd index could ship
+  its own cert+sig pair and pass verification ⇒ RCE on install.
+  Now: sig/pem must come from the marketplace origin too; cosign
+  identity anchored to the index's `author_handle`, OIDC issuer
+  pinned to GitHub Actions. Refuses verify if author_handle is
+  missing/malformed.
+- **C2** `auth/audit_log.py` — `expected != stored_hmac` short-
+  circuited on the first differing byte. An attacker who could
+  append entries and re-trigger `verify_chain` could byte-by-byte
+  forge a valid HMAC for a tampered prior entry. Switched to
+  `hmac.compare_digest`.
+
+### Security — High
+
+- **C3** `auth/audit_log.py` — HMAC key file now created with
+  `O_EXCL|0o600` atomically (no create-then-chmod race window).
+- **C4** `reporters/share_link.py` — share-link payload now signs
+  `issued_at` + `expires_at` (30d default TTL); `verify()` rejects
+  expired or pre-v2.7.2 (no-TTL) payloads. Adjacent: `_share_secret`
+  no longer `.strip()`s on read (~0.8% of random 32-byte secrets
+  had a trailing-whitespace byte, breaking signature verification
+  intermittently).
+- **C5** `gui.py` — toast notifier switched from f-string-into-Popen
+  to PowerShell `-EncodedCommand` (base64 UTF-16LE). Finding titles
+  with `'` or `"` no longer break the command boundary.
+- **C6** `gui_v27_extras.py` — Start-Menu shortcut creator: same
+  EncodedCommand fix for paths containing apostrophes.
+- **C7** `__main__.py` (×3) — three off-by-one bounds guards
+  (`i + N < len(args) + M` → `i + N < len(args)`) at `check-new
+  --name`, `gh-check-run --fail-on`, `diff-agency --out`. Crashed
+  with IndexError on trailing-flag typos.
+- **C8** companion `includes/rest.php` (`/users-with-app-passwords`)
+  — returns `email_sha256` instead of plaintext `user_email`, matching
+  the `diagnostics.php` pattern. Companion plugin 1.4.1 → 1.4.2.
+- **C9** `checks/login_redirect_http_hop.py` — unconditional
+  `verify=False` replaced with the project-wide `WPSECSCAN_INSECURE_
+  TLS` env-var opt-in. MITM could otherwise suppress the http-hop
+  finding by forging the redirect-chain probe.
+- **C10** `trust_v27.py` — sdist `tarfile.extractall` now uses
+  `filter="data"` on Python 3.12+ with member pre-validation on
+  older Pythons. Malicious sdist with `..` members can't escape
+  the workdir.
+- **C11** `api_server.py` — startup banner no longer echoes
+  `token[:6]` (37.5% of a 16-char API token).
+
+### Bug fixes — Medium
+
+- **C12** `perf_v27.etag_set` — atomic temp + `os.replace`; two
+  parallel workers can no longer truncate the shared ETag cache.
+- **C13** `continuous_monitor` — same atomic pattern for the
+  polling-loop state file.
+- **C14** `hardware_keys.tpm_seal` / `tpm_unseal` — `primary.ctx`
+  is now an absolute path (was bare relative filename, resolved
+  against caller's cwd).
+- **C15** `history.save_report_snapshot` — write the timestamped
+  snapshot first, then atomic `os.replace` the "latest" pointer.
+  Crash mid-save can no longer leave latest pointing at a missing
+  snapshot.
+- **C16** `integrations_v27.import_snyk_findings` — rebinds
+  non-dict `f.extra` to `{}` so the dedup write no longer raises
+  `TypeError` on JSON-null-deserialised findings.
+- **C17** `creds_vault._save_index` — index file (lists every
+  stored credential identifier) now `os.open(O_CREAT|0o600)`,
+  no longer inherits process umask.
+
+### Code quality / low — Low
+
+- **C18** `checks/authenticated.py` — auth-debug body slice now
+  piped through `mask_private` (was raw response.text[:500]).
+- **C19** `ua_rotation.py` — `random.choice` → `secrets.choice`
+  so the UA rotation sequence isn't predictable after
+  `set_deterministic_seed` reseeds the random module.
+- **C20** `perf/_legacy.py` memo cache — SHA-1 → SHA-256 cache key.
+- **C21** `integrations_v27.push_gcp_scc` — log GCP-side push
+  failures to stderr instead of swallowing silently.
+
+### Infrastructure / supply chain
+
+- **C22** `pypi-publish.yml` — migrated to PyPI Trusted Publishing
+  (OIDC). No long-lived `PYPI_API_TOKEN` secret required.
+- **C23** `release-attestation.yml` — SLSA build-provenance +
+  Sigstore signatures + SHA256SUMS now cover sdist (.tar.gz) and
+  wheel (.whl) too, not just the .exe / .zip binaries.
+- **C24** `release-attestation.yml` — verification snippet now
+  uses a workflow-path-anchored identity regexp, not just the
+  repo URL prefix.
+- **C25** `release-attestation.yml` — pinned `cyclonedx-bom==4.4.3`
+  (was unpinned in a job with `id-token: write`).
+- **C26** `pyproject.toml` — added upper bounds to every `>=N`
+  optional dep (Pillow<12, redis<7, reportlab<5, etc.).
+- **C27** `.github/workflows/*.yml` — SHA-pinned every action in
+  the release-critical workflows; existing Dependabot
+  github-actions config keeps them current.
+
+### Ruled-out false positives
+
+The 6-agent sweep also flagged ~10 false positives that were
+verified and ruled out, including alleged SQL injection via
+`$wpdb->prefix` (WordPress core enforces alphanumeric), a 1-second
+slack on the companion token TTL, and various `args[i+2]`
+patterns where the index arithmetic actually lands at the right
+slot. Documented in the audit notes; no fix needed.
+
 ## [v2.7.1] — 2026-05-27
 
 Security hot-fix on top of v2.7.0. Three audits run in parallel against
