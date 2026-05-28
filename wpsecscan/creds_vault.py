@@ -156,7 +156,15 @@ def _save_index(idx: dict[str, list[str]]) -> None:
         p.parent.mkdir(parents=True, exist_ok=True)
         if p.is_symlink():
             p.unlink()
-        p.write_text(json.dumps(idx, indent=2), encoding="utf-8")
+        # C17 (v2.7.2) — 0o600 atomic write so the index (which lists
+        # every stored credential identifier — site URLs + field names)
+        # doesn't inherit the process umask. Mirrors the data-file
+        # pattern at `_fallback_save` (line ~211).
+        import os as _os
+        fd = _os.open(str(p),
+                       _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC, 0o600)
+        with _os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(idx, indent=2))
     except OSError:
         pass
 

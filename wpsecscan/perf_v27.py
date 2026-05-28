@@ -117,8 +117,12 @@ def etag_set(url: str, etag: str, last_modified: str) -> None:
     db[url] = {"etag": etag, "last_modified": last_modified, "ts": int(time.time())}
     p = _etag_db_path()
     p.parent.mkdir(parents=True, exist_ok=True)
+    # C12 (v2.7.2) — atomic temp + os.replace so two parallel scan
+    # workers can't truncate each other's ETag cache mid-write.
     try:
-        p.write_text(json.dumps(db), encoding="utf-8")
+        tmp = p.with_suffix(f".json.tmp.{os.getpid()}")
+        tmp.write_text(json.dumps(db), encoding="utf-8")
+        os.replace(tmp, p)
     except OSError:
         pass
 

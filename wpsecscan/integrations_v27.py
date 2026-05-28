@@ -122,8 +122,15 @@ def import_snyk_findings(report, *, org: str | None = None,
     n = 0
     for r in report.results:
         for f in r.findings:
-            extra = f.extra if isinstance(f.extra, dict) else {}
-            cve = (extra.get("cve") or "").upper()
+            # C16 (v2.7.2) — the previous code read via a local
+            # `extra` copy (safe) but wrote directly through
+            # `f.extra` (TypeError if `f.extra` is non-dict, e.g.
+            # post-construction assignment or deserialised JSON
+            # null). Mirror the `enrich_vt_urlscan` pattern: rebind
+            # `f.extra` to a fresh dict before writing.
+            if not isinstance(f.extra, dict):
+                f.extra = {}
+            cve = (f.extra.get("cve") or "").upper()
             if cve and cve in snyk_cves:
                 f.extra["snyk_dup"] = True
                 n += 1

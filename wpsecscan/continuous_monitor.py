@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -104,7 +105,12 @@ async def run(
                 print(f"[{datetime.now(timezone.utc).isoformat(timespec='seconds')}] "
                       f"initial manifest for {host}: {new.get('count', 0)} files")
             try:
-                state_file.write_text(json.dumps(new), encoding="utf-8")
+                # C13 (v2.7.2) — atomic temp + replace so a crash or
+                # signal mid-write doesn't leave the polling loop's
+                # state file half-written + un-parseable.
+                _tmp = state_file.with_suffix(f".json.tmp.{os.getpid()}")
+                _tmp.write_text(json.dumps(new), encoding="utf-8")
+                os.replace(_tmp, state_file)
             except OSError:
                 pass
             prev = new

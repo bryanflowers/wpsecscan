@@ -137,7 +137,11 @@ def save_report_snapshot(url: str, report_json_text: str) -> None:
     ts = _dt.now(_tz.utc).strftime("%Y%m%d-%H%M%S")
     try:
         d = _reports_dir()
-        (d / f"{safe}.json").write_text(report_json_text, encoding="utf-8")
+        # C15 (v2.7.2) — write the timestamped snapshot FIRST, then
+        # atomically promote the "latest" pointer. Previous order
+        # could leave `latest` updated but the snapshot missing if
+        # the process was killed between the two writes, making
+        # `wpsecscan compare` inconsistent.
         snap_path = d / f"{safe}-{ts}.json"
         snap_path.write_text(report_json_text, encoding="utf-8")
         # #62 — sign the snapshot.
@@ -146,6 +150,12 @@ def save_report_snapshot(url: str, report_json_text: str) -> None:
                           report_json_text.encode("utf-8"), _h.sha256).hexdigest()
         snap_path.with_suffix(".json.sig").write_text(f"sha256={sig}\n",
                                                           encoding="utf-8")
+        # Atomic latest-pointer promotion.
+        import os as _os
+        latest = d / f"{safe}.json"
+        latest_tmp = d / f"{safe}.json.tmp.{_os.getpid()}"
+        latest_tmp.write_text(report_json_text, encoding="utf-8")
+        _os.replace(latest_tmp, latest)
     except OSError:
         pass
 

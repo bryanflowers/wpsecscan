@@ -144,8 +144,13 @@ def tpm_seal(secret: bytes, name: str) -> str:
             return ""
     # Linux tpm2-tools path
     if shutil.which("tpm2_create"):
+        # C14 (v2.7.2) — absolute primary.ctx path. The bare relative
+        # filename previously used would resolve against whatever cwd
+        # the caller had set, breaking when invoked from the scan
+        # worker or GUI thread.
+        primary_ctx = home / "primary.ctx"
         try:
-            r = subprocess.run(["tpm2_create", "-C", "primary.ctx",
+            r = subprocess.run(["tpm2_create", "-C", str(primary_ctx),
                                   "-i", "-", "-r", str(blob_path)],
                                  input=secret, capture_output=True, timeout=15)
             if r.returncode == 0:
@@ -172,8 +177,10 @@ def tpm_unseal(name: str) -> bytes:
     if not blob_path.exists() or blob_path.is_symlink():
         return b""
     if shutil.which("tpm2_unseal"):
+        # C14 (v2.7.2) — absolute primary.ctx path (see tpm_seal).
+        primary_ctx = _home() / "tpm" / "primary.ctx"
         try:
-            r = subprocess.run(["tpm2_unseal", "-c", "primary.ctx",
+            r = subprocess.run(["tpm2_unseal", "-c", str(primary_ctx),
                                   "-i", str(blob_path)],
                                  capture_output=True, timeout=15)
             if r.returncode == 0:
