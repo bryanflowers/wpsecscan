@@ -126,7 +126,10 @@ def render(report: ScanReport, console=None) -> None:
             conf = _confidence.compute_confidence(f, r.check_id, waf_detected=waf_detected)
             conf_style = {"high": "bold green", "medium": "yellow", "low": "dim"}[conf]
             title_text = f"{f.title}\n[{conf_style}]{_confidence.chip(conf)}[/{conf_style}]"
-            details = f.evidence
+            # B11 (v2.8.0) — `f.evidence` may be None; the `+=` on the
+            # next line raised TypeError when a finding had remediation
+            # but no evidence. Coerce to empty string first.
+            details = f.evidence or ""
             if f.remediation:
                 details += f"\n\n[bold]Fix:[/bold] {f.remediation}"
             table.add_row(sev, title_text, details)

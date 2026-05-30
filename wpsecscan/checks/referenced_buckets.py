@@ -72,9 +72,14 @@ def _is_listing_response(provider: str, status: int, body: bytes) -> bool:
     if provider == "gcs":
         return b"<listbucketresult" in head or b"<contents>" in head or b"<name>" in head
     if provider == "r2":
-        # R2 doesn't list by default; a 200 with HTML/text from the root path
-        # is unusual and suggests a misconfigured public bucket worth flagging.
-        return True
+        # B13 (v2.8.0) — was `return True`, which flagged EVERY 200
+        # response as an "open R2 bucket listing", producing false
+        # positives on every R2-backed public CDN asset (which always
+        # returns 200 for the asset path itself). True R2 bucket
+        # listings, when enabled via R2's S3-compatible API, return
+        # XML with the same `<ListBucketResult>` root element as S3.
+        # Match the S3 signature instead.
+        return b"<listbucketresult" in head or (b"<?xml" in head and b"contents" in head)
     return False
 
 

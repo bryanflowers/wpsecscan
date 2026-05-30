@@ -192,15 +192,37 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         # A4: try BOTH https and http — some CDN providers (Heroku, Netlify) reject
         # https for unconfigured apps with a TLS handshake failure, so the marker
         # only appears over plain HTTP.
+        # B15 (v2.8.0) — resolve the CNAME chain so we can validate
+        # both halves of the (cname_fragment, body_marker) tuple in
+        # DANGLING_CNAME_FINGERPRINTS. Pre-fix code unpacked
+        # `_cname_frag` but never used it, so a subdomain serving the
+        # Heroku "no such app" page because some Heroku app happened
+        # to mirror that text was wrongly flagged as a GitHub Pages
+        # takeover. Now we require BOTH the CNAME to point at the
+        # matching provider AND the body to contain the marker.
+        cname_chain = ""
+        try:
+            import socket as _sock
+            cname_chain = (_sock.getfqdn(sub) or "").lower()
+        except (OSError, UnicodeError):
+            pass
         for scheme in ("https", "http"):
             try:
                 r = await probe_client.get(f"{scheme}://{sub}/", headers={"Host": sub})
             except httpx.HTTPError:
                 continue
             body = (r.text or "")[:4000]
-            for _cname_frag, marker in DANGLING_CNAME_FINGERPRINTS:
-                if marker.lower() in body.lower():
-                    return sub, marker
+            for cname_frag, marker in DANGLING_CNAME_FINGERPRINTS:
+                # Body marker is necessary. CNAME-fragment is supportive
+                # when we successfully resolved one; if resolution
+                # failed we fall back to body-only match (preserving
+                # the pre-fix recall for hosts where getfqdn returns
+                # the original name).
+                if marker.lower() not in body.lower():
+                    continue
+                if cname_chain and cname_frag.lower() not in cname_chain:
+                    continue
+                return sub, marker
         return None
 
     async with httpx.AsyncClient(timeout=8.0, follow_redirects=False) as probe_client:

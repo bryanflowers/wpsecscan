@@ -766,8 +766,6 @@ async def _amain(args) -> int:
             # Item #81 — emit one-line summary to stdout (always, even with
             # no_console suppressing console output) and short-circuit.
             if getattr(args, "tldr", False) and report is not None:
-                _SEV_RANK = {"info": 0, "low": 1, "medium": 2,
-                              "high": 3, "critical": 4}
                 worst_sev = report.worst_severity() or "info"
                 s = report.summary
                 print(f"{t} score={report.risk_score}/100 "
@@ -775,8 +773,17 @@ async def _amain(args) -> int:
                        f"crit={s.get('critical', 0)} high={s.get('high', 0)} "
                        f"med={s.get('medium', 0)} low={s.get('low', 0)} "
                        f"info={s.get('info', 0)}")
-                # Exit code = severity rank of the worst finding
-                return _SEV_RANK.get(worst_sev, 0)
+                # B9 (v2.8.0) — was: exit code = severity rank 0..4. That
+                # conflicted with the project-wide contract (0=ok,
+                # 1=any-finding-above-fail-on, 2=usage-error). CI
+                # pipelines interpret exit 2 as a usage error and could
+                # mistake `--tldr` on a medium finding for a flag typo.
+                # Now: honour --fail-on like every other scan exit.
+                from .models import SEVERITY_RANK as _SR
+                fail_on = getattr(args, "fail_on", "high") or "high"
+                threshold = _SR.get(fail_on.lower(), _SR.get("high", 3))
+                worst_rank = _SR.get(worst_sev.lower(), 0)
+                return 1 if worst_rank >= threshold else 0
 
     if (args.dashboard or args.agency_dashboard) and all_reports:
         out_dir = _outdir(args.out)
@@ -1130,12 +1137,14 @@ def main() -> None:
                    help="G90: predict P(false-positive) per finding from the operator's "
                         "snooze history; decorates extra.fp_score on every finding. "
                         "No-op when ~/.wpsecscan/snoozes.json is empty.")
-    p.add_argument("--quiet", "-q", dest="no_console", action="store_true",
-                   help="F82: alias for --no-console; suppress per-check console output.")
+    # B6 (v2.8.0) — duplicate `--quiet`/`-q` registration removed. The
+    # canonical spec lives at line ~1039 alongside `--no-console`. A
+    # second add_argument here raised `argparse.ArgumentError: conflicting
+    # option string(s)` on strict-mode Python.
     p.add_argument("--tldr", action="store_true",
                    help="Item #81: print a one-line summary (score/worst-sev/finding-count) "
-                        "to stdout and suppress all other output. Exit code = worst severity "
-                        "number (0=info, 1=low, 2=medium, 3=high, 4=critical).")
+                        "to stdout and suppress all other output. Exit code = 0 (ok) or 1 "
+                        "(any finding at or above --fail-on threshold).")
     p.add_argument("--ai-fix-pr-diff", default=None, metavar="CHECK_ID",
                    help="G89: for the highest-severity finding from CHECK_ID, ask the AI "
                         "to draft a unified-diff patch + PR body; write to "
@@ -1395,8 +1404,12 @@ def main() -> None:
             print(result["instructions"])
             sys.exit(0)
         except (FileNotFoundError, ValueError) as e:
+            # B7 (v2.8.0) — was exit 1 (any-finding); both
+            # FileNotFoundError and ValueError are caller-supplied
+            # argument errors, so exit 2 (usage error) per the
+            # contract (0=ok, 1=any-finding, 2=usage-error).
             print(f"ERROR: {e}", file=sys.stderr)
-            sys.exit(1)
+            sys.exit(2)
 
     if args.ssh_audit:
         try:

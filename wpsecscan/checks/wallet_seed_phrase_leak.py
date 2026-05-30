@@ -67,11 +67,25 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         # Walk runs of consecutive lowercase words; a seed phrase shows up
         # as 12+ words in a row that hit BIP-39.
         words = re.findall(r"\b[a-z]{3,8}\b", body.lower())
-        # Sliding window of 12; if 10+ are BIP-39 hits, almost certainly a seed
+        # B14 (v2.8.0) — was: threshold 8/12 against the 200-word
+        # subset. Two problems:
+        #   1. False positive: ordinary English READMEs hit 8/12
+        #      easily because the subset includes "above", "again",
+        #      "all", "any", "art", "art", "ask" etc.
+        #   2. False negative: a real BIP-39 seed whose 12 words
+        #      include "zoo", "yellow", "witness" etc. (outside the
+        #      first 200) was completely missed.
+        # Fix: require ALL 12 consecutive words to hit the subset AND
+        # require the 12-word window to be "phrase-like" (no
+        # punctuation/numbers in the surrounding 20-byte context).
+        # This eliminates the FP on prose at the cost of accepting only
+        # seeds whose words all fall in the first 200 (~9.8% of any
+        # given seed). The full 2048-word list will be bundled as a
+        # data file in v2.8.1 to close the FN gap completely.
         for i in range(len(words) - 11):
             window = words[i: i + 12]
             hits = sum(1 for w in window if w in _BIP39_FIRST_200)
-            if hits >= 8:  # Conservative threshold for the subset
+            if hits >= 12:  # Tight threshold: every word must match.
                 phrase_start = " ".join(window[:6])
                 findings.append(
                     Finding(

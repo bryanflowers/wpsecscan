@@ -101,8 +101,30 @@ def _enrich(report: ScanReport) -> dict:
     return d
 
 
+def _sanitise_json_floats(obj):
+    """B12 (v2.8.0) — recursively replace NaN/Inf floats with None so
+    the emitted JSON is always valid RFC 8259 (which forbids those
+    tokens). AI scores and perf metrics occasionally produce NaN; the
+    pre-fix `json.dumps(...)` emitted the non-standard literals
+    `NaN`/`Infinity` and most strict JSON parsers (jq, JSONLines
+    consumers, ES bulk loaders) rejected the file."""
+    import math as _m
+    if isinstance(obj, float):
+        return None if (_m.isnan(obj) or _m.isinf(obj)) else obj
+    if isinstance(obj, dict):
+        return {k: _sanitise_json_floats(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitise_json_floats(v) for v in obj]
+    if isinstance(obj, tuple):
+        return [_sanitise_json_floats(v) for v in obj]
+    return obj
+
+
 def render(report: ScanReport) -> str:
-    return json.dumps(_enrich(report), indent=2, ensure_ascii=False)
+    return json.dumps(
+        _sanitise_json_floats(_enrich(report)),
+        indent=2, ensure_ascii=False, allow_nan=False,
+    )
 
 
 def write(report: ScanReport, path: Path) -> None:

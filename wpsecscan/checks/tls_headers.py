@@ -52,8 +52,14 @@ def _check_tls(host: str, port: int = 443) -> tuple[str | None, str | None, int 
                 exp = cert.get("notAfter")
                 days = None
                 if exp:
-                    dt = datetime.strptime(exp, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
-                    days = (dt - datetime.now(timezone.utc)).days
+                    # B18 (v2.8.0) — locale-independent date parser
+                    # (see tls_deep._parse_cert_date_en). Pre-fix
+                    # `strptime("%b %d ...")` silently failed on
+                    # non-English-locale hosts.
+                    from .tls_deep import _parse_cert_date_en
+                    dt = _parse_cert_date_en(exp)
+                    if dt is not None:
+                        days = (dt - datetime.now(timezone.utc)).days
                 return version, cn, days
     except Exception:  # noqa: BLE001
         return None, None, None

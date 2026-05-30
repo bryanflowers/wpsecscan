@@ -38,6 +38,31 @@ _TASKS_MAX = 1000
 _TASKS: "OrderedDict[str, dict]" = OrderedDict()
 _TASKS_LOCK = threading.Lock()
 
+# B20 (v2.8.0) — cap concurrent in-flight scans. Pre-fix code spawned
+# an unbounded thread per POST /scan; 1000 concurrent requests gave
+# 1000 live threads each with its own asyncio loop, exhausting the
+# host's memory and file descriptors. Operators who need more
+# concurrency raise the cap via $WPSECSCAN_API_MAX_CONCURRENT.
+import os as _os_for_api
+
+_API_MAX_CONCURRENT = max(1, int(_os_for_api.environ.get(
+    "WPSECSCAN_API_MAX_CONCURRENT", "8") or "8"))
+_SCAN_SLOTS = threading.Semaphore(_API_MAX_CONCURRENT)
+
+
+def _try_acquire_scan_slot() -> bool:
+    """Non-blocking acquire so we can return HTTP 429 immediately
+    when the in-flight scan cap is reached, instead of queueing or
+    spawning a thread that will block on the semaphore."""
+    return _SCAN_SLOTS.acquire(blocking=False)
+
+
+def _release_scan_slot() -> None:
+    try:
+        _SCAN_SLOTS.release()
+    except ValueError:
+        pass
+
 
 def _put_task(task_id: str, entry: dict) -> None:
     """Insert/update a task with LRU eviction (B2)."""
@@ -121,7 +146,42 @@ def _make_handler(token: str):
         def do_GET(self) -> None:
             u = urlparse(self.path)
             if u.path == "/healthz":
-                self._send_json(200, {"ok": True})
+                # B21 (v2.8.0) — was: unconditionally `{"ok": true}`,
+                # which load balancers used as the single
+                # liveness+readiness gate. That routed traffic to
+                # instances that were saturated (scan slots full),
+                # losing reports. Now: distinguish liveness (the
+                # process is alive — always true if we can serve
+                # this request) from readiness (we have free scan
+                # capacity AND the reports dir is writable).
+                ready = True
+                reasons: list[str] = []
+                # Scan-capacity check (B20 semaphore).
+                if _SCAN_SLOTS._value <= 0:  # type: ignore[attr-defined]
+                    ready = False
+                    reasons.append("scan_capacity_exhausted")
+                # Reports dir writable.
+                try:
+                    _reports_dir().mkdir(parents=True, exist_ok=True)
+                except OSError as e:
+                    ready = False
+                    reasons.append(f"reports_dir_not_writable:{type(e).__name__}")
+                self._send_json(200 if ready else 503, {
+                    "ok": True,  # liveness — always true if we got here
+                    "ready": ready,
+                    "scan_slots_free": _SCAN_SLOTS._value,  # type: ignore[attr-defined]
+                    "scan_slots_total": _API_MAX_CONCURRENT,
+                    "in_flight_tasks": sum(1 for v in _TASKS.values()
+                                              if v.get("status") == "running"),
+                    "not_ready_reasons": reasons,
+                })
+                return
+            if u.path == "/readyz":
+                # K8s convention: separate /readyz endpoint that returns
+                # 200-or-503 by readiness alone (without the liveness
+                # "ok": true noise).
+                ready = _SCAN_SLOTS._value > 0  # type: ignore[attr-defined]
+                self._send_json(200 if ready else 503, {"ready": ready})
                 return
             if not self._auth_ok():
                 self._send_json(401, {"error": "unauthorized"})
@@ -189,14 +249,29 @@ def _make_handler(token: str):
                     self._send_json(400, {"error": "missing target"})
                     return
                 aggressive = bool(body.get("aggressive"))
+                # B20 (v2.8.0) — concurrent-scan cap. Without this an
+                # attacker (or naive load-test) POSTing 1000 /scan
+                # requests spawned 1000 threads each with its own
+                # asyncio loop, exhausting host resources. Acquire
+                # non-blocking so we can return HTTP 429 immediately
+                # if the cap is reached.
+                if not _try_acquire_scan_slot():
+                    self._send_json(429, {
+                        "error": "scan capacity exhausted",
+                        "in_flight": _API_MAX_CONCURRENT,
+                        "retry_after_s": 30,
+                    })
+                    return
                 task_id = uuid.uuid4().hex[:12]
                 _put_task(task_id, {"status": "running", "target": target,
                                      "started_at": time.time()})
-                t = threading.Thread(
-                    target=_run_scan_in_background,
-                    args=(task_id, target, aggressive),
-                    daemon=True,
-                )
+
+                def _scan_wrapper():
+                    try:
+                        _run_scan_in_background(task_id, target, aggressive)
+                    finally:
+                        _release_scan_slot()
+                t = threading.Thread(target=_scan_wrapper, daemon=True)
                 t.start()
                 self._send_json(202, {"task_id": task_id, "status": "running"})
                 return

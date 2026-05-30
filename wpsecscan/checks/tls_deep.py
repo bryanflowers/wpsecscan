@@ -23,6 +23,37 @@ WEAK_PROTOCOLS = ("TLSv1", "TLSv1.1", "SSLv3", "SSLv2")
 WEAK_CIPHER_TOKENS = ("RC4", "3DES", "DES", "NULL", "EXPORT", "MD5", "anon")
 
 
+# B18 (v2.8.0) — locale-independent X.509 cert-date parser.
+# `datetime.strptime("Jan 24 ...", "%b ...")` works only when the
+# running process locale is English. On Turkish, German, Japanese
+# servers the parse silently failed. Hardcoded English month map
+# matches X.509 cert NOT-AFTER format (RFC 5280 specifies
+# UTCTime / GeneralizedTime, but OpenSSL renders as English).
+_X509_MONTHS = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
+
+def _parse_cert_date_en(not_after: str) -> "datetime | None":
+    """Parse OpenSSL-style cert dates like `Jan 24 12:34:56 2026 GMT`
+    using a locale-independent English month map. Returns None on
+    any parse error."""
+    parts = (not_after or "").strip().split()
+    if len(parts) < 4:
+        return None
+    try:
+        mon = _X509_MONTHS.get(parts[0][:3].lower())
+        if mon is None:
+            return None
+        day = int(parts[1])
+        h, m, s = (int(p) for p in parts[2].split(":"))
+        year = int(parts[3])
+        return datetime(year, mon, day, h, m, s, tzinfo=timezone.utc)
+    except (ValueError, IndexError):
+        return None
+
+
 def _connect_with(host: str, port: int, protocol_name: str) -> tuple[bool, str]:
     """Try to negotiate the given protocol against host:port."""
     proto_map = {
@@ -82,9 +113,15 @@ def _inspect(host: str, port: int = 443) -> dict:
                 not_after = cert.get("notAfter")
                 if not_after:
                     out["not_after"] = not_after
+                    # B18 (v2.8.0) — `strptime("%b %d ...")` is locale-
+                    # dependent on Windows + glibc. On a Turkish-locale
+                    # host January = "Oca", so parsing silently failed
+                    # and `expires_in_days` went missing from every
+                    # finding. Use a fixed English-month map instead.
                     try:
-                        dt = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
-                        out["expires_in_days"] = (dt - datetime.now(timezone.utc)).days
+                        dt = _parse_cert_date_en(not_after)
+                        if dt is not None:
+                            out["expires_in_days"] = (dt - datetime.now(timezone.utc)).days
                     except ValueError:
                         pass
                 if out["subject_cn"] and out["subject_cn"] == out["issuer_cn"]:

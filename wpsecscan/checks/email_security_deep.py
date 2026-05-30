@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import os
 import subprocess
 from urllib.parse import urlparse
 from ..http import Client
@@ -31,6 +32,16 @@ from ..models import Finding
 
 
 def _resolve_txt(name: str) -> list[str]:
+    # B16 (v2.8.0) — was: subprocess to nslookup/dig with no guard.
+    # Those subprocess calls bypassed any proxy config the operator
+    # set, and ignored WPSECSCAN_NO_LIVE (which other checks honour
+    # to mean "no outbound network at all"). Now: respect the
+    # no-live gate; outside that, prefer a stdlib resolver (Python's
+    # standard library doesn't expose TXT queries natively, so we
+    # fall back to subprocess only when the operator hasn't asked
+    # for a network blackout).
+    if os.environ.get("WPSECSCAN_NO_LIVE", "").lower() in ("1", "true", "yes"):
+        return []
     for tool, args in (
         ("nslookup", ["nslookup", "-type=TXT", name]),
         ("dig", ["dig", "+short", "TXT", name]),

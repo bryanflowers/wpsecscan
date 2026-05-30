@@ -26,10 +26,59 @@ from ._util import home_dir
 # M131 — Web Push registration
 # ---------------------------------------------------------------------------
 
+# B19 (v2.8.0) — Web Push endpoints MUST be one of the well-known
+# push services. Without this allow-list, a local caller (CLI or
+# future REST handler) could register an attacker-controlled HTTPS
+# endpoint, and the operator's VAPID-signed payloads (with scan
+# details — target URL, finding titles) would be delivered to that
+# attacker's server. The list below covers FCM (Chrome/Edge/Opera/
+# Firefox+Android), Mozilla autopush (Firefox), Apple WebPush (Safari
+# 16+), and Microsoft (Edge legacy). Operators running their own
+# push-relay set $WPSECSCAN_WEB_PUSH_EXTRA_HOSTS to extend.
+import os as _os_for_push
+
+_WEB_PUSH_ALLOWED_HOSTS = {
+    "fcm.googleapis.com",
+    "android.googleapis.com",
+    "updates.push.services.mozilla.com",
+    "autopush.services.mozilla.com",
+    "web.push.apple.com",
+    "api.push.apple.com",
+    "notify.windows.com",
+}
+
+
+def _web_push_endpoint_is_allowed(endpoint: str) -> bool:
+    """Return True iff the endpoint is HTTPS and its host is in the
+    allow-list (built-in or via $WPSECSCAN_WEB_PUSH_EXTRA_HOSTS)."""
+    from urllib.parse import urlparse as _u
+    try:
+        p = _u(endpoint)
+    except (ValueError, AttributeError):
+        return False
+    if p.scheme != "https" or not p.netloc:
+        return False
+    host = p.netloc.lower()
+    if host in _WEB_PUSH_ALLOWED_HOSTS:
+        return True
+    extra = (_os_for_push.environ.get("WPSECSCAN_WEB_PUSH_EXTRA_HOSTS") or "").lower()
+    extra_set = {h.strip() for h in extra.split(",") if h.strip()}
+    return host in extra_set
+
+
 def web_push_register(endpoint: str, p256dh: str, auth: str) -> str:
     """Register a Web Push subscription. Stored at
     ~/.wpsecscan/web-push-subs.json. The mobile-api server POSTs to
     every saved subscription when a critical finding lands."""
+    # B19 (v2.8.0) — refuse subscriptions whose endpoint isn't a
+    # recognised push-service origin. Prevents data-exfil via crafted
+    # subscription registration.
+    if not _web_push_endpoint_is_allowed(endpoint):
+        raise ValueError(
+            f"refusing web-push registration: endpoint {endpoint!r} is not "
+            f"on the allow-list of known push services. Set "
+            f"WPSECSCAN_WEB_PUSH_EXTRA_HOSTS=host1,host2 to extend."
+        )
     p = home_dir() / "web-push-subs.json"
     try:
         subs = json.loads(p.read_text(encoding="utf-8")) if p.exists() else []

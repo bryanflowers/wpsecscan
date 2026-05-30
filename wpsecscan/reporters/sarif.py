@@ -28,19 +28,25 @@ def render(report: ScanReport) -> str:
     for r in report.results:
         for f in r.findings:
             rule_id = f"{r.check_id}.{(f.extra or {}).get('cve','')}".rstrip(".")
+            # B10 (v2.8.0) — Finding.title/evidence are Optional; the
+            # pre-fix `[:120]` slice crashed AttributeError when either
+            # was None. Coerce to empty string first (matches json_out's
+            # discipline).
+            _title = f.title or ""
+            _evidence = f.evidence or ""
             if rule_id not in rules:
                 rules[rule_id] = {
                     "id": rule_id,
                     "name": r.check_name,
-                    "shortDescription": {"text": f.title[:120]},
-                    "fullDescription": {"text": f.evidence[:1000]},
+                    "shortDescription": {"text": _title[:120]},
+                    "fullDescription": {"text": _evidence[:1000]},
                     "helpUri": f.url or report.target,
                     "defaultConfiguration": {"level": SARIF_LEVEL.get(f.severity, "none")},
                 }
             results.append({
                 "ruleId": rule_id,
                 "level": SARIF_LEVEL.get(f.severity, "none"),
-                "message": {"text": f.title},
+                "message": {"text": _title},
                 "locations": [{
                     "physicalLocation": {
                         "artifactLocation": {"uri": f.url or report.target},

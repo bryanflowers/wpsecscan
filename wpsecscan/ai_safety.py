@@ -136,7 +136,13 @@ def strip_prompt_injection(text: str) -> str:
 # ---- #72 private-data masking ----
 
 _MASK_PATTERNS = (
-    (re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"), "[EMAIL]"),
+    # B17 (v2.8.0) — email regex now matches Unicode local parts and
+    # IDN domains (e.g. `田中@example.com`, `user@münchen.de`). The
+    # ASCII-only pre-fix pattern silently let non-ASCII emails through
+    # unredacted into LLM prompts. `\w` with re.UNICODE includes
+    # international alphabetics; we explicitly add the common email-
+    # local punctuation `._%+-` AND extend domain to allow non-ASCII.
+    (re.compile(r"[\w.%+\-]+@[\w.\-]+\.[\w]{2,}", re.UNICODE), "[EMAIL]"),
     (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),                            "[IP]"),
     (re.compile(r"\b(?:\d[ \-]?){13,19}\b"),                                 "[CARD]"),
     (re.compile(r"\bAKIA[0-9A-Z]{16}\b"),                                    "[AWS_KEY]"),
