@@ -85,12 +85,35 @@ def cost_summary() -> dict:
 
 # Strip control-bytes, sentinel-style markers, and obvious instruction
 # subverters that adversaries might plant in finding evidence.
+#
+# N10 (v2.7.3) — pattern set expanded to cover modern chat-template
+# markers (ChatML, Llama/Mistral [INST], Claude tags), explicit role-
+# prefix-after-newline boundaries, and zero-width unicode that can
+# smuggle invisible payloads past regex matching.
 _PROMPT_INJECTION_PATTERNS = (
     re.compile(r"(?i)ignore (all )?(previous|above)\s+(instructions|prompts)"),
     re.compile(r"(?i)system\s*[:>]+"),
     re.compile(r"(?i)\\[/-]?(instruction|prompt|tool)\\[/-]?"),
     re.compile(r"<\|.*?\|>"),
     re.compile(r"\x00|\x01|\x02|\x03|\x04|\x05|\x06|\x07|\x0b|\x0c|\x0e|\x1b"),
+    # N10 — Llama / Mistral chat-template markers.
+    re.compile(r"\[/?INST\]"),
+    # N10 — Anthropic-style tags.
+    re.compile(r"</?(human|assistant|system)>", re.IGNORECASE),
+    # N10 — Role boundaries at the start of a line (chat-completion API
+    # parsers honour these). `Human:`, `Assistant:`, `System:`, etc.
+    re.compile(r"(?m)^\s*(Assistant|Human|System|User)\s*:", re.IGNORECASE),
+)
+
+# N10 (v2.7.3) — zero-width / format unicode that can hide injection
+# payloads from byte-level pattern matching. Stripped BEFORE regex.
+_ZERO_WIDTH_CHARS = (
+    "​",  # zero-width space
+    "‌",  # zero-width non-joiner
+    "‍",  # zero-width joiner
+    "­",  # soft hyphen
+    "﻿",  # BOM / zero-width no-break space
+    "⁠",  # word joiner
 )
 
 
@@ -100,6 +123,11 @@ def strip_prompt_injection(text: str) -> str:
     if not text:
         return ""
     out = text
+    # N10 — strip zero-width chars first so subsequent regex matches the
+    # logical (visible) content.
+    for zw in _ZERO_WIDTH_CHARS:
+        if zw in out:
+            out = out.replace(zw, "")
     for r in _PROMPT_INJECTION_PATTERNS:
         out = r.sub("[REDACTED]", out)
     return out
@@ -126,6 +154,25 @@ _MASK_PATTERNS = (
                   re.IGNORECASE), "wordpress_sec_***=[SESSION_COOKIE]"),
     (re.compile(r"\bBearer\s+[A-Za-z0-9_\-\.=]{20,}", re.IGNORECASE), "Bearer [TOKEN]"),
     (re.compile(r"\bX-WPSecScan-Token:\s*\S+", re.IGNORECASE), "X-WPSecScan-Token: [REDACTED]"),
+    # N11 (v2.7.3) — modern secret classes that frequently appear in
+    # WordPress plugin configuration evidence and would have leaked to
+    # cloud LLMs through the v2.7.2 mask_private surface.
+    # OpenAI project + user API keys (sk-, sk-proj-, sk-svcacct-, sk-org-).
+    (re.compile(r"\bsk-(?:proj-|svcacct-|org-)?[A-Za-z0-9_-]{20,}\b"), "[OPENAI_KEY]"),
+    # GitHub OAuth / server / user-server tokens.
+    (re.compile(r"\bgh[osu]_[A-Za-z0-9]{20,}\b"), "[GITHUB_OAUTH_TOKEN]"),
+    # Database connection strings (postgres / mysql / mongodb / redis).
+    (re.compile(r"\b(?:postgres|postgresql|mysql|mongodb|redis|amqp|amqps)://"
+                 r"[^@\s]+@[^\s]+", re.IGNORECASE), "[DB_DSN]"),
+    # Slack bot/user/refresh/legacy tokens.
+    (re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}\b"), "[SLACK_TOKEN]"),
+    # Slack incoming webhook URLs.
+    (re.compile(r"\bhttps?://hooks\.slack\.com/services/[A-Z0-9/]+\b"),
+        "[SLACK_WEBHOOK]"),
+    # Hugging Face access tokens.
+    (re.compile(r"\bhf_[A-Za-z0-9]{20,}\b"), "[HF_TOKEN]"),
+    # Anthropic API keys.
+    (re.compile(r"\bsk-ant-[A-Za-z0-9_-]{20,}\b"), "[ANTHROPIC_KEY]"),
 )
 
 

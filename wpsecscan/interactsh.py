@@ -17,7 +17,7 @@ rbndr.us-based DNS-rebinding probe.
 from __future__ import annotations
 
 import os
-import random
+import secrets
 import string
 import time
 import urllib.request
@@ -30,7 +30,12 @@ DEFAULT_WAIT_S = 30
 
 
 def _random_id(n: int = 20) -> str:
-    return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
+    # N5 (v2.7.3) — was `random.choices(...)`; replaced with secrets so
+    # the OOB correlation ID can't be predicted by another scanner on
+    # the same shared `oast.live` instance (random.* is reseeded
+    # deterministically by trust_v27.set_deterministic_seed).
+    alphabet = string.ascii_lowercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(n))
 
 
 class InteractshSession:
@@ -42,6 +47,15 @@ class InteractshSession:
         self.server = self._validate_server(raw)
         self.correlation_id = _random_id()
         self.host = f"{self.correlation_id}.{self.server}"
+        # N1 (v2.7.3) — these four assignments USED to live below the
+        # `return server` inside _validate_server (a @staticmethod), so
+        # they (a) never ran and (b) referenced `self` from a static
+        # context. The session was unusable: any caller hitting
+        # session.interactions / .url_http / .started_at got AttributeError.
+        self.url_http = f"http://{self.host}/"
+        self.url_https = f"https://{self.host}/"
+        self.interactions: list[dict] = []
+        self.started_at = time.time()
 
     @staticmethod
     def _validate_server(server: str) -> str:
@@ -64,10 +78,6 @@ class InteractshSession:
         if any(host.startswith(p) for p in private_prefixes):
             raise ValueError(f"Interactsh server {host!r} is RFC1918 — refusing.")
         return server
-        self.url_http = f"http://{self.host}/"
-        self.url_https = f"https://{self.host}/"
-        self.interactions: list[dict] = []
-        self.started_at = time.time()
 
     def poll_once(self, timeout: float = 5.0) -> int:
         """One poll. Returns how many new interactions were collected.

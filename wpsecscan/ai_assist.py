@@ -142,10 +142,15 @@ def remediation_augment(finding) -> str:
     import os as _os
     if _os.environ.get("WPSECSCAN_NO_AI") or not is_configured():
         return ""
+    from .ai_safety import safe_for_llm as _safe
     sys_msg = ("You are a defensive WordPress security expert. Given a finding "
                 "with a generic remediation, return 3 CONCRETE config snippets or "
                 "shell commands that fix it. No prose, just the snippets. Max 200 words.")
-    return llm(f"Title: {finding.title}\nSeverity: {finding.severity}\nExisting remediation: {finding.remediation}",
+    # N2 (v2.7.3) — finding.* fields are scan-controlled (attacker-supplied
+    # via target response). safe_for_llm strips prompt-injection markers
+    # AND masks secrets that might appear in evidence.
+    return llm(f"Title: {_safe(finding.title)}\nSeverity: {finding.severity}\n"
+                f"Existing remediation: {_safe(finding.remediation)}",
                 system=sys_msg, max_tokens=400)
 
 
@@ -178,11 +183,16 @@ def query(report, question: str) -> str:
     import os as _os
     if _os.environ.get("WPSECSCAN_NO_AI") or not is_configured():
         return ""
+    from .ai_safety import safe_for_llm as _safe
+    # N2 (v2.7.3) — `question` is user-supplied CLI input; finding titles
+    # are scan-controlled. Both must be sanitised before the LLM call to
+    # prevent prompt injection.
+    safe_q = _safe(question)
     findings_text = "\n".join(
-        f"[{f.severity}] {r.check_id}: {f.title}"
+        f"[{f.severity}] {r.check_id}: {_safe(f.title)}"
         for r in report.results for f in r.findings)[:8000]
     sys_msg = "Answer the user's question about this scan report. Be brief, direct."
-    return llm(f"Question: {question}\n\nReport findings:\n{findings_text}",
+    return llm(f"Question: {safe_q}\n\nReport findings:\n{findings_text}",
                 system=sys_msg, max_tokens=400)
 
 
@@ -202,11 +212,13 @@ def fix_pr_body(finding) -> str:
     import os as _os
     if _os.environ.get("WPSECSCAN_NO_AI") or not is_configured():
         return ""
+    from .ai_safety import safe_for_llm as _safe
     sys_msg = ("Write a GitHub pull-request body that fixes this WordPress security "
                 "finding. Sections: Summary, Root cause, Fix (with diff snippets), "
                 "Test plan. Markdown. Max 250 words.")
-    return llm(f"Title: {finding.title}\nEvidence: {finding.evidence}\n"
-                f"Existing remediation: {finding.remediation}",
+    # N2 (v2.7.3) — finding.* scan-controlled; sanitise before LLM.
+    return llm(f"Title: {_safe(finding.title)}\nEvidence: {_safe(finding.evidence)}\n"
+                f"Existing remediation: {_safe(finding.remediation)}",
                 system=sys_msg, max_tokens=500)
 
 
@@ -221,12 +233,14 @@ def evidence_summary(finding) -> str:
         return ""
     if not finding.evidence or len(finding.evidence) < 80:
         return ""
+    from .ai_safety import safe_for_llm as _safe
     sys_msg = (
         "Summarise the following WPSecScan finding evidence in EXACTLY ONE "
         "sentence (max 30 words). State the concrete observation; no "
         "speculation. Output the sentence only — no preface."
     )
-    return llm(finding.evidence[:2000], system=sys_msg, max_tokens=60).strip()
+    # N2 (v2.7.3) — evidence is target-controlled response content.
+    return llm(_safe(finding.evidence[:2000]), system=sys_msg, max_tokens=60).strip()
 
 
 def threat_model_js(js_bundle: str) -> str:
@@ -236,6 +250,7 @@ def threat_model_js(js_bundle: str) -> str:
         return ""
     if not js_bundle:
         return ""
+    from .ai_safety import safe_for_llm as _safe
     sys_msg = (
         "You are a defensive security engineer. Read the JS code below and "
         "list every attack surface it EXPOSES to a remote attacker: API "
@@ -243,7 +258,8 @@ def threat_model_js(js_bundle: str) -> str:
         "third-party CDN/script-src dependencies. Bullet points, ranked by "
         "severity. Max 250 words."
     )
-    return llm(js_bundle[:8000], system=sys_msg, max_tokens=600)
+    # N2 (v2.7.3) — JS bundle comes from the scanned target.
+    return llm(_safe(js_bundle[:8000]), system=sys_msg, max_tokens=600)
 
 
 def answer_compliance_question(question: str, report_dict: dict) -> str:
@@ -269,7 +285,11 @@ def answer_compliance_question(question: str, report_dict: dict) -> str:
                           for f in (r.get("findings") or [])],
         } for r in (report_dict.get("results") or [])],
     }
-    prompt = f"Report:\n{_json.dumps(slim, indent=2)[:8000]}\n\nQuestion: {question}"
+    from .ai_safety import safe_for_llm as _safe
+    # N2 (v2.7.3) — user-supplied `question`, plus finding titles in the
+    # JSON report which are scan-controlled.
+    safe_q = _safe(question)
+    prompt = f"Report:\n{_safe(_json.dumps(slim, indent=2)[:8000])}\n\nQuestion: {safe_q}"
     return llm(prompt, system=sys_msg, max_tokens=400)
 
 
@@ -326,9 +346,11 @@ def fix_pr_diff(finding) -> str:
         "  # CONFIG-ONLY: <one-line description>\n"
         "instead of a diff. No commentary."
     )
+    from .ai_safety import safe_for_llm as _safe
+    # N2 (v2.7.3) — finding fields are scan-controlled.
     return llm(
-        f"Title: {finding.title}\nEvidence: {finding.evidence}\n"
-        f"Remediation: {finding.remediation}\nURL: {finding.url}",
+        f"Title: {_safe(finding.title)}\nEvidence: {_safe(finding.evidence)}\n"
+        f"Remediation: {_safe(finding.remediation)}\nURL: {_safe(finding.url)}",
         system=sys_msg, max_tokens=800,
     )
 
@@ -365,12 +387,14 @@ def client_summarize_finding(finding, *, audience: str = "client") -> str:
     import os as _os
     if _os.environ.get("WPSECSCAN_NO_AI") or not is_configured():
         return ""
+    from .ai_safety import safe_for_llm as _safe
     sys_msg = _CLIENT_SUMMARY_AUDIENCES.get(audience) or _CLIENT_SUMMARY_AUDIENCES["client"]
+    # N2 (v2.7.3) — finding.* fields are scan-controlled (target response).
     prompt = (
-        f"Title: {finding.title}\n"
+        f"Title: {_safe(finding.title)}\n"
         f"Severity: {finding.severity}\n"
-        f"Evidence: {(finding.evidence or '')[:300]}\n"
-        f"Remediation: {(finding.remediation or '')[:300]}\n"
+        f"Evidence: {_safe((finding.evidence or '')[:300])}\n"
+        f"Remediation: {_safe((finding.remediation or '')[:300])}\n"
     )
     return llm(prompt, system=sys_msg, max_tokens=120)
 
