@@ -217,26 +217,13 @@ def redact_report_in_place(report) -> int:
     return n
 
 
-# ---- #68 hallucination verification ----
-
-def verify_claim(claim: str, target_url: str) -> str:
-    """Re-prompt the configured LLM with a yes/no verification of `claim`
-    about `target_url`. Returns 'true' / 'false' / 'unknown'."""
-    if os.environ.get("WPSECSCAN_NO_AI"):
-        return "unknown"
-    from .ai_assist import llm, is_configured
-    if not is_configured():
-        return "unknown"
-    safe = safe_for_llm(claim)
-    sys = ("You are a fact-checker. Answer with a single word: TRUE if the "
-           "claim is likely correct based on common WordPress knowledge, "
-           "FALSE if obviously wrong, UNKNOWN if you can't tell. Nothing else.")
-    raw = (llm(f"Claim about {target_url}:\n\n{safe}", system=sys, max_tokens=10) or "").strip().lower()
-    if raw.startswith("true"):
-        return "true"
-    if raw.startswith("false"):
-        return "false"
-    return "unknown"
+# T4 (v2.8.0) — `verify_claim` (#68 hallucination verification) deleted.
+# Zero production callers per the v2.7.3 Agent G G8 finding. The
+# self-referential design (ask the same LLM to verify its own prior
+# claim, with no live CVE/NVD lookup) meant a hallucinated CVE-YYYY-
+# NNNN would likely be confirmed TRUE anyway. Future hallucination
+# verification should use retrieval-augmented generation against a
+# local CVE corpus (queued as v2.8.1 F39).
 
 
 # ---- #70 llama.cpp local backend ----

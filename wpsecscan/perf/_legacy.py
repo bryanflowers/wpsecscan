@@ -1,17 +1,23 @@
-"""#83-87 — Performance helpers.
+"""#85-87 — Performance helpers (post-v2.8.0 T4).
 
-#83 HTTP/3 client — best-effort using httpx with aioquic when available
-#84 GPU-accelerated regex — documented stub; deferred (CUDA dep too heavy)
-#85 Bloom filter for already-scanned URLs (spider dedupe)
-#86 Worker-pool mode — multiprocess fan-out across targets
-#87 Per-check memoization — cache outputs by response-hash
+T4 (v2.8.0) — removed three dead items:
+  - #83 HTTP/3 client (has_http3) — never wired; aioquic is heavy
+    and no production check uses it. Re-add when there's a caller.
+  - #84 GPU-accelerated regex — was a documented stub since v2.5,
+    never implemented; deferred indefinitely (CUDA dep too heavy
+    for a defensive scanner shipped as a stand-alone PyInstaller
+    .exe). Remove the placeholder comment.
+  - #86 Worker-pool mode (worker_pool_scan) — never wired; the
+    daemon's per-cron concurrency and perf_v27.scan_zip_parallel_
+    paths cover the realistic fan-out use cases.
+
+Surviving:
+  #85 Bloom filter for already-scanned URLs (spider dedupe)
+  #87 Per-check memoization — cache outputs by response-hash
 """
 from __future__ import annotations
 
 import hashlib
-import multiprocessing
-import os
-from functools import lru_cache
 
 
 # ---- #85 Bloom filter ----
@@ -64,22 +70,5 @@ def lookup_memo(check_id: str, response_body: bytes) -> list | None:
     return _memo_cache.get(key)
 
 
-# ---- #86 worker-pool ----
-
-def worker_pool_scan(targets: list[str], worker_fn, *, workers: int | None = None) -> list:
-    """Run `worker_fn(target)` across N processes in parallel. Returns list of results."""
-    workers = workers or max(1, (multiprocessing.cpu_count() or 4) - 1)
-    with multiprocessing.Pool(processes=workers) as pool:
-        return pool.map(worker_fn, targets)
-
-
-# ---- #83 HTTP/3 detection (does our httpx have h3? no by default) ----
-
-@lru_cache(maxsize=1)
-def has_http3() -> bool:
-    """True if aioquic / httpx h3 transport is installed."""
-    try:
-        import aioquic  # noqa: F401
-        return True
-    except ImportError:
-        return False
+# T4 (v2.8.0) — `worker_pool_scan` (#86) and `has_http3` (#83) deleted
+# as dead code (zero production callers). See module docstring.
