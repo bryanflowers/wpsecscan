@@ -30,7 +30,11 @@ def test_cmd_worker_help_returns_without_error(capsys):
 
 
 def test_cmd_worker_refuses_non_url_queue_entries(monkeypatch, tmp_path, capsys):
-    class _Stop(Exception):
+    # B5-adjacent (v2.8.0) — must inherit BaseException, not Exception:
+    # cmd_worker's `except Exception` would catch _Stop as a "redis
+    # error" and `continue`, infinite-looping in the test. KeyboardInterrupt
+    # is the conventional escape from such loops.
+    class _Stop(KeyboardInterrupt):
         pass
 
     bad_payloads = [
@@ -66,7 +70,11 @@ def test_cmd_worker_refuses_non_url_queue_entries(monkeypatch, tmp_path, capsys)
 
 
 def test_cmd_worker_empty_target_skipped(monkeypatch, tmp_path):
-    class _Stop(Exception):
+    # B5-adjacent (v2.8.0) — must inherit BaseException, not Exception:
+    # cmd_worker's `except Exception` would catch _Stop as a "redis
+    # error" and `continue`, infinite-looping in the test. KeyboardInterrupt
+    # is the conventional escape from such loops.
+    class _Stop(KeyboardInterrupt):
         pass
 
     class _StubPipe:
