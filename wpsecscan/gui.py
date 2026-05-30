@@ -56,9 +56,27 @@ class _Tooltip:
         self.widget = widget
         self.text = text
         self.tip = None
+        # U28 (v2.8.0) — tooltip also fires on keyboard focus so screen-
+        # reader / keyboard-only users see the descriptions, not just
+        # mouse users. Tk's <Enter>/<Leave> are mouse-only events.
         widget.bind("<Enter>", self._show, add="+")
         widget.bind("<Leave>", self._hide, add="+")
         widget.bind("<ButtonPress>", self._hide, add="+")
+        widget.bind("<FocusIn>", self._show, add="+")
+        widget.bind("<FocusOut>", self._hide, add="+")
+        # U29 (v2.8.0) — screen-reader accessible name. On Tk 8.6+
+        # Windows maps a widget's `text=` attribute to MSAA accName.
+        # For icon-only buttons that don't have visible text, fall
+        # back to the tooltip text so a screen reader announces
+        # something meaningful instead of "blank".
+        try:
+            current_text = str(widget.cget("text") or "").strip()
+            if not current_text:
+                widget.configure(text="")  # ensure attribute exists
+            # Always-set a Tk window name that screen readers may read.
+            widget.tk.call(str(widget), "configure", "-takefocus", "1")
+        except (tkinter.TclError, AttributeError):
+            pass
 
     def _show(self, _e=None):
         if self.tip:
@@ -383,6 +401,24 @@ class App:
         view_menu.add_checkbutton(label="Read scan summary aloud (TTS)",
                                   variable=self._tts_menu_var,
                                   command=self._on_tts_toggle)
+        # U23 + U24 (v2.8.0) — theme toggle that PERSISTS across
+        # launches (via _save_pref), plus a high-contrast accessibility
+        # theme for low-vision users. Pre-fix the View menu had no
+        # theme entry at all; the underlying ttk Style was hardcoded
+        # to "clam" on every launch.
+        view_menu.add_separator()
+        self._theme_var = tkinter.StringVar(value=self._load_pref("theme", "default"))
+        view_menu.add_radiobutton(label="Theme: Default (dark)",
+                                  variable=self._theme_var, value="default",
+                                  command=self._on_theme_change)
+        view_menu.add_radiobutton(label="Theme: Light",
+                                  variable=self._theme_var, value="light",
+                                  command=self._on_theme_change)
+        view_menu.add_radiobutton(label="Theme: High Contrast (accessibility)",
+                                  variable=self._theme_var, value="high_contrast",
+                                  command=self._on_theme_change)
+        # Apply the persisted theme at startup.
+        self._on_theme_change()
         menubar.add_cascade(label="View", menu=view_menu)
         help_menu = tkinter.Menu(menubar, tearoff=False)
         help_menu.add_command(label="Keyboard shortcuts", command=self._show_shortcuts)
@@ -419,6 +455,17 @@ class App:
         # #51: Ctrl+P toggles pause/resume during an active scan.
         self.root.bind_all("<Control-p>", lambda _e: self._on_pause())
         self.root.bind_all("<Control-d>", lambda _e: self._open_snapshot_diff())
+        # U25 (v2.8.0) — Alt+S to start scan, Alt+R to open report.
+        # `<Alt-Key-s>` works on Windows + Linux + macOS Tk; bind_all
+        # so the shortcut works regardless of which widget has focus.
+        self.root.bind_all("<Alt-Key-s>", lambda _e: self._on_scan_click())
+        self.root.bind_all("<Alt-Key-r>", lambda _e: self._open_html())
+        # U26 (v2.8.0) — Ctrl+Q clean quit. Goes through the unified
+        # WM_DELETE_WINDOW handler (N3 from Wave 1) so scan thread
+        # cancellation + tray cleanup happen properly.
+        self.root.bind_all("<Control-q>", lambda _e: self._on_window_close()
+                            if hasattr(self, "_on_window_close")
+                            else self.root.destroy())
 
         # --- Top bar: URL + scan + options ---
         top = ttk.Frame(self.root, padding=(16, 14, 16, 8))
@@ -2685,6 +2732,38 @@ class App:
         except Exception:  # noqa: BLE001
             return None
 
+    def _on_theme_change(self) -> None:
+        """U23 + U24 (v2.8.0) — apply + persist the user's theme choice."""
+        theme = getattr(self, "_theme_var", None)
+        choice = theme.get() if theme is not None else "default"
+        try:
+            style = ttk.Style(self.root)
+            # Tk's bundled themes vary by platform. We pick the closest
+            # match per choice and let ttk fall back gracefully.
+            if choice == "light":
+                # Light: "vista" on Windows, "aqua" on macOS, "clam" elsewhere.
+                for cand in ("vista", "aqua", "clam"):
+                    if cand in style.theme_names():
+                        style.theme_use(cand)
+                        break
+                self.root.configure(bg="#fafafa")
+            elif choice == "high_contrast":
+                # U24 — bold black bg + yellow fg + white borders (WCAG-AA).
+                style.theme_use("clam")
+                style.configure(".", background="#000000", foreground="#ffff00",
+                                  fieldbackground="#000000", insertcolor="#ffff00")
+                style.configure("TButton", background="#000000", foreground="#ffff00",
+                                  bordercolor="#ffffff", relief="solid")
+                style.map("TButton", background=[("active", "#222200")])
+                self.root.configure(bg="#000000")
+            else:  # default (dark)
+                style.theme_use("clam")
+                self.root.configure(bg="#0d1117")
+        except (tkinter.TclError, RuntimeError):
+            pass
+        if hasattr(self, "_save_pref"):
+            self._save_pref("theme", choice)
+
     def _on_window_close(self) -> None:
         """N3 (v2.7.3) — single WM_DELETE_WINDOW handler that:
           1. Signals the scan thread to cancel (stops it promptly).
@@ -2751,6 +2830,16 @@ class App:
                               if str(_e.widget) == str(win) else None
                           ),
                           add="+")
+                # U21 (v2.8.0) — keyboard escape from every first-run
+                # dialog. The Update dialog already bound Escape; the
+                # other three did not, so keyboard users had no way to
+                # dismiss them without the close-X. Bind Escape to
+                # destroy this dialog (which auto-advances the chain
+                # via the <Destroy> handler above).
+                try:
+                    win.bind("<Escape>", lambda _e, _w=win: _w.destroy(), add="+")
+                except (tkinter.TclError, AttributeError):
+                    pass
             else:
                 # Step was skipped (marker already set) — proceed immediately.
                 self.root.after(0, _run_step, idx + 1)

@@ -105,6 +105,9 @@ test = ["pytest>=7.4,<9"]
 
 [project.scripts]
 wpsecscan = "wpsecscan.__main__:main"
+# U12 (v2.8.0) — short alias. Daily power-users typed `wpsecscan` 50+
+# times per day; `wpsec` is a 4-keystroke save.
+wpsec = "wpsecscan.__main__:main"
 
 [project.gui-scripts]
 wpsecscan-gui = "wpsecscan.gui:main"

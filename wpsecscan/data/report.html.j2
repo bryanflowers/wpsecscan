@@ -231,6 +231,76 @@
 <button class="themebtn" onclick="(function(){var r=document.documentElement;var n=r.getAttribute('data-theme')==='light'?'dark':'light';r.setAttribute('data-theme',n);try{localStorage.setItem('wpsec_theme',n)}catch(e){}})()">🌓 Theme</button>
 <button class="themebtn" style="right:240px" onclick="(function(){var r=document.documentElement;var n=r.getAttribute('data-palette')==='cb'?'':'cb';if(n)r.setAttribute('data-palette',n);else r.removeAttribute('data-palette');try{localStorage.setItem('wpsec_palette',n)}catch(e){}})()">👁 Palette</button>
 <script>try{var t=localStorage.getItem('wpsec_theme');if(t)document.documentElement.setAttribute('data-theme',t);var p=localStorage.getItem('wpsec_palette');if(p)document.documentElement.setAttribute('data-palette',p)}catch(e){}</script>
+
+<!-- F64 (v2.8.0) — Interactive filter bar. Lightweight (no Chart.js
+     dependency — keeps the report a single-file). Filters/hides
+     findings by severity by toggling data attributes. -->
+<div id="wpsec-filter" style="position:sticky;top:0;background:var(--bg,#0d1117);padding:10px 14px;border-bottom:1px solid var(--border,#30363d);z-index:90;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+  <strong style="font-size:13px;margin-right:6px">Filter:</strong>
+  <button class="filt" data-sev="critical" onclick="_wpsecFilter(this)" style="background:#7c1d1d;color:#fff;border:1px solid #c93a3a;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">critical</button>
+  <button class="filt" data-sev="high" onclick="_wpsecFilter(this)" style="background:#7c3a1d;color:#fff;border:1px solid #d96e2e;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">high</button>
+  <button class="filt" data-sev="medium" onclick="_wpsecFilter(this)" style="background:#7c6f1d;color:#fff;border:1px solid #d9b32e;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">medium</button>
+  <button class="filt" data-sev="low" onclick="_wpsecFilter(this)" style="background:#3a3a3a;color:#fff;border:1px solid #666;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">low</button>
+  <button class="filt" data-sev="info" onclick="_wpsecFilter(this)" style="background:#1d3a7c;color:#fff;border:1px solid #4a6bd6;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">info</button>
+  <span style="margin-left:auto;font-size:11px;opacity:0.7" id="wpsec-filter-count">all visible</span>
+  <input type="search" placeholder="search title / evidence..." id="wpsec-search" oninput="_wpsecSearch(this.value)" style="margin-left:8px;padding:4px 10px;border-radius:6px;border:1px solid #444;background:#0d1117;color:#c9d1d9;font-size:12px;min-width:220px">
+</div>
+<script>
+// F64 (v2.8.0) — single-file interactive filter + search. Operates
+// directly on the rendered DOM by toggling display on each finding
+// container (which already carries a `badge <severity>` span).
+(function(){
+  var _hidden = {};  // sev -> bool (true = hidden)
+  function _allFindings() {
+    // Each finding is a <h3> with a child <span class="badge XYZ">.
+    return Array.prototype.slice.call(document.querySelectorAll("h3 .badge"));
+  }
+  function _findingContainer(badge) {
+    // The clickable filter container is the parent of <h3>'s parent
+    // (typically a finding wrapper div). Walk up until we hit a
+    // sibling-containing block — fall back to the h3's parent.
+    return badge.closest("article, section, div.finding, .finding-card, li") || badge.parentElement.parentElement;
+  }
+  window._wpsecFilter = function(btn) {
+    var sev = btn.getAttribute("data-sev");
+    _hidden[sev] = !_hidden[sev];
+    btn.style.opacity = _hidden[sev] ? "0.35" : "1.0";
+    btn.style.textDecoration = _hidden[sev] ? "line-through" : "none";
+    _apply();
+  };
+  window._wpsecSearch = function(q) {
+    window._wpsecQ = (q || "").toLowerCase();
+    _apply();
+  };
+  function _apply() {
+    var q = window._wpsecQ || "";
+    var hits = 0;
+    _allFindings().forEach(function(b){
+      var container = _findingContainer(b);
+      if (!container) return;
+      // Translate "crit" badge class to severity name.
+      var clsList = (b.className || "").split(/\s+/);
+      var sev = "info";
+      ["crit","high","medium","low","info"].forEach(function(c){
+        if (clsList.indexOf(c) !== -1) {
+          sev = (c === "crit") ? "critical" : c;
+        }
+      });
+      var hideBySev = !!_hidden[sev];
+      var hideBySearch = false;
+      if (q) {
+        var text = (container.innerText || "").toLowerCase();
+        hideBySearch = text.indexOf(q) === -1;
+      }
+      var hide = hideBySev || hideBySearch;
+      container.style.display = hide ? "none" : "";
+      if (!hide) hits++;
+    });
+    var counter = document.getElementById("wpsec-filter-count");
+    if (counter) counter.textContent = hits + " finding(s) visible";
+  }
+})();
+</script>
 <header>
   <h1>WPSecScan — <span style="color:#79c0ff">{{ report.target }}</span></h1>
   <div class="meta">Scanned {{ report.scanned_at }} · {{ report.duration_ms }} ms total</div>

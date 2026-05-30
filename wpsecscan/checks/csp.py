@@ -88,6 +88,31 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     if "base-uri" not in parsed:
         issues.append(("low", "base-uri not set — base-tag injection mitigation is missing"))
 
+    # F17 (v2.8.0) — Trusted Types CSP directive detection. Chrome 124+
+    # (April 2024) enforces `require-trusted-types-for 'script'` as the
+    # OWASP-2025-A03 baseline mitigation against DOM-XSS sink abuse.
+    # Edge + Brave shipped it; Firefox + Safari still behind a flag.
+    # Absence is defence-in-depth gap, not a vulnerability — flagged
+    # low. A WP site that emits a CSP at all but lacks Trusted Types
+    # is leaving an obvious modern hardening on the table.
+    has_require_tt = "require-trusted-types-for" in parsed
+    has_tt_policy = "trusted-types" in parsed
+    if not has_require_tt:
+        issues.append((
+            "low",
+            "Missing `require-trusted-types-for 'script'` directive — "
+            "DOM-XSS sink mitigation not enforced in Chromium browsers",
+        ))
+    elif not has_tt_policy:
+        # require-trusted-types-for present but no policy whitelist —
+        # this enforces nothing useful since any policy can be created.
+        issues.append((
+            "low",
+            "`require-trusted-types-for` set but `trusted-types` policy "
+            "whitelist is missing — any policy name can be created, "
+            "defeating the protection",
+        ))
+
     if not issues:
         findings.append(
             Finding(

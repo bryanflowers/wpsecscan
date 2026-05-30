@@ -912,6 +912,15 @@ def _apply_config_and_profile(parser, args) -> None:
             print(f"--profile load failed: {e}", file=sys.stderr)
             sys.exit(2)
 
+    # U5 (v2.8.0) — auto-discover `.wpsecscan.toml` in cwd when --config
+    # not given. Saves the user from repeating 8 flags per invocation.
+    # Looks ONLY in the current working directory; we don't walk up
+    # to avoid surprising the user with a config from a parent project.
+    if not getattr(args, "config", None):
+        from pathlib import Path as _P
+        _auto = _P.cwd() / ".wpsecscan.toml"
+        if _auto.exists() and _auto.is_file():
+            args.config = str(_auto)
     if getattr(args, "config", None):
         try:
             from pathlib import Path
@@ -1826,7 +1835,19 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         from .marketplace_v27 import cmd_submit_cve
         cmd_submit_cve(args)
     else:
-        print(f"unknown subcommand: {cmd}", file=sys.stderr)
+        # U2 (v2.8.0) — "did you mean?" fuzzy suggestion. Pre-fix
+        # bare error left users guessing which subcommand they
+        # mistyped. Use stdlib difflib.get_close_matches against
+        # SUBCOMMAND_NAMES so we can offer the nearest valid one.
+        import difflib as _difflib
+        candidates = _difflib.get_close_matches(cmd, SUBCOMMAND_NAMES, n=3, cutoff=0.55)
+        print(f"unknown subcommand: {cmd!r}", file=sys.stderr)
+        if candidates:
+            print(f"  did you mean: {', '.join(repr(c) for c in candidates)}?",
+                  file=sys.stderr)
+        else:
+            print("  run `wpsecscan --help` to see all available subcommands.",
+                  file=sys.stderr)
         sys.exit(2)
 
 

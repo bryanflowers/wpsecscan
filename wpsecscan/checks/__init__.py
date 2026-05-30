@@ -300,6 +300,9 @@ from .companion_v14 import check as companion_v14
 from .trellis_yaml_audit import check as trellis_yaml_audit
 from .headless_vercel_netlify_detect import check as headless_vercel_netlify_detect
 from .perf_of_target import check as perf_of_target
+# F1 + F12 (v2.8.0) — new check modules
+from .wc_coupon_enum import check as wc_coupon_enum
+from .headless_cors_lockdown import check as headless_cors_lockdown
 
 # Authenticated — only when creds are provided
 from .authenticated import check as authenticated
@@ -604,6 +607,11 @@ ALL_CHECKS = [
     ("plugin_archive_fuzz","Plugin source-archive fuzz (#6)", plugin_archive_fuzz, True),
     ("headless_templates", "Headless DOM templates (Playwright) (#14)", headless_templates, True),
     ("websocket_fuzz",     "WebSocket frame fuzzer (#23)", websocket_fuzz, True),
+    # F1 + F12 (v2.8.0) — new passive checks; non-aggressive (no auth,
+    # no destructive probes). WC coupon enum sends 5 fake codes only;
+    # headless CORS lockdown is a 3-GET probe.
+    ("wc_coupon_enum",         "WC coupon-code enumeration oracle (F1)", wc_coupon_enum,         False),
+    ("headless_cors_lockdown", "Headless WP REST CORS lockdown (F12)",   headless_cors_lockdown, False),
     # Deep throttle runs last (~20 min) so all fast checks complete first — risk score
     # and findings appear in ~1-2 min instead of after the throttle test finishes.
     # Self-skips unless ctx["deep_throttle"] is set, so position is harmless when off.

@@ -373,6 +373,31 @@ _CLIENT_SUMMARY_AUDIENCES = {
         "executive. ONE sentence on business risk in dollars / regulatory / "
         "reputational terms. ONE sentence on the time-to-fix. 30 words max."
     ),
+    # F41 (v2.8.0) — two new tiers added per the v2.8.0 brainstorm
+    # (Feat-C F41 — smart-explain 5 difficulty tiers).
+    "pm": (
+        "You are explaining a WordPress security finding to a product manager. "
+        "Two sentences. Sentence 1: user impact (what feature breaks / who's at "
+        "risk / how many users affected). Sentence 2: priority justification — "
+        "must-fix / should-fix / nice-to-have, and the rough sprint cost. 40 "
+        "words max. No technical jargon."
+    ),
+    "sec_eng": (
+        "You are explaining a WordPress security finding to a senior security "
+        "engineer. THREE sentences. Sentence 1: precise vulnerability class + "
+        "CWE/CVE id when known. Sentence 2: concrete exploitation path including "
+        "the prerequisite (auth, config, version). Sentence 3: defence layers "
+        "(WAF rule, code patch, config change). Use full technical vocabulary; "
+        "they want signal not safety. 60 words max."
+    ),
+    "wp_expert": (
+        "You are explaining a WordPress security finding to a WordPress-core "
+        "contributor / plugin author. TWO sentences. Sentence 1: the WP-specific "
+        "context — which hook/filter/REST endpoint/option this touches, what "
+        "WP-core function should have been used instead. Sentence 2: any "
+        "relevant Trac ticket, Patchstack/WPScan vuln-id, or plugin handbook "
+        "section. Assume deep WP-internals knowledge. 50 words max."
+    ),
 }
 
 
