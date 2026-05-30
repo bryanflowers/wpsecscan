@@ -1263,5 +1263,15 @@
     "pci_dss": "n/a",
     "nist_800_53": "n/a",
     "iso_27001": "n/a"
+  },
+  "wc_coupon_enum": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "AC-7",
+    "iso_27001": "A.8.5"
+  },
+  "headless_cors_lockdown": {
+    "pci_dss": "6.2.4",
+    "nist_800_53": "AC-4",
+    "iso_27001": "A.8.20"
   }
 }

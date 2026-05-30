@@ -295,5 +295,7 @@
   "companion_v14":                {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1078", "attack_label": "Valid Accounts", "cwe": "CWE-1392", "d3fend": "D3-IAA"},
   "trellis_yaml_audit":           {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1552.001", "attack_label": "Credentials In Files", "cwe": "CWE-538", "d3fend": "D3-CRO"},
   "headless_vercel_netlify_detect": {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-200", "d3fend": "D3-NTA"},
-  "perf_of_target":               {"owasp": "n/a", "owasp_label": "Operational", "attack": "n/a", "attack_label": "Performance audit", "cwe": "CWE-400", "d3fend": "D3-NTA"}
+  "perf_of_target":               {"owasp": "n/a", "owasp_label": "Operational", "attack": "n/a", "attack_label": "Performance audit", "cwe": "CWE-400", "d3fend": "D3-NTA"},
+  "wc_coupon_enum":               {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1110.001", "attack_label": "Brute Force: Password Guessing", "cwe": "CWE-799", "d3fend": "D3-NTA"},
+  "headless_cors_lockdown":       {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-942", "d3fend": "D3-NTA"}
 }
