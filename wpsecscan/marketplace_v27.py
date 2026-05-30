@@ -257,7 +257,30 @@ def cmd_marketplace(args: list[str]) -> None:
             with urllib.request.urlopen(src_url, timeout=15) as r:
                 target.write_bytes(r.read())
         except (urllib.error.URLError, OSError, ValueError) as e:
+            # Wave 5 (v2.7.3) — audit the install failure so a
+            # forensic timeline can correlate failed installs with
+            # later attack attempts (e.g. an attacker probing the
+            # marketplace endpoint repeatedly).
+            try:
+                from .auth.audit_log import safe_append as _audit
+                _audit("marketplace.install_failed",
+                        target=slug,
+                        details={"source_url": src_url, "error": str(e)[:200]})
+            except Exception:  # noqa: BLE001
+                pass
             print(f"download failed: {e}", file=sys.stderr); sys.exit(2)
+        # Wave 5 (v2.7.3) — audit-log the successful install. Third-
+        # party code lands on the operator's disk and runs on the next
+        # scan; this is the highest-value entry in the audit trail.
+        try:
+            from .auth.audit_log import safe_append as _audit
+            _audit("marketplace.install",
+                    target=slug,
+                    details={"source_url": src_url,
+                             "signed": bool(sig_url and pem_url),
+                             "allow_unsigned": allow_unsigned})
+        except Exception:  # noqa: BLE001
+            pass
         print(f"installed: {target}")
         if sig_url and pem_url:
             print(f"# Verify the signature:")
@@ -319,7 +342,23 @@ def cmd_marketplace(args: list[str]) -> None:
                   "--certificate-oidc-issuer", _COSIGN_OIDC_ISSUER],
                 capture_output=True, text=True,
             )
-            if res.returncode == 0:
+            verified = res.returncode == 0
+            # Wave 5 (v2.7.3) — audit-log verify outcome. A verify
+            # failure on a previously-installed check is a strong
+            # signal of supply-chain tampering and belongs in the
+            # tamper-evident HMAC-chained audit log.
+            try:
+                from .auth.audit_log import safe_append as _audit
+                _audit("marketplace.verify",
+                        target=slug,
+                        details={
+                            "author_handle": entry.get("author_handle", ""),
+                            "verified": verified,
+                            "cosign_stderr": (res.stderr[:200] if not verified else ""),
+                        })
+            except Exception:  # noqa: BLE001
+                pass
+            if verified:
                 print(f"✓ verified: {slug} signed by {entry.get('author_handle', '?')}")
             else:
                 print(f"✗ verify FAILED: {res.stderr[:300]}")

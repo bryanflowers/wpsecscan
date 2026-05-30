@@ -72,9 +72,21 @@ def set_secret(site_url: str, field: str, value: str) -> str:
     if _have_keyring():
         import keyring
         keyring.set_password(_SERVICE, ident, value)
-        return "keyring"
-    _fallback_set(ident, value)
-    return "fallback"
+        backend = "keyring"
+    else:
+        _fallback_set(ident, value)
+        backend = "fallback"
+    # Wave 5 (v2.7.3) — audit-log the credential write. Wrapped in a
+    # try/except so an audit-log failure can't break the set_secret
+    # operation itself.
+    try:
+        from .auth.audit_log import safe_append as _audit
+        _audit("creds.set_secret",
+                target=f"{site_url}::{field}",
+                details={"backend": backend, "value_len": len(value)})
+    except Exception:  # noqa: BLE001
+        pass
+    return backend
 
 
 def get_secret(site_url: str, field: str) -> str | None:
@@ -103,6 +115,14 @@ def delete_secret(site_url: str, field: str) -> bool:
     if _fallback_delete(ident):
         removed = True
     _remove_from_index(site_url, field)
+    # Wave 5 (v2.7.3) — audit-log the credential delete.
+    try:
+        from .auth.audit_log import safe_append as _audit
+        _audit("creds.delete_secret",
+                target=f"{site_url}::{field}",
+                details={"removed": removed})
+    except Exception:  # noqa: BLE001
+        pass
     return removed
 
 

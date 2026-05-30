@@ -3,6 +3,18 @@
 Round-64 #117 — each entry stores a SHA-256 HMAC chained to the
 previous entry. Tampering with any line breaks the chain forward, so
 an attacker can't quietly remove a row.
+
+v2.7.3 (N20-partial / Wave 5) — `audit_log.append()` is now wired
+into the auth-sensitive code paths in `creds_vault.set_secret` /
+`delete_secret` and `marketplace_v27` install / verify. Before
+v2.7.3 the module had ZERO production callsites — the audit trail
+the module was designed to provide didn't exist at runtime.
+
+To record an action, callers should use `safe_append(action,
+target, details)` which derives the actor automatically from
+WPSECSCAN_ACTOR / getpass.getuser() and swallows any exception
+from the underlying append (audit failures must not break the
+operation being audited).
 """
 from __future__ import annotations
 
@@ -75,6 +87,38 @@ def append(actor: str, action: str, target: str = "", details: dict | None = Non
     with p.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, sort_keys=True) + "\n")
     return h
+
+
+def _default_actor() -> str:
+    """Best-effort actor for audit entries when the caller doesn't
+    supply one. Order: WPSECSCAN_ACTOR env > $USER / $USERNAME >
+    getpass.getuser() > 'cli'."""
+    actor = os.environ.get("WPSECSCAN_ACTOR", "").strip()
+    if actor:
+        return actor[:64]
+    actor = (os.environ.get("USER") or os.environ.get("USERNAME") or "").strip()
+    if actor:
+        return actor[:64]
+    try:
+        import getpass
+        return (getpass.getuser() or "cli")[:64]
+    except Exception:  # noqa: BLE001
+        return "cli"
+
+
+def safe_append(action: str, target: str = "", details: dict | None = None,
+                  *, actor: str | None = None) -> None:
+    """Convenience wrapper for production code. Derives the actor when
+    not supplied, swallows any exception from the append (an audit
+    failure must NOT break the operation being audited — e.g. a
+    creds_vault.set_secret call should succeed even if the audit log
+    file is unwriteable).
+
+    Production code paths SHOULD prefer this over `append()` directly."""
+    try:
+        append(actor or _default_actor(), action, target, details or {})
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def verify_chain() -> tuple[bool, int, str]:
