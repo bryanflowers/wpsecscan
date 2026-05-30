@@ -23,6 +23,27 @@ def _home() -> Path:
     return p
 
 
+def _atomic_write_text(path: Path, text: str) -> None:
+    """N6 (v2.7.3) — atomic write helper for state files. Concurrent
+    scan sessions on history.json / profiles.json / annotations.json /
+    comments.json were corrupting each other via bare `write_text`
+    (one writer would overwrite the other mid-flush). C13/C15 fixed
+    the snapshot path in this same module; this helper covers the
+    rest. Pattern: write to a pid-suffixed temp file, then os.replace
+    atomically promotes it to the target name.
+    """
+    tmp = path.with_suffix(path.suffix + f".tmp.{os.getpid()}")
+    try:
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
+
+
 def _history_path() -> Path:
     return _home() / "history.json"
 
@@ -55,7 +76,8 @@ def push_url(url: str) -> None:
     entries.insert(0, {"url": url, "last_scanned": time.time()})
     entries = entries[:MAX_HISTORY]
     try:
-        _history_path().write_text(json.dumps(entries, indent=2), encoding="utf-8")
+        _atomic_write_text(_history_path(),
+                            json.dumps(entries, indent=2))
     except OSError:
         pass
 
@@ -90,7 +112,8 @@ def save_profile(name: str, profile: dict) -> None:
     profile = {k: v for k, v in profile.items() if v not in ("", None)}
     profiles[name] = profile
     try:
-        _profiles_path().write_text(json.dumps(profiles, indent=2), encoding="utf-8")
+        _atomic_write_text(_profiles_path(),
+                            json.dumps(profiles, indent=2))
     except OSError:
         pass
 
@@ -100,7 +123,8 @@ def delete_profile(name: str) -> None:
     if name in profiles:
         del profiles[name]
         try:
-            _profiles_path().write_text(json.dumps(profiles, indent=2), encoding="utf-8")
+            _atomic_write_text(_profiles_path(),
+                                json.dumps(profiles, indent=2))
         except OSError:
             pass
 
@@ -161,18 +185,37 @@ def save_report_snapshot(url: str, report_json_text: str) -> None:
 
 
 def _snapshot_signing_secret() -> str:
-    """Return (and lazily-create) the per-install snapshot signing secret."""
+    """Return (and lazily-create) the per-install snapshot signing secret.
+
+    N7 (v2.7.3) — was: plain `write_text` (no 0o600 mode → world-
+    readable on POSIX) + TOCTOU on `if p.exists()` (two parallel
+    workers race; the loser's secret silently overwrites the winner's,
+    invalidating every snapshot signed before the race resolves).
+    Now: O_EXCL atomic create with 0o600 mode; on FileExistsError
+    read the racing process's secret instead of overwriting it.
+    """
     p = _home() / "snapshot-signing-secret.json"
     if p.exists():
         try:
             return json.loads(p.read_text(encoding="utf-8")).get("secret", "")
         except (OSError, ValueError):
             pass
+    import os as _os
     import secrets as _secrets
     p.parent.mkdir(parents=True, exist_ok=True)
     secret = _secrets.token_hex(32)
+    payload = json.dumps({"secret": secret}).encode("utf-8")
     try:
-        p.write_text(json.dumps({"secret": secret}), encoding="utf-8")
+        fd = _os.open(str(p),
+                       _os.O_WRONLY | _os.O_CREAT | _os.O_EXCL, 0o600)
+        with _os.fdopen(fd, "wb") as fh:
+            fh.write(payload)
+    except FileExistsError:
+        # Another process won the race; use its secret.
+        try:
+            return json.loads(p.read_text(encoding="utf-8")).get("secret", "")
+        except (OSError, ValueError):
+            return secret
     except OSError:
         pass
     return secret
@@ -243,7 +286,8 @@ def load_annotations() -> dict[str, dict]:
 
 def _save_annotations(d: dict) -> None:
     try:
-        _annotations_path().write_text(json.dumps(d, indent=2), encoding="utf-8")
+        _atomic_write_text(_annotations_path(),
+                            json.dumps(d, indent=2))
     except OSError:
         pass
 
@@ -350,7 +394,8 @@ def load_comments() -> dict[str, dict[str, list[dict]]]:
 
 def _save_comments(d: dict) -> None:
     try:
-        _comments_path().write_text(json.dumps(d, indent=2), encoding="utf-8")
+        _atomic_write_text(_comments_path(),
+                            json.dumps(d, indent=2))
     except OSError:
         pass
 

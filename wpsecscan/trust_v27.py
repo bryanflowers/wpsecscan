@@ -72,11 +72,16 @@ def reproducible_build_verify(version: str | None = None) -> tuple[bool, str]:
         if not srcs:
             return False, "no source dir after sdist unpack"
         src = srcs[0]
-        os.environ.setdefault("SOURCE_DATE_EPOCH", "1700000000")
+        # N9 (v2.7.3) — was `os.environ.setdefault(...)`, which mutates
+        # the live process environment so every subsequent subprocess
+        # spawned in the same Python process inherits SOURCE_DATE_EPOCH
+        # = 1700000000. Pass it as a per-subprocess env override
+        # instead; the caller's environment stays clean.
+        build_env = {**os.environ, "SOURCE_DATE_EPOCH": "1700000000"}
         rb = subprocess.run(
             [sys.executable, "-m", "build", "--wheel", "--outdir", str(work / "dist"),
               str(src)],
-            capture_output=True, text=True, timeout=240,
+            capture_output=True, text=True, timeout=240, env=build_env,
         )
         if rb.returncode != 0:
             return False, f"local rebuild failed: {rb.stderr[:300]}"

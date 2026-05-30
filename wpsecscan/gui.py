@@ -759,18 +759,9 @@ class App:
             # Unsubscribe on window close so the activity bus doesn't keep a
             # reference to a destroyed Tk callback (which would TclError when
             # events fire post-shutdown).
-            def _on_close():
-                try:
-                    _act.unsubscribe(self._activity_subscriber)
-                except Exception:  # noqa: BLE001
-                    pass
-                try:
-                    self.root.destroy()
-                except Exception:  # noqa: BLE001
-                    pass
-            self.root.protocol("WM_DELETE_WINDOW", _on_close)
+            self._activity_unsubscribe = _act
         except Exception:  # noqa: BLE001
-            pass
+            self._activity_unsubscribe = None
 
         # UX-036: chain first-run dialogs via <Destroy> instead of fixed
         # after() delays — keeps Defender → Tutorial → Wizard → Update
@@ -784,9 +775,18 @@ class App:
         # Pillow aren't installed; the WM_DELETE handler falls through to
         # destroy() in that case.
         from . import tray as _tray
+        self._tray_module = _tray
         _tray.start_tray(self)
-        self.root.protocol("WM_DELETE_WINDOW",
-                              lambda: _tray.hide_to_tray(self))
+        # N3 (v2.7.3) — was registered twice in __init__: the activity-bus
+        # cleanup handler at line 771 was immediately overwritten at line
+        # 788, so cleanup never ran AND the in-flight scan thread was
+        # never joined on close (zombie thread). In tray mode root.destroy()
+        # is never reached, so the 40ms after() polling loop also kept
+        # firing against a withdrawn window. Single handler now:
+        #   1. Cancel any running scan thread.
+        #   2. Unsubscribe activity bus.
+        #   3. Hide-to-tray (if installed) OR destroy.
+        self.root.protocol("WM_DELETE_WINDOW", self._on_window_close)
 
         # --- Bottom summary bar ---
         bottom = ttk.Frame(self.root, padding=(16, 6, 16, 12), style="Panel.TFrame")
@@ -2460,8 +2460,25 @@ class App:
             "http_timeout_s": http_to,
             "save_reports": bool(self.save_reports_var.get()),
             "auth_user": self.auth_user_var.get().strip(),
-            "auth_pass": self.auth_pass_var.get(),
+            # N15 (v2.7.3) — DO NOT persist the WP admin password in
+            # plaintext to ~/.wpsecscan/profiles/<name>.json. The
+            # password field is shown masked in the UI but was being
+            # serialised verbatim. Route through creds_vault when a
+            # password is present; the profile stores only a vault
+            # reference so the actual secret lives behind the OS
+            # keychain (or 0o600 fallback).
         }
+        _pw = self.auth_pass_var.get()
+        if _pw:
+            try:
+                from . import creds_vault as _cv
+                site_url = self.url_var.get().strip() or f"profile:{name}"
+                _cv.set_secret(site_url, "wp_admin_password", _pw)
+                profile["auth_pass_vault_ref"] = site_url
+            except Exception:  # noqa: BLE001
+                # Vault unavailable — refuse to persist the password
+                # rather than leak it. UI will prompt next scan.
+                profile["auth_pass_vault_ref"] = ""
         _history.save_profile(name, profile)
         self._rebuild_profiles_menu()
         self.status_var.set(f"Profile '{name}' saved.")
@@ -2482,7 +2499,20 @@ class App:
         self.http_timeout_var.set(max(5.0, min(120.0, http_to)))
         self.save_reports_var.set(bool(p.get("save_reports", True)))
         self.auth_user_var.set(p.get("auth_user", ""))
-        self.auth_pass_var.set(p.get("auth_pass", ""))
+        # N15 (v2.7.3) — password retrieved from creds_vault by ref.
+        # Legacy profiles with a literal `auth_pass` are still loaded
+        # for one cycle; the next _save_profile will migrate them.
+        _vault_ref = p.get("auth_pass_vault_ref", "")
+        _pw = ""
+        if _vault_ref:
+            try:
+                from . import creds_vault as _cv
+                _pw = _cv.get_secret(_vault_ref, "wp_admin_password") or ""
+            except Exception:  # noqa: BLE001
+                _pw = ""
+        if not _pw:
+            _pw = p.get("auth_pass", "")  # legacy fallback
+        self.auth_pass_var.set(_pw)
         self.status_var.set(f"Profile '{name}' loaded.")
         self._refresh_deep_throttle_eta()
 
@@ -2654,6 +2684,39 @@ class App:
             return _gw.open_onboarding_wizard(self)
         except Exception:  # noqa: BLE001
             return None
+
+    def _on_window_close(self) -> None:
+        """N3 (v2.7.3) — single WM_DELETE_WINDOW handler that:
+          1. Signals the scan thread to cancel (stops it promptly).
+          2. Unsubscribes from the activity bus (avoids TclError on
+             a destroyed widget when post-shutdown events fire).
+          3. Routes to tray.hide_to_tray(), which falls through to
+             root.destroy() when no tray icon is active.
+        Pre-v2.7.3 the handler was registered twice in __init__ —
+        the activity-cleanup handler at line 771 was immediately
+        overwritten at line 788, so cleanup never ran and the
+        in-flight scan thread was never joined."""
+        try:
+            self._cancel_requested = True
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            unsub = getattr(self, "_activity_unsubscribe", None)
+            if unsub is not None and hasattr(self, "_activity_subscriber"):
+                unsub.unsubscribe(self._activity_subscriber)
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            tray = getattr(self, "_tray_module", None)
+            if tray is not None:
+                tray.hide_to_tray(self)
+                return
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            self.root.destroy()
+        except Exception:  # noqa: BLE001
+            pass
 
     def _run_first_run_chain(self) -> None:
         """UX-036: open the first-run dialogs sequentially, each kicking off

@@ -141,9 +141,18 @@ def auto_tune_severity(findings: list, *, site_context: str = "general WordPress
     )
     try:
         response = ai_assist.llm(prompt, system="You are a security triage analyst.", max_tokens=800)
-        scores = json.loads(_extract_json(response)) or []
-        score_by_title = {s["title"]: int(s.get("score", 0)) for s in scores if isinstance(s, dict)}
-    except (ValueError, KeyError, RuntimeError):
+        parsed = json.loads(_extract_json(response))
+        # N12 (v2.7.3) — schema-validate before indexing into the LLM
+        # output. Pre-fix code indexed `s["title"]` and `s.get("score")`
+        # on whatever the LLM returned; a jailbroken or misbehaving LLM
+        # could push arbitrary keys/values into the triage state.
+        scores = _validated_dicts(parsed, required=("title",))
+        score_by_title = {
+            s["title"]: max(0, min(100, int(float(s.get("score", 0)))))
+            for s in scores
+            if isinstance(s.get("title"), str)
+        }
+    except (ValueError, KeyError, RuntimeError, TypeError):
         return findings
 
     for f in findings:
@@ -222,8 +231,17 @@ def predict_false_positives(findings: list, *, stack: str = "") -> list:
     )
     try:
         response = ai_assist.llm(prompt, system="You are a security triage analyst.", max_tokens=800)
-        scores = json.loads(_extract_json(response))
-        prob_by_title = {x["title"]: float(x.get("fp_prob", 0)) for x in scores if isinstance(x, dict)}
+        parsed = json.loads(_extract_json(response))
+        # N12 (v2.7.3) — same schema-validation discipline as above. Crucial
+        # here because fp_prob feeds an auto-hide decision: a jailbroken
+        # LLM returning {"fp_prob": 1.0} for everything would silently
+        # suppress every finding from the report.
+        scores = _validated_dicts(parsed, required=("title",))
+        prob_by_title = {
+            x["title"]: _clamp_unit(x.get("fp_prob", 0))
+            for x in scores
+            if isinstance(x.get("title"), str)
+        }
     except (ValueError, KeyError, RuntimeError, TypeError):
         return findings
 
@@ -466,6 +484,46 @@ _SEV_RANK = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 
 def _sev_weight(sev: str) -> int:
     return _SEV_RANK.get((sev or "info").lower(), 0)
+
+
+def _validated_dicts(parsed, *, required: tuple = ()) -> list[dict]:
+    """N12 (v2.7.3) — schema-validate an LLM-returned JSON list. The LLM
+    can hallucinate, jailbreak, or return malformed output; before we
+    index into the result (and act on it — e.g. auto-suppress findings
+    when fp_prob is high) we must confirm:
+
+      1. The top-level value is a list.
+      2. Every element is a dict.
+      3. Every dict has each `required` key.
+
+    Returns the filtered subset that passes; never raises. Callers
+    that depend on numeric ranges (e.g. fp_prob in [0,1]) must clamp
+    separately at the indexing site.
+    """
+    if not isinstance(parsed, list):
+        return []
+    out: list[dict] = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        if not all(k in item for k in required):
+            continue
+        out.append(item)
+    return out
+
+
+def _clamp_unit(value, *, default: float = 0.0) -> float:
+    """Coerce + clamp `value` into [0.0, 1.0]. N12 — used at every
+    site that ingests a probability/score from the LLM so a
+    jailbroken response can't push fp_prob=1.0 (auto-hide ALL
+    findings) or a negative score (sort everything to the front)."""
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return default
+    if f != f:  # NaN
+        return default
+    return max(0.0, min(1.0, f))
 
 
 def _extract_json(text: str) -> str:

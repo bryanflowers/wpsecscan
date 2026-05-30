@@ -46,19 +46,27 @@ def _share_secret() -> bytes:
     if p.exists():
         try:
             # C4-adjacent (v2.7.2) — `.strip()` here was asymmetric
-            # with the raw write below. ~0.8% of random 32-byte
-            # secrets have a trailing whitespace byte, so first-call
-            # (write+return raw) and second-call (read+strip) returned
-            # different secrets, intermittently breaking share-link
-            # signatures. Read raw bytes; the file is always exactly
-            # 32 bytes long.
+            # with the raw write below. Read raw bytes.
             return p.read_bytes()
         except OSError:
             pass
     secret = secrets.token_bytes(32)
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
-        fd = os.open(str(p), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        # N4 (v2.7.3) — was O_TRUNC, which would silently regenerate
+        # the share secret if the exists()/open race window was hit,
+        # invalidating every previously-issued share link. O_EXCL is
+        # the atomic exclusive-create primitive; on FileExistsError
+        # we read the file the racing process just wrote.
+        try:
+            fd = os.open(str(p),
+                          os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            try:
+                return p.read_bytes()
+            except OSError:
+                pass
+            return secret
         with os.fdopen(fd, "wb") as fh:
             fh.write(secret)
     except OSError:

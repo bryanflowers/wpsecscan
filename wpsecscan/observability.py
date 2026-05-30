@@ -77,8 +77,20 @@ def tail_activity_log(callback, *, poll_interval: float = 1.0) -> None:
     """Blocking tail of ~/.wpsecscan/audit.log.jsonl, calling `callback(line)` per line."""
     from . import history as _h
     p = Path(_h._home()) / "audit.log.jsonl"
-    if not p.exists():
-        p.touch()
+    # N8 (v2.7.3) — was `if not p.exists(): p.touch()`, which on
+    # Windows truncates an existing file silently and even on POSIX
+    # has a TOCTOU window where another writer can populate the file
+    # between exists() and touch(). Use atomic O_EXCL create; if
+    # someone else just created it, that's fine — we just need a
+    # file to tail.
+    import os as _os
+    try:
+        fd = _os.open(str(p), _os.O_WRONLY | _os.O_CREAT | _os.O_EXCL, 0o644)
+        _os.close(fd)
+    except FileExistsError:
+        pass
+    except OSError:
+        pass
     with p.open("r", encoding="utf-8") as f:
         f.seek(0, 2)  # to end
         while True:
