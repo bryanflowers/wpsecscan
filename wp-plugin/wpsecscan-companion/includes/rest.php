@@ -452,7 +452,15 @@ function wpsecscan_companion_file_monitor_callback( $request ) {
         'subset'     => $subset,
         'window_d'   => $cutoff ? $days : null,
         'generated'  => gmdate( 'c' ),
-        'roots'      => [ 'plugins' => WP_PLUGIN_DIR, 'themes' => get_theme_root() ],
+        // N14 (v2.7.3 / companion 1.4.3) — was exposing absolute
+        // server filesystem paths (WP_PLUGIN_DIR, get_theme_root()).
+        // Any token holder learned the install root for follow-on
+        // attacks. Return relative paths under the WordPress install
+        // root instead — the scanner already knows wp-content/.
+        'roots'      => [
+            'plugins' => 'wp-content/plugins',
+            'themes'  => 'wp-content/themes',
+        ],
     ];
 
     // #29 incremental — diff against the prior full manifest stashed in
@@ -1306,11 +1314,21 @@ function wpsecscan_companion_php_error_log_tail_callback( $request ) {
         $l = preg_replace( '/\b(?:\d{1,3}\.){3}\d{1,3}\b/',                            '[IP]',    $l );
         return $l;
     }, $lines );
+    // N13 (v2.7.3 / companion 1.4.3) — was returning the raw
+    // `log_path` (absolute server filesystem path) in every response,
+    // including when no lines were readable. Any token holder learned
+    // the absolute path to the PHP error log for follow-on attacks
+    // (e.g., LFI attempts on plugins that take a `file` parameter).
+    // Now: report only whether logging is configured, plus the
+    // basename when set so operators can sanity-check it's the
+    // expected log without leaking the directory tree.
+    $log_configured = (bool) $log_path;
     return rest_ensure_response( [
-        'log_path'  => $log_path ?: '(not configured)',
-        'lines'     => $lines,
-        'count'     => count( $lines ),
-        'generated' => gmdate( 'c' ),
+        'log_configured' => $log_configured,
+        'log_basename'   => $log_configured ? basename( $log_path ) : '',
+        'lines'          => $lines,
+        'count'          => count( $lines ),
+        'generated'      => gmdate( 'c' ),
     ] );
 }
 
@@ -1556,23 +1574,18 @@ function wpsecscan_companion_plugin_license_keys_callback( $request ) {
         ), ARRAY_A );
         foreach ( (array) $r as $row ) {
             $val = (string) $row['option_value'];
-            // B4 (v2.7.1) — bucketed length instead of exact-length disclosure,
-            // 2-char prefix instead of 4. Reduces brute-force search space.
-            $len = strlen( $val );
-            if ( $len === 0 ) {
-                $bucket = 'empty';
-            } elseif ( $len < 16 ) {
-                $bucket = 'short';
-            } elseif ( $len < 64 ) {
-                $bucket = 'medium';
-            } else {
-                $bucket = 'long';
-            }
-            $masked = ( $len > 2 ) ? substr( $val, 0, 2 ) . '***' : '***';
+            // N19 (v2.7.3 / companion 1.4.3) — drop the length-bucket
+            // disclosure entirely. 2-char prefix + a length bucket
+            // (short/medium/long) still meaningfully reduces the
+            // search space for short keys; `short` bucket implies
+            // <16 chars, so for a 12-char key only 10 chars remain
+            // hidden plus 2 known. The scanner only needs to know
+            // a license-key option EXISTS and isn't empty — the
+            // length bucket added no scanner value.
+            $masked = ( strlen( $val ) > 2 ) ? substr( $val, 0, 2 ) . '...' : '***';
             $rows[ $row['option_name'] ] = [
                 'option_name'  => (string) $row['option_name'],
                 'value_masked' => $masked,
-                'length_bucket'=> $bucket,
                 'looks_empty'  => trim( $val ) === '',
             ];
         }
