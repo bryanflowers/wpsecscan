@@ -23,21 +23,25 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v6
+      # N16 (v2.7.3) — SHA-pin every action; this workflow has
+      # id-token: write so a tag-poisoned action would have
+      # release-signing privileges. Dependabot's github-actions
+      # config keeps these current.
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with: { persist-credentials: false }
 
-      - uses: ossf/scorecard-action@v2.4.3
+      - uses: ossf/scorecard-action@e797f83bcb11b83ae66e0230d6156d7c80228e7c  # v2.4.3
         with:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
         with:
           name: SARIF
           path: results.sarif
           retention-days: 5
 
-      - uses: github/codeql-action/upload-sarif@v4
+      - uses: github/codeql-action/upload-sarif@dc73d59c2d7bd4f8194098a91219eeee6d8a1719  # v4
         with:
           sarif_file: results.sarif

@@ -25,19 +25,25 @@ jobs:
         python: ["3.10", "3.11", "3.12"]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
       - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
           python-version: ${{ matrix.python }}
           cache: pip
 
       - name: Install deps
+        # N17 (v2.7.3) — version-pin every direct dep so a compromised
+        # PyPI release of pytest/pyyaml can't ride into CI. Hash-pinning
+        # is the strongest mitigation but requires a maintained
+        # requirements.lock; version-pinning is the high-value
+        # incremental step. Bump these here when you bump them in
+        # pyproject.toml's `test` extra.
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip==25.3
           pip install .
-          pip install pytest pyyaml
+          pip install 'pytest==8.3.4' 'pyyaml==6.0.2'
 
       - name: Run pytest
         env:
@@ -49,13 +55,13 @@ jobs:
     name: pyflakes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
           python-version: "3.12"
           cache: pip
       - run: |
-          pip install pyflakes
+          pip install 'pyflakes==3.2.0'
           pyflakes wpsecscan tests || true
         # `|| true` so style nits don't block PRs; remove to make lint a gate
 
@@ -65,14 +71,17 @@ jobs:
     needs: pytest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
           python-version: "3.12"
       - name: Install deps + PyInstaller
+        # N17 (v2.7.3) — `build-exes` produces the .exe distributed
+        # to users. PyInstaller MUST be version-pinned so a
+        # compromised release can't backdoor every binary we ship.
         run: |
-          python -m pip install --upgrade pip
-          pip install . pyinstaller
+          python -m pip install --upgrade pip==25.3
+          pip install . 'pyinstaller==6.13.0'
       - name: Build CLI .exe
         run: |
           python -m PyInstaller --noconfirm --onefile --name wpsecscan `
@@ -92,7 +101,7 @@ jobs:
             --version-file version_info.txt `
             run_gui.py
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
         with:
           name: wpsecscan-binaries-${{ github.sha }}
           path: |
