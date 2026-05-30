@@ -271,6 +271,15 @@ class _Handler(BaseHTTPRequestHandler):
             raw = unquote(path.removeprefix("/api/report/"))
             # Path-traversal guard: only the base filename survives, then we
             # confirm the resolved file is actually inside reports_dir.
+            # B34 (v2.8.0) — Windows-specific bypass: an attacker URL-
+            # encoded backslash (%5C) decoded to `\`, and
+            # `Path("foo\\..\\bar").name` on Windows returns `bar`,
+            # passing the `safe != raw` guard. Reject ANY backslash
+            # AND any forward slash AND any path-separator-related
+            # control char outright, BEFORE the Path round-trip.
+            if (not raw or "\\" in raw or "/" in raw or "\x00" in raw
+                    or ".." in raw):
+                self.send_response(404); self.end_headers(); return
             safe = Path(raw).name
             if not safe or safe.startswith(".") or safe != raw:
                 self.send_response(404); self.end_headers(); return
@@ -281,7 +290,12 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_response(404); self.end_headers()
 
 
-def serve(host: str = "0.0.0.0", port: int = 8765) -> None:
+def serve(host: str = "127.0.0.1", port: int = 8765) -> None:
+    # B46 (v2.8.0) — default bind switched from 0.0.0.0 (LAN-exposed
+    # out of the box) to 127.0.0.1 (loopback-only). Operators who
+    # want LAN exposure pass `--host 0.0.0.0` explicitly. The token
+    # guard exists but defence-in-depth: don't surface a token-gated
+    # surface to the LAN by default.
     if not os.environ.get("WPSECSCAN_MOBILE_TOKEN"):
         print("ERROR: set $WPSECSCAN_MOBILE_TOKEN before starting "
                "(any string of >=24 random chars).", file=sys.stderr)

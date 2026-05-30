@@ -21,7 +21,14 @@ NONCE_PATTERNS = (
     re.compile(r'name=["\']authenticity_token["\']', re.IGNORECASE),
     re.compile(r'name=["\']nonce["\']', re.IGNORECASE),
 )
-FORM_RE = re.compile(r"<form[^>]*method=['\"]post['\"][^>]*>(.*?)</form>", re.IGNORECASE | re.DOTALL)
+# B43 (v2.8.0) — also accept unquoted method attribute (`method=post` /
+# `METHOD=POST` without quotes) which is HTML5-legal and used by some
+# legacy WP themes. The IGNORECASE flag already handles upper/lower
+# case; the missing piece was the quote optionality.
+FORM_RE = re.compile(
+    r"<form[^>]*method=['\"]?post['\"]?[^>]*>(.*?)</form>",
+    re.IGNORECASE | re.DOTALL,
+)
 
 # Pages that commonly hold POST forms. We probe each, find forms, and check.
 PAGES = (

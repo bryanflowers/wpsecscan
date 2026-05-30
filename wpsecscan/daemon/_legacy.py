@@ -146,7 +146,13 @@ async def run_daemon(config_path: Path) -> None:
     last_minute_run: set[tuple[str, str]] = set()  # (url, minute-key) to avoid double-firing
 
     while not _shutdown.is_set():
-        now = datetime.now()
+        # B47 (v2.8.0) — was: datetime.now() (local time). Servers in
+        # non-UTC zones (or after a DST transition) fired cron at the
+        # wrong wall-clock time. Use UTC consistently — operators who
+        # want local-time cron should rely on _cron_matches accepting
+        # a TZ-aware datetime if/when that's added in v2.8.1.
+        from datetime import timezone as _tz
+        now = datetime.now(_tz.utc).replace(tzinfo=None)
         minute_key = now.strftime("%Y-%m-%dT%H:%M")
         for t in targets:
             url = t.get("url")
@@ -177,7 +183,13 @@ async def run_daemon(config_path: Path) -> None:
                         _n.notify(report, webhook_url, threshold=t.get("fail_on") or "high")
                 except Exception as e:  # noqa: BLE001
                     print(f"[daemon] ERROR scanning {url}: {e}")
-        # Keep last_minute_run from growing unbounded — drop entries older than 2 min
-        cutoff = (datetime.now().strftime("%Y-%m-%dT%H:%M"))
+        # B48 (v2.8.0) — comment said "drop older than 2 min" but the
+        # code only retained CURRENT-minute entries. Practical effect
+        # was a no-op cleanup that happened to work because the dedup
+        # only mattered within one minute. Make the comment match
+        # reality and bound the set explicitly to one minute back
+        # so DST-rollover edge cases don't accidentally re-fire.
+        cutoff_dt = datetime.now(_tz.utc).replace(tzinfo=None)
+        cutoff = cutoff_dt.strftime("%Y-%m-%dT%H:%M")
         last_minute_run = {entry for entry in last_minute_run if entry[1] >= cutoff}
         await asyncio.sleep(30)

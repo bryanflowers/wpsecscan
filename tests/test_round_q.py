@@ -82,10 +82,13 @@ def test_markdown_reporter_render():
     text = md.render(r)
     assert "# WPSecScan" in text
     assert "Risk score" in text
-    # Triple-backtick fence; embedded ``` is sanitized with a zero-width space
-    # so it can't terminate the fence early.
-    assert "```" in text
-    assert "`​``" in text  # zero-width-space-broken sequence
+    # B40 (v2.8.0) — was: 3-backtick fence with ZWS hack. Now: 4-
+    # backtick fence (CommonMark allows any backtick run >= 3; closer
+    # must match length). Embedded literal ``` no longer needs escape.
+    assert "````" in text
+    # The literal embedded ``` from the evidence is preserved as-is
+    # (no zero-width-space mutation).
+    assert "```nested```" in text
 
 
 def test_markdown_reporter_top_n_keeps_highest_severities():

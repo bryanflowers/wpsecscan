@@ -91,15 +91,19 @@ def render(report: ScanReport, top_n: int | None = None) -> str:
                 lines.append("")
                 lines.append("**Evidence**")
                 lines.append("")
-                # Standard 3-backtick fences — Slack and most chat clients
-                # only render triple-backtick blocks. We sanitize embedded
-                # triple-backticks by inserting a zero-width space so they
-                # can't terminate the fence early.
+                # B40 (v2.8.0) — was: 3-backtick fence with ZWS hack
+                # for embedded triple-backticks. The hack was fragile
+                # across GFM renderers (some normalise ZWS away).
+                # Switch to a 4-backtick fence (CommonMark spec
+                # allows any backtick run >= 3 as a fence opener,
+                # and the closer must match the opener's length).
+                # Evidence containing literal "```" no longer needs
+                # escaping. Slack still renders 3 OR 4 backticks as
+                # code blocks.
                 evidence = f.evidence if len(f.evidence) <= 4000 else f.evidence[:4000] + "\n... [truncated]"
-                evidence = evidence.replace("```", "`​``")
-                lines.append("```")
+                lines.append("````")
                 lines.append(evidence)
-                lines.append("```")
+                lines.append("````")
             if f.remediation:
                 lines.append("")
                 lines.append("**Remediation**")

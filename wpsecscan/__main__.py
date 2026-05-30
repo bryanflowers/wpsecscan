@@ -1042,9 +1042,12 @@ def main() -> None:
     p.add_argument("--password-audit", default=None, metavar="WP_USERS.csv", help="Offline: read a CSV or SQL dump of wp_users and emit a hashcat-ready file. NO network calls.")
 
     p.add_argument("--insecure", action="store_true", help="Don't verify TLS certs")
+    # B22 (v2.8.0) — `--no-console` now mentioned explicitly in the help
+    # text so users can find the back-compat alias from --help.
     # --quiet / -q is the conventional name; --no-console is kept for back-compat.
     p.add_argument("--quiet", "-q", "--no-console", dest="no_console", action="store_true",
-                   help="Suppress console output (still writes report files)")
+                   help="Suppress console output (still writes report files). "
+                        "`--no-console` is the back-compat long alias.")
     p.add_argument("-v", "--verbose", action="count", default=0,
                    help="Increase console verbosity (-v shows per-check progress, -vv shows HTTP-level detail). "
                         "Independent of --debug (which writes a log file).")
@@ -2286,7 +2289,12 @@ def _cmd_verify_release(args: list[str]) -> None:
         f"    '{exe_path}'\n",
         file=sys.stderr,
     )
-    sys.exit(2)
+    # B23 (v2.8.0) — was sys.exit(2) (usage error). Missing cosign /
+    # sigstore-python is an ENVIRONMENT problem (the verification tool
+    # isn't installed), not a usage error. Use exit code 69 (POSIX
+    # EX_UNAVAILABLE) so CI scripts can distinguish "tool missing"
+    # from "user typed flag wrong".
+    sys.exit(69)
 
 
 def _cmd_watch(args: list[str]) -> None:

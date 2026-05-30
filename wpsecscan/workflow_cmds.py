@@ -312,8 +312,18 @@ def cmd_compliance_audit(args: list[str]) -> None:
     scan. Different from the existing 8-framework attestation matrix
     (which shows ALL controls regardless of whether they're exercised).
     """
-    if not args or args[0] in ("-h", "--help") or args[0] != "audit":
+    if not args or args[0] in ("-h", "--help"):
         print("usage: wpsecscan compliance audit URL --framework FRAMEWORK",
+              file=sys.stderr)
+        sys.exit(64)
+    # B38 (v2.8.0) — pre-fix bailed silently when the first token
+    # wasn't 'audit', leaving the user staring at exit 64 with no
+    # context. Now: explain WHY the parse failed (the `audit`
+    # sub-sub-command is required).
+    if args[0] != "audit":
+        print(f"usage: wpsecscan compliance audit URL --framework FRAMEWORK\n"
+              f"(got first token {args[0]!r}; expected 'audit' as the "
+              f"sub-sub-command)",
               file=sys.stderr)
         sys.exit(64)
     rest = args[1:]

@@ -41,8 +41,15 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         body = (r.text or "")[:300].lower()
 
         # WP correctly returns -1 / 0 / "bad nonce" for unauth requests.
-        if status == 200 and not any(s in body for s in
-                                       ("-1", "0", "nonce", "auth", "permission", "denied")):
+        # B27 (v2.8.0) — was `"0" in body` substring match, which false-
+        # negatived on any body containing a digit-zero substring (HTTP
+        # 403, prices, IDs). Use precise body equality / token check
+        # for the bare WP responses, plus substring for the english
+        # error phrases. `body.strip()` handles trailing whitespace.
+        _body_trim = body.strip()
+        _is_wp_unauth_token = _body_trim in ("-1", "0")
+        if status == 200 and not (_is_wp_unauth_token or any(
+                s in body for s in ("nonce", "auth", "permission", "denied"))):
             findings.append(Finding(
                 severity="medium",
                 title=f"GDPR DSR ajax action callable without nonce: {action}",

@@ -211,7 +211,17 @@ class Client:
             # Cap body BEFORE decoding to avoid materialising a multi-MB response
             # as a Python str only to throw it away.
             raw = (response.content or b"")[:8000]
-            body_text = raw.decode("utf-8", errors="replace")
+            # B30 (v2.8.0) — was: hardcoded UTF-8 decode + replace errors.
+            # Turkish (iso-8859-9), Russian (windows-1251), and Japanese
+            # (shift_jis) responses had non-UTF-8 bytes silently
+            # replaced with U+FFFD, corrupting the HAR evidence.
+            # Use the response's declared charset (httpx already parses
+            # Content-Type for us via .encoding); fall back to UTF-8.
+            _enc = (getattr(response, "encoding", None) or "utf-8").lower()
+            try:
+                body_text = raw.decode(_enc, errors="replace")
+            except (LookupError, TypeError):
+                body_text = raw.decode("utf-8", errors="replace")
         self._har_entries.append({
             "startedDateTime": datetime.now(timezone.utc).isoformat(),
             "time": elapsed_ms,

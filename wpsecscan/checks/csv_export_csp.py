@@ -56,14 +56,24 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
             continue
         body = (r.text or "")
         # Find any cell that BEGINS with a formula trigger char (after a newline + optional quote)
+        # B26 (v2.8.0) — exclude plain negative numbers (`-42`, `-0.5`).
+        # Leading `-` followed by a digit is just a negative literal,
+        # not a formula injection. CSV export of prices, refunds, and
+        # adjusted-totals routinely contains them.
         suspicious = []
         for line in body.splitlines()[:200]:  # first 200 lines max
             for cell in line.split(","):
                 stripped = cell.strip().strip('"').strip("'")
-                if stripped and stripped[0] in ("=", "+", "-", "@", "\t"):
-                    suspicious.append(stripped[:60])
-                    if len(suspicious) >= 5:
-                        break
+                if not stripped:
+                    continue
+                if stripped[0] not in ("=", "+", "-", "@", "\t"):
+                    continue
+                # Skip if `-` or `+` followed by a digit/dot — just a number.
+                if stripped[0] in ("+", "-") and len(stripped) > 1 and (stripped[1].isdigit() or stripped[1] == "."):
+                    continue
+                suspicious.append(stripped[:60])
+                if len(suspicious) >= 5:
+                    break
             if len(suspicious) >= 5:
                 break
         if suspicious:

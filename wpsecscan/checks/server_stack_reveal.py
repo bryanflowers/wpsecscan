@@ -24,7 +24,11 @@ PHP_EOL = {
     "7.4": True, "8.0": True, "8.1": True,  # 8.1 hit EOL 2025-11
     "8.2": False, "8.3": False, "8.4": False,
 }
-NGINX_EOL = {"1.18": True, "1.20": True, "1.22": True, "1.24": False, "1.26": False, "1.28": False}
+# B29 (v2.8.0) — refreshed for 2026. nginx 1.24 was old-stable; per
+# nginx.org current-stable is now 1.28, 1.26 is the previous stable
+# (still supported). Mainline 1.27 not flagged either way (rolling).
+NGINX_EOL = {"1.18": True, "1.20": True, "1.22": True, "1.24": True,
+             "1.26": False, "1.27": False, "1.28": False}
 APACHE_EOL = {"2.2": True, "2.4": False}
 
 

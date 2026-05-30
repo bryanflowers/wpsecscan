@@ -18,7 +18,13 @@ KNOWN_BLOCKS = (
     ("genesis-blocks", "/wp-content/plugins/genesis-blocks/dist/blocks.build.js"),
     ("ultimate-addons-for-gutenberg", "/wp-content/plugins/ultimate-addons-for-gutenberg/dist/blocks.style.build.js"),
 )
-VERSION_RE = re.compile(r'(?:"version"|version)\s*[:=]\s*"([\d.]+)"')
+# B42 (v2.8.0) — was: matched any "version"-suffixed JS property.
+# A WP API schema embedded in the bundle assigning `"db_version": "6.3"`
+# would mis-attribute the WP DB schema version to the plugin itself.
+# Now: require "version" as a complete word — leading word-boundary
+# `\b` plus a negative-lookbehind for any preceding letter ensures
+# we don't match `db_version`, `min_version`, `template_version`, etc.
+VERSION_RE = re.compile(r'(?<![A-Za-z_])(?:"version"|version)\s*[:=]\s*"([\d.]+)"')
 
 
 async def check(client: Client, ctx: dict) -> list[Finding]:

@@ -351,7 +351,16 @@ def push_gcp_scc(report) -> tuple[bool, str]:
     n = 0
     for r in report.results:
         for i, f in enumerate(r.findings):
-            fid = f"wpsecscan-{r.check_id}-{i}-{int.from_bytes((f.title or '').encode()[:8], 'little')}"
+            # B32 (v2.8.0) — was `.encode()[:8]`, which slices the UTF-8
+            # byte representation. A multi-byte non-ASCII char (e.g.
+            # 田 = 3 bytes) split mid-codepoint produced a different
+            # ID each time the same finding round-tripped (and would
+            # also collide with unrelated titles). Switch to a SHA-256
+            # of the title text — stable across locales, no truncation
+            # surprises, and 16 hex chars give ample collision space.
+            import hashlib as _hashlib
+            _fid_hash = _hashlib.sha256((f.title or "").encode("utf-8")).hexdigest()[:16]
+            fid = f"wpsecscan-{r.check_id}-{i}-{_fid_hash}"
             try:
                 client.create_finding(
                     request={
