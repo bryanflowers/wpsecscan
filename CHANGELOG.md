@@ -7,6 +7,180 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [v2.7.3] — 2026-05-29
+
+Second mega bug + code-quality audit hot-fix. 9 parallel agents
+(security, correctness, concurrency/IO, crypto, PHP companion,
+dependencies, AI helpers + prompt injection, GUI + IPC,
+maintainability + test coverage) surfaced 23 actionable findings.
+Critical + High + High-infra ship in this release; Medium/Low
+findings + the deferred auth-package wiring (rbac/sso/approval)
+roll into v2.8.0.
+
+Tests: 818 → 862 passing + 2 platform-skipped. Companion plugin:
+1.4.2 → 1.4.3. **44 new regression tests** across 5 new test files,
+each authored test-first and confirmed red on pre-fix code.
+
+### Security — Critical
+
+- **N1** `interactsh.py` — `InteractshSession` was completely broken.
+  Four attribute assignments (`url_http`, `url_https`, `interactions`,
+  `started_at`) sat below a `return server` inside the
+  `@staticmethod _validate_server`, so they never ran AND referenced
+  `self` from a static context (NameError if reached). Any caller
+  hit AttributeError. Out-of-band scanning was non-functional.
+  Moved the four assignments into `__init__` where they belong.
+- **N2** `ai_assist.py` — every LLM call site interpolated user
+  `question` + scan-controlled `finding.title`/`evidence`/
+  `remediation`/`url` into prompts **without** piping through
+  `safe_for_llm()` / `strip_prompt_injection()`. Prompt injection
+  was wide open. Every interpolation now runs through `_safe()`
+  (`ai_safety.safe_for_llm` alias). Covers `remediation_augment`,
+  `query`, `answer_compliance_question`, `fix_pr_body`,
+  `evidence_summary`, `threat_model_js`, `fix_pr_diff`,
+  `client_summarize_finding`.
+
+### Security — High
+
+- **N3** `gui.py` — single `WM_DELETE_WINDOW` handler. Pre-fix
+  registered twice in `__init__`; activity-bus cleanup at line 771
+  was overwritten at line 788, AND scan thread was never joined on
+  close. In tray mode `root.destroy()` was never reached so the
+  40ms `after()` poll loop fired against a withdrawn window
+  indefinitely. New `_on_window_close` method cancels the scan
+  thread, unsubscribes the activity bus, then routes to
+  `tray.hide_to_tray` (which falls through to `destroy` when no
+  tray icon).
+- **N4** `reporters/share_link.py` — `_share_secret` switched
+  `O_TRUNC` → `O_EXCL`. The pre-fix flag silently regenerated the
+  share secret if the `exists()`/`open` race window was hit,
+  invalidating every previously-issued share link. On
+  `FileExistsError` we now read the racing process's secret.
+- **N5** `interactsh.py` — `_random_id` switched
+  `random.choices` → `secrets.choice`. `random.*` is reseeded by
+  `trust_v27.set_deterministic_seed()`, so the OOB correlation ID
+  was predictable to another scanner on shared `oast.live`.
+- **N6** `history.py` — added `_atomic_write_text()` helper and
+  migrated 4 state-file writers (`push_url`, `save_profile`,
+  `_save_annotations`, `_save_comments`). Concurrent scan sessions
+  no longer corrupt history / profiles / annotations / comments
+  files mid-write.
+- **N7** `history._snapshot_signing_secret` — was world-readable
+  (no 0o600 mode) AND raced (`exists()`/`write_text` TOCTOU); loser
+  silently overwrote winner's secret, invalidating every snapshot
+  signed before the race resolved. Now `O_EXCL` atomic create with
+  `0o600`; on `FileExistsError` read the racing process's secret.
+- **N8** `observability.tail_activity_log` — was `if not p.exists():
+  p.touch()`, which on Windows truncates an existing file silently
+  and on POSIX has a TOCTOU window. Switched to atomic `O_EXCL`
+  create that ignores `FileExistsError`.
+- **N9** `trust_v27.reproducible_build_verify` —
+  `os.environ.setdefault("SOURCE_DATE_EPOCH", ...)` mutated the
+  live process environment, leaking the timestamp into every
+  subsequent subprocess in the same Python process. Now passed
+  per-subprocess via `env=`; caller environment stays clean.
+- **N10** `ai_safety.strip_prompt_injection` — expanded to cover
+  Llama/Mistral `[INST]`/`[/INST]` markers, Anthropic
+  `<human>`/`<assistant>`/`<system>` tags, role-prefix boundaries
+  at start-of-line (`Assistant:`/`Human:`/`System:`/`User:`), AND
+  zero-width unicode (ZWSP, ZWNJ, ZWJ, soft-hyphen, BOM, word
+  joiner) that could smuggle invisible payloads past byte-level
+  pattern matching.
+- **N11** `ai_safety.mask_private` — expanded to cover OpenAI keys
+  (`sk-*`, including `sk-proj-`, `sk-svcacct-`, `sk-org-`), GitHub
+  OAuth/server/user-server tokens (`gho_*`, `ghs_*`, `ghu_*`),
+  database DSNs (postgres/mysql/mongodb/redis/amqp(s)), Slack
+  bot/user/legacy/refresh tokens (`xoxb-`, `xoxp-`, `xoxa-`,
+  `xoxr-`, `xoxs-`), Slack incoming webhook URLs, Hugging Face
+  tokens (`hf_*`), Anthropic API keys (`sk-ant-*`).
+- **N12** `ai_triage.py` — LLM-returned JSON deserialised + indexed
+  directly without schema validation. A jailbroken or misbehaving
+  LLM could return `{"fp_prob": 1.0}` for every finding, auto-
+  suppressing the entire report. Added `_validated_dicts()` (top-
+  level list-of-dicts shape check + required-key gate) and
+  `_clamp_unit()` (numeric range gate). Applied at
+  `score_findings_by_context` and `predict_false_positives`.
+- **N13** companion `/php-error-log-tail` — was returning the raw
+  `ini_get('error_log')` value (absolute server filesystem path).
+  Now returns `log_configured` boolean + basename only.
+- **N14** companion `/file-monitor` — `roots` was exposing
+  `WP_PLUGIN_DIR` + `get_theme_root()` absolute paths. Now returns
+  relative paths (`wp-content/plugins`, `wp-content/themes`).
+- **N15** `gui.py` — admin password was persisted **plaintext** in
+  `~/.wpsecscan/profiles/<name>.json`. Now routed through
+  `creds_vault.set_secret()`; profile stores only a vault
+  reference. Legacy plaintext profiles still load for one cycle
+  (migrated on next save).
+- **N19** companion `/plugin-license-keys` — dropped the
+  `length_bucket` (short/medium/long) field. 2-char prefix + a
+  length bucket meaningfully reduced the brute-force search space
+  for short keys; the bucket added no scanner value. Mask format
+  is now `<2-char-prefix>...`.
+
+### Infrastructure / supply chain
+
+- **N16** SHA-pinned every action across the remaining 4
+  workflows (`tests.yml`, `ossf-scorecard.yml`, `cve-feed.yml`,
+  `wpsecscan.yml`); v2.7.2 C27 only covered the release-critical
+  pair. Verified `grep` returns zero unpinned actions. Dependabot
+  keeps these current.
+- **N17** Version-pinned every `pip install` in CI
+  (`pytest==8.3.4`, `pyyaml==6.0.2`, `pip==25.3`,
+  `pyflakes==3.2.0`, `pyinstaller==6.13.0`, `httpx==0.28.1`).
+  `build-exes` (which produces the user-facing `.exe` files) was
+  the highest-risk previously-unpinned site.
+- **N18** `wpsecscan.yml` (demo workflow) —
+  (a) Replaced `git clone --depth 1` of unpinned `main` with
+  `pip install 'wpsecscan==2.7.3'`. Pushes to main no longer
+  silently change what the demo installs.
+  (b) Replaced inline `${{ secrets.WPSCAN_TOKEN && format(...) }}`
+  shell expansion with `env:` block + bash array — eliminates
+  shell-injection if the token ever contains `$`, `;`, or
+  backtick.
+
+### Code-quality / wiring
+
+- **N20-partial** `audit_log.append()` wired into the highest-
+  value production paths (`creds_vault.set_secret` /
+  `delete_secret`, `marketplace_v27` install success/failure +
+  verify). Pre-v2.7.3 the entire `auth/` package was dead code
+  in production. Added `safe_append()` convenience wrapper that
+  derives the actor automatically (`WPSECSCAN_ACTOR` env >
+  `$USER`/`$USERNAME` > `getpass.getuser()` > `cli`) and
+  swallows audit-log write failures so a disk-full or
+  permission error can never break the operation being audited.
+  Cleartext secret values are NEVER logged (only the field
+  length).
+
+### Deferred to v2.8.0
+
+- Wiring the remaining auth modules (rbac, sso_oidc, sso_saml,
+  approval_workflow) into production — needs an RFC for CLI
+  gating UX and headless-mode actor identity.
+- Wiring `monitors.py` (540 LOC, all 15 public functions dead)
+  and the 6 dead `ai_triage` functions — feature decisions.
+- ~15 Medium findings (UAC popen zombie, cosign no timeout,
+  etag_get TOCTOU, audit_log handler OSError leak, generate_tickets
+  no global LLM budget, Ollama no max_tokens, `report.target` in
+  system prompt position, companion token transient cleartext,
+  database-encoding query no `prepare()`, `pytest>=7.4` no upper
+  bound, `setuptools` build-system unbounded, `gui.py` LOC
+  outlier, `perf/_legacy` worker_pool_scan dead,
+  `workflow_cmds.py` zero test coverage).
+- ~15 Low findings (Slack scan-snippet leak, `ssl.CERT_NONE`
+  probe docs, PID-suffix collision, `gcp_scc` count, diff quirk,
+  log_action atomic, env-var names in errors, uninstall option
+  cleanup, innerHTML pattern, update-check sig, verify_claim
+  dead, no LLM I/O logging, asyncio fragility, `_legacy` GPU
+  stub, YAML claim).
+
+### Ruled-out false positives
+
+Re-verified: `$wpdb->prefix` SQL interpolation (WP core
+guarantees alphanumeric+underscore), `args[i+N]` enumerate
+arithmetic (lands at right slot), `hmac.new` positional digestmod
+(documented API), `wp_check_password` (WP-native bcrypt path).
+
 ## [v2.7.2] — 2026-05-28
 
 Mega bug-check audit hot-fix. A 6-agent parallel sweep (security,
