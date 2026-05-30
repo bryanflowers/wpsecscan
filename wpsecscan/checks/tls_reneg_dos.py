@@ -20,20 +20,29 @@ from ..models import Finding
 
 def _tls_reneg_test(host: str, port: int, timeout: float = 5.0) -> tuple[bool, str]:
     """Returns (vulnerable, detail). Vulnerable = server accepts >1 renegotiation."""
+    # B3 (v2.8.0) — same fix as B2 (websocket_audit). Punycode-encode
+    # IDN hosts to ASCII before either putting them in a Host: header
+    # (which MUST be ASCII) or passing them to socket.create_connection
+    # (the resolver supports IDN but the raw bytes in the request did
+    # not). Falls back gracefully on non-IDN hosts.
+    try:
+        ascii_host = host.encode("idna").decode("ascii")
+    except (UnicodeError, AttributeError):
+        ascii_host = host
     try:
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
         s = ctx.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM),
-                             server_hostname=host)
+                             server_hostname=ascii_host)
         s.settimeout(timeout)
-        s.connect((host, port))
+        s.connect((ascii_host, port))
         # Try to renegotiate. Python doesn't expose SSL_renegotiate directly,
         # but we can test by sending a partial HTTP request and seeing if the
         # server tolerates the reneg dance. Modern Python (3.10+) raises on
         # unsupported reneg; old servers silently accept.
         try:
-            s.send(b"GET / HTTP/1.1\r\nHost: " + host.encode() + b"\r\n\r\n")
+            s.send(b"GET / HTTP/1.1\r\nHost: " + ascii_host.encode("ascii") + b"\r\n\r\n")
             time.sleep(0.3)
             s.recv(1024)
             # We can't truly test reneg from Python's high-level API, so we

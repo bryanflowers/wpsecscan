@@ -249,6 +249,26 @@ def serve(host: str = "127.0.0.1", port: int = 8765, *, token: str | None = None
     # C11 (v2.7.2) — was `{token[:6]}***`, which echoed 37.5% of a
     # 16-char token to stdout (often logged or screen-captured).
     print(f"Auth: Authorization: Bearer <set, {len(token)} chars>")
+    # B5 (v2.8.0) — install SIGTERM (+ SIGHUP where available) handler.
+    # `docker stop` and systemd both send SIGTERM by default; without
+    # this, the API server was killed mid-request, leaking in-flight
+    # report writes. SIGHUP is the conventional reload/log-rotate
+    # signal — for now we just treat it the same as SIGTERM (clean
+    # shutdown); future work could re-load config without exit.
+    import signal as _signal
+
+    def _on_term(*_a):
+        print("\nAPI server stopping (signal).")
+        # server.shutdown() must run from a non-serving thread; call
+        # it via Thread to avoid deadlock with serve_forever's loop.
+        import threading as _th
+        _th.Thread(target=server.shutdown, daemon=True).start()
+
+    for _sig in (_signal.SIGTERM, _signal.SIGHUP) if hasattr(_signal, "SIGHUP") else (_signal.SIGTERM,):
+        try:
+            _signal.signal(_sig, _on_term)
+        except (OSError, ValueError):
+            pass  # not in main thread; can't install signal handler
     try:
         server.serve_forever()
     except KeyboardInterrupt:

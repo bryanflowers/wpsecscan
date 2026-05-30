@@ -30,9 +30,19 @@ def _ws_handshake(host: str, port: int, path: str, scheme: str,
                   origin: str = "https://wpsec-evil.example.com") -> dict:
     """Send a single WebSocket Upgrade request. Returns dict with .status, .headers, .accept_key."""
     key = base64.b64encode(secrets.token_bytes(16)).decode()
+    # B2 (v2.8.0) — IDN hosts (e.g. `café.example.com`) cannot be put
+    # into an HTTP Host: header as Unicode — the header must be ASCII.
+    # Punycode-encode the host before interpolation. urlparse returns
+    # the raw Unicode hostname; idna encoding converts it to its
+    # `xn--...` ASCII form. Falls back gracefully if the host is
+    # already ASCII or doesn't fit the idna rules.
+    try:
+        ascii_host = host.encode("idna").decode("ascii")
+    except (UnicodeError, AttributeError):
+        ascii_host = host
     request = (
         f"GET {path} HTTP/1.1\r\n"
-        f"Host: {host}:{port}\r\n"
+        f"Host: {ascii_host}:{port}\r\n"
         f"Upgrade: websocket\r\n"
         f"Connection: Upgrade\r\n"
         f"Sec-WebSocket-Key: {key}\r\n"
@@ -42,13 +52,13 @@ def _ws_handshake(host: str, port: int, path: str, scheme: str,
         f"\r\n"
     )
     try:
-        sock = socket.create_connection((host, port), timeout=5.0)
+        sock = socket.create_connection((ascii_host, port), timeout=5.0)
         if scheme == "wss" or port == 443:
             ctx = _ssl.create_default_context()
             ctx.check_hostname = False
             ctx.verify_mode = _ssl.CERT_NONE
-            sock = ctx.wrap_socket(sock, server_hostname=host)
-        sock.sendall(request.encode())
+            sock = ctx.wrap_socket(sock, server_hostname=ascii_host)
+        sock.sendall(request.encode("ascii"))
         data = b""
         try:
             for _ in range(10):

@@ -113,14 +113,39 @@ async def run_daemon(config_path: Path) -> None:
     from .scanner import scan
     from .reporters import json_out, html as html_reporter
     from wpsecscan import notify as _n
+    from wpsecscan.history import _atomic_write_text as _atomic
 
     print(f"[daemon] loaded {len(targets)} target(s) from {config_path}")
     print(f"[daemon] output dir: {out_dir.resolve()}")
     print("[daemon] sleeping until next cron match...")
 
+    # B5 (v2.8.0) — install SIGTERM/SIGHUP handlers so docker stop /
+    # systemd Restart and logrotate's SIGHUP don't kill the process
+    # mid-scan. asyncio's loop.add_signal_handler is the right way to
+    # cooperate with the await asyncio.sleep below; on Windows
+    # add_signal_handler raises NotImplementedError so we fall back
+    # to signal.signal there. The cancel-on-signal pattern lets the
+    # current scan complete then exit cleanly at the next loop check.
+    import signal as _signal
+    _shutdown = asyncio.Event()
+
+    def _request_shutdown(*_a):
+        print("[daemon] shutdown signal received; finishing current scan...")
+        _shutdown.set()
+
+    try:
+        loop = asyncio.get_running_loop()
+        for _sig in (_signal.SIGTERM, _signal.SIGHUP) if hasattr(_signal, "SIGHUP") else (_signal.SIGTERM,):
+            try:
+                loop.add_signal_handler(_sig, _request_shutdown)
+            except (NotImplementedError, RuntimeError):
+                _signal.signal(_sig, _request_shutdown)
+    except RuntimeError:
+        pass  # not in an asyncio loop; signal handlers stay default
+
     last_minute_run: set[tuple[str, str]] = set()  # (url, minute-key) to avoid double-firing
 
-    while True:
+    while not _shutdown.is_set():
         now = datetime.now()
         minute_key = now.strftime("%Y-%m-%dT%H:%M")
         for t in targets:
@@ -141,8 +166,12 @@ async def run_daemon(config_path: Path) -> None:
                         concurrency=int(t.get("concurrency") or 10),
                     )
                     stem = url.replace("://", "_").replace("/", "_") + "_" + now.strftime("%Y%m%d_%H%M%S")
-                    (out_dir / f"{stem}.json").write_text(json_out.render(report), encoding="utf-8")
-                    (out_dir / f"{stem}.html").write_text(html_reporter.render(report), encoding="utf-8")
+                    # B4 (v2.8.0) — atomic temp+replace so a SIGTERM
+                    # or crash mid-write leaves no torn file. Mirrors
+                    # the history._atomic_write_text helper added in
+                    # v2.7.3 for siblings in history.py.
+                    _atomic(out_dir / f"{stem}.json", json_out.render(report))
+                    _atomic(out_dir / f"{stem}.html", html_reporter.render(report))
                     print(f"[daemon] {url} done; risk score {report.risk_score}; wrote {stem}.[json|html]")
                     if webhook_url:
                         _n.notify(report, webhook_url, threshold=t.get("fail_on") or "high")
