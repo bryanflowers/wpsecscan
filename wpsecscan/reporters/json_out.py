@@ -135,11 +135,12 @@ def render(report: ScanReport, *, ascii_only: bool = False) -> str:
     )
 
 
-def write(report: ScanReport, path: Path) -> None:
+def write(report: ScanReport, path: Path, *, ascii_only: bool = False) -> None:
     # v2.8.1 B39 — atomic temp+rename. Pre-fix bare write_text could
     # produce a torn file if the process died mid-write.
+    # v2.8.1 B44 — `ascii_only` opt-in passed through to render().
     from . import _atomic_write_text
-    _atomic_write_text(path, render(report))
+    _atomic_write_text(path, render(report, ascii_only=ascii_only))
     try:
         from .. import activity as _act
         _act.emit("reporter", f"JSON: {path.name} ({path.stat().st_size // 1024} KB)")

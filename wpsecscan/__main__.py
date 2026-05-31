@@ -284,7 +284,8 @@ async def _scan_one(target: str, args, console: Console):
 
     if not args.html_only:
         json_p = out_dir / f"{stem}.json"
-        json_reporter.write(report, json_p)
+        json_reporter.write(report, json_p,
+                             ascii_only=bool(getattr(args, "json_ascii", False)))
         if not args.no_console:
             console.print(f"[green]✓[/green] JSON report: [bold]{json_p}[/bold]")
 
@@ -679,6 +680,28 @@ async def _scan_one(target: str, args, console: Console):
 
 async def _amain(args) -> int:
     console = Console(no_color=args.no_color, legacy_windows=False)
+
+    # U11 (v2.8.1) — `--self-update` shortcut. Frozen .exe (PyInstaller)
+    # cannot rewrite itself while running; print manual instructions in
+    # that case. For pip installs, exec `pip install --upgrade wpsecscan`
+    # in the SAME interpreter that's running us (so it lands in the
+    # right venv).
+    if getattr(args, "self_update", False):
+        import subprocess as _sp
+        if getattr(sys, "frozen", False):
+            print("Self-update via pip not available in a frozen .exe build.\n"
+                  "Download the latest release: https://github.com/bryanflowers/wpsecscan/releases/latest",
+                  file=sys.stderr)
+            return 69  # EX_UNAVAILABLE
+        try:
+            res = _sp.run(
+                [sys.executable, "-m", "pip", "install", "--upgrade", "wpsecscan"],
+                capture_output=False, text=True, timeout=300,
+            )
+            return res.returncode
+        except (_sp.TimeoutExpired, OSError) as e:
+            print(f"--self-update failed: {e}", file=sys.stderr)
+            return 1
 
     # J19: opportunistic update check (silent on no-update / on failure)
     if not getattr(args, "no_update_check", False):
@@ -1096,10 +1119,31 @@ def main() -> None:
     p.add_argument("--interval", type=int, default=300, metavar="SECONDS",
                    help="Polling interval for --continuous mode (default 300 = 5 minutes).")
     p.add_argument("--checkpoint", action="store_true", help="Save progress to ~/.wpsecscan/checkpoints/ so a Ctrl+C scan can resume on next run")
+    # U13 (v2.8.1) — validate --fail-on at parse time. Pre-fix a typo
+    # like `--fail-on hgh` was silently ignored at exit-code computation;
+    # CI gates missed their intended trigger.
+    def _validate_fail_on(s: str) -> str:
+        valid = {"critical", "high", "medium", "low", "info"}
+        items = [x.strip().lower() for x in (s or "").split(",") if x.strip()]
+        bad = [i for i in items if i not in valid]
+        if bad:
+            import argparse as _ap
+            raise _ap.ArgumentTypeError(
+                f"--fail-on: invalid level(s) {bad!r}; "
+                f"valid: {', '.join(sorted(valid))}"
+            )
+        return ",".join(items)
     p.add_argument("--fail-on", "-F", default=None, metavar="LEVEL[,LEVEL]",
+                   type=_validate_fail_on,
                    help="Exit with code 2 if any finding is at or above this severity. "
-                        "Accepts a single value (critical|high|medium|low) or comma-separated list, "
+                        "Accepts a single value (critical|high|medium|low|info) or comma-separated list, "
                         "e.g. `critical,high`. Overrides the default exit-code logic.")
+    # B44 (v2.8.1) — opt-in strict-ASCII JSON for legacy log shippers
+    # that can't handle the default ensure_ascii=False unicode output.
+    p.add_argument("--json-ascii", action="store_true",
+                   help="Force the JSON reporter to emit pure ASCII "
+                        "(escape every non-ASCII char to \\uXXXX). "
+                        "Default keeps unicode for readability.")
     # #36: --format consolidation. Repeatable; replaces (and supplements)
     # the separate --json-only / --csv / --md / etc. flags.
     p.add_argument("--format", default=None, action="append", metavar="FORMAT",
@@ -1184,6 +1228,12 @@ def main() -> None:
     p.add_argument("--since", default=None, metavar="YYYY-MM-DD", help="K26: incremental mode; skip low-churn checks for targets whose snapshot is newer than this date.")
     p.add_argument("--completion", default=None, choices=["bash", "zsh", "powershell"], help="O47: print a shell completion script and exit.")
     p.add_argument("--no-update-check", action="store_true", help="J19: skip the GitHub-releases update check at startup.")
+    # U11 (v2.8.1) — `--self-update` runs `pip install --upgrade wpsecscan`
+    # in the current Python's site-packages, then exits. For PyInstaller
+    # frozen .exe users this prints instructions instead (binary can't
+    # rewrite itself while running).
+    p.add_argument("--self-update", action="store_true",
+                   help="U11 (v2.8.1): upgrade wpsecscan in-place via pip. Frozen .exe builds print manual instructions instead.")
     # Round-56 visibility upgrade
     p.add_argument("--demo", action="store_true", help="Round-56: synthetic scan against a fake target so you can see every feature working without scanning a real site. Writes all artifacts to ~/.wpsecscan/demo/.")
     p.add_argument("--no-live", action="store_true", help="Disable the live multi-panel dashboard during scans (falls back to the static console reporter).")
@@ -1368,7 +1418,11 @@ def main() -> None:
 
     # --timeout below 5s reliably causes false-positive timeout findings
     # (TLS handshake alone can take 1-2s; a slow plugin can take 3s).
-    if args.timeout < 5 and not args.no_console:
+    # U16 (v2.8.1) — was gated on `not args.no_console`, so CI users who
+    # passed --quiet never saw the warning. Stderr is independent of
+    # --no-console (which only suppresses Rich console output); always
+    # print the warning on stderr.
+    if args.timeout < 5:
         print(f"[warn] --timeout {args.timeout:.1f}s is very short; "
               "expect false-positive timeout findings on real sites.",
               file=sys.stderr)
@@ -2741,6 +2795,24 @@ def _cmd_doctor(args: list[str]) -> None:
                   "~/.wpsecscan/policy.{yml,json}", "per-site policy overrides"))
 
     # Output
+    # U10 (v2.8.1) — JSON output mode for CI consumption + non-zero
+    # exit on any missing component. `wpsecscan doctor --json` produces
+    # a parseable structure; exit 0 when all green, exit 1 when any
+    # `•` component is missing (let CI fail-fast on misconfigured runners).
+    json_mode = "--json" in args
+    if json_mode:
+        import json as _json
+        out = {
+            "version": __version__,
+            "python": sys.version.split()[0],
+            "rows": [
+                {"status": s, "component": n, "hint": h} for s, n, h in rows
+            ],
+            "missing_count": sum(1 for s, _n, _h in rows if s == "•"),
+        }
+        print(_json.dumps(out, indent=2))
+        sys.exit(0 if out["missing_count"] == 0 else 1)
+
     print()
     print(f"{'':2}  {'COMPONENT':40}  HINT")
     print(f"{'':2}  {'-' * 40}  {'-' * 40}")
@@ -2751,8 +2823,11 @@ def _cmd_doctor(args: list[str]) -> None:
     if missing:
         print(f"{missing} optional component(s) not detected. Wpsecscan will still run; "
                "install the listed extras / set the env vars to enable the relevant features.")
-    else:
-        print("All optional components detected.")
+        # U10 — non-zero exit when at least one component missing so
+        # CI pipelines can `wpsecscan doctor || exit` to enforce a
+        # fully-configured runner.
+        sys.exit(1)
+    print("All optional components detected.")
     sys.exit(0)
 
 
