@@ -138,6 +138,19 @@ async def _scan_one(target: str, args, console: Console):
         except Exception:  # noqa: BLE001
             dash = None
             on_progress = None
+    elif not args.no_console and not getattr(args, "no_live", False):
+        # v2.8.1 U9 — dumb terminals (CI, piped output) get a minimal
+        # dot-per-check fallback so operators see *some* sign of life
+        # instead of the prior dead-air-then-final-summary behaviour.
+        import sys as _sys
+        def _ci_on_progress(check_id: str, status: str, *_extra) -> None:
+            if status == "done":
+                _sys.stderr.write(".")
+                _sys.stderr.flush()
+            elif status == "error":
+                _sys.stderr.write("!")
+                _sys.stderr.flush()
+        on_progress = _ci_on_progress
 
     try:
         report = await scan(
@@ -703,6 +716,34 @@ async def _amain(args) -> int:
             print(f"--self-update failed: {e}", file=sys.stderr)
             return 1
 
+    # v2.8.1 U6 — --resume list/<id>. Surface paused checkpoints + set
+    # WPSECSCAN_RESUME_ATTACK so attack scripts using CheckpointedRunner
+    # auto-pick-up where Ctrl+C left off.
+    resume_arg = getattr(args, "resume", None)
+    if resume_arg:
+        if resume_arg.lower() == "list":
+            try:
+                from . import attack_checkpoint as _ac
+                items = _ac.list_pausable()
+            except ImportError:
+                items = []
+            if not items:
+                console.print("[dim]No paused attack checkpoints.[/dim]")
+                return 0
+            for it in items:
+                console.print(
+                    f"  [bold]{it['attack_id']}[/bold]  "
+                    f"target={it.get('target') or '?'}  "
+                    f"progress={it['progress_pct']}%  "
+                    f"started_at={it.get('started_at') or '?'}"
+                )
+            return 0
+        # Otherwise it's an attack_id: export env var and let the runner pick up.
+        import os as _os
+        _os.environ["WPSECSCAN_RESUME_ATTACK"] = resume_arg
+        console.print(f"[dim]Resume mode: WPSECSCAN_RESUME_ATTACK={resume_arg}[/dim]")
+        # The actual resume is opt-in per attack script; continue normal scan flow.
+
     # J19: opportunistic update check (silent on no-update / on failure)
     if not getattr(args, "no_update_check", False):
         try:
@@ -772,9 +813,48 @@ async def _amain(args) -> int:
             if report and html_filename:
                 all_reports.append((report, html_filename))
     else:
-        for t in targets:
+        # v2.8.1 U17 — ETA display for batch --file scans. Estimate one
+        # scan's duration via eta.estimate_scan_seconds, multiply by site
+        # count, and emit a single line before the run starts. Skipped
+        # for single-target runs and for --no-console / --quiet.
+        batch_started_at = None
+        if len(targets) > 1 and not getattr(args, "no_console", False):
+            try:
+                from . import eta as _eta
+                import time as _time
+                per = _eta.estimate_scan_seconds(
+                    aggressive=bool(args.aggressive),
+                    prove=bool(args.prove),
+                    deep_throttle=bool(getattr(args, "deep_throttle", False)),
+                    deep_throttle_attempts=int(getattr(args, "deep_throttle_attempts", 120) or 120),
+                    deep_throttle_pacing_s=float(getattr(args, "deep_throttle_pacing", 10.0) or 10.0),
+                    authenticated=bool(getattr(args, "auth_user", None) or
+                                          getattr(args, "auth_app_password", None) or
+                                          getattr(args, "companion_token", None)),
+                )
+                total_s = per * len(targets)
+                console.print(
+                    f"[dim]Batch ETA: ~{_eta.format_eta(per)} per site × "
+                    f"{len(targets)} sites ≈ {_eta.format_eta(total_s)} total[/dim]"
+                )
+                batch_started_at = _time.monotonic()
+            except (ImportError, ValueError, TypeError):
+                pass
+        for i, t in enumerate(targets, 1):
             if len(targets) > 1:
-                console.rule(f"[bold cyan]{t}")
+                # U17 — show running ETA on each site header.
+                if batch_started_at is not None and i > 1:
+                    try:
+                        from . import eta as _eta
+                        import time as _time
+                        elapsed = _time.monotonic() - batch_started_at
+                        avg_per = elapsed / (i - 1)
+                        remaining = avg_per * (len(targets) - i + 1)
+                        console.rule(f"[bold cyan]{t}  [dim]({i}/{len(targets)}, ~{_eta.format_eta(int(remaining))} remaining)[/dim]")
+                    except (ImportError, ValueError, ZeroDivisionError):
+                        console.rule(f"[bold cyan]{t}  [dim]({i}/{len(targets)})[/dim]")
+                else:
+                    console.rule(f"[bold cyan]{t}  [dim]({i}/{len(targets)})[/dim]")
             # C2: clear J20/J21 per-scan state so a check auto-disabled on
             # target N doesn't stay disabled for target N+1 in a batch.
             try:
@@ -1023,12 +1103,76 @@ def main() -> None:
     # only uses the FIRST token. Show the actual subcommand name in
     # one column and the remaining usage hint in a second column so
     # the user can immediately see what the dispatch key is.
+    # v2.8.1 U1 — paginated/grouped --help. Subcommands are categorised by
+    # the function they serve (scanning vs reporting vs integrations vs auth)
+    # so newcomers can find what they need without scanning all 60 entries.
+    _CATEGORY_FOR_NAME: dict[str, str] = {
+        # Scanning
+        "sites": "Scanning & scheduling", "schedule": "Scanning & scheduling",
+        "cron-schedule": "Scanning & scheduling", "rotation": "Scanning & scheduling",
+        "watch": "Scanning & scheduling", "kev": "Scanning & scheduling",
+        "only": "Scanning & scheduling", "refix": "Scanning & scheduling",
+        "scan-zip": "Scanning & scheduling", "freeze": "Scanning & scheduling",
+        "tournament": "Scanning & scheduling", "worker": "Scanning & scheduling",
+        # Reporting
+        "report": "Reporting & comparison", "compare": "Reporting & comparison",
+        "compare-portfolios": "Reporting & comparison",
+        "diff-tree": "Reporting & comparison", "diff-agency": "Reporting & comparison",
+        "changelog": "Reporting & comparison", "annotate": "Reporting & comparison",
+        "snooze": "Reporting & comparison", "badge": "Reporting & comparison",
+        "portfolio": "Reporting & comparison", "audio-summary": "Reporting & comparison",
+        "publish": "Reporting & comparison", "replay": "Reporting & comparison",
+        "replay-prompt": "Reporting & comparison",
+        # Integrations
+        "digest": "Integrations & notifications",
+        "slack-app": "Integrations & notifications",
+        "pr-comment": "Integrations & notifications",
+        "pr-status": "Integrations & notifications",
+        "dashboard-templates": "Integrations & notifications",
+        "mobile-api": "Integrations & notifications",
+        "import-pentest": "Integrations & notifications",
+        "reference-diff": "Integrations & notifications",
+        # AI
+        "ai-cost": "AI & triage", "ai-options": "AI & triage",
+        "ai-agent": "AI & triage", "triage": "AI & triage",
+        # Auth / credentials
+        "creds": "Auth & credentials", "sso": "Auth & credentials",
+        "hwkey": "Auth & credentials", "attest": "Auth & credentials",
+        "verify-release": "Auth & credentials",
+        # Compliance
+        "compliance": "Compliance",
+        "sla": "Compliance",
+        # Marketplace / extensibility
+        "marketplace": "Marketplace & extensions", "submit-cve": "Marketplace & extensions",
+        "check": "Marketplace & extensions", "playbook": "Marketplace & extensions",
+        # Database / vuln
+        "db": "Vuln database",
+        # Misc / utility
+        "doctor": "Utility", "paths": "Utility", "config": "Utility",
+        "analytics": "Utility", "undo": "Utility", "learn": "Utility",
+        "install-completion": "Utility",
+    }
+    _CATEGORY_ORDER = (
+        "Scanning & scheduling", "Reporting & comparison",
+        "Integrations & notifications", "AI & triage", "Auth & credentials",
+        "Compliance", "Marketplace & extensions", "Vuln database", "Utility", "Other",
+    )
     epilog_lines = ["Subcommands (run `wpsecscan <name> --help` for per-command usage):", ""]
+    grouped: dict[str, list[tuple[str, str]]] = {c: [] for c in _CATEGORY_ORDER}
     for usage, desc in SUBCOMMAND_HELP:
-        parts = usage.split(maxsplit=1)
-        name = parts[0]
-        rest = parts[1] if len(parts) > 1 else ""
-        epilog_lines.append(f"  {name:16s} {rest:22s}  {desc}")
+        name = usage.split(maxsplit=1)[0]
+        grouped.setdefault(_CATEGORY_FOR_NAME.get(name, "Other"), []).append((usage, desc))
+    for cat in _CATEGORY_ORDER:
+        items = grouped.get(cat) or []
+        if not items:
+            continue
+        epilog_lines.append(f"  {cat}:")
+        for usage, desc in items:
+            parts = usage.split(maxsplit=1)
+            name = parts[0]
+            rest = parts[1] if len(parts) > 1 else ""
+            epilog_lines.append(f"    {name:16s} {rest:22s}  {desc}")
+        epilog_lines.append("")
     p = argparse.ArgumentParser(
         prog="wpsecscan",
         description=(
@@ -1119,6 +1263,13 @@ def main() -> None:
     p.add_argument("--interval", type=int, default=300, metavar="SECONDS",
                    help="Polling interval for --continuous mode (default 300 = 5 minutes).")
     p.add_argument("--checkpoint", action="store_true", help="Save progress to ~/.wpsecscan/checkpoints/ so a Ctrl+C scan can resume on next run")
+    # v2.8.1 U6 — surface attack_checkpoint state. `--resume list` prints paused
+    # checkpoints; `--resume <attack_id>` exports WPSECSCAN_RESUME_ATTACK so
+    # CheckpointedRunner picks up where Ctrl+C left off. The runner already
+    # auto-resumes when state exists, so the env var is mainly a hint to the
+    # operator that they're entering resume mode.
+    p.add_argument("--resume", metavar="ID_OR_LIST", default=None,
+                   help="--resume list → show paused attack checkpoints; --resume <id> → continue that attack")
     # U13 (v2.8.1) — validate --fail-on at parse time. Pre-fix a typo
     # like `--fail-on hgh` was silently ignored at exit-code computation;
     # CI gates missed their intended trigger.
@@ -1146,9 +1297,12 @@ def main() -> None:
                         "Default keeps unicode for readability.")
     # #36: --format consolidation. Repeatable; replaces (and supplements)
     # the separate --json-only / --csv / --md / etc. flags.
-    p.add_argument("--format", default=None, action="append", metavar="FORMAT",
-                   help="#36: emit specific report format(s). Repeat or "
-                        "comma-separate: --format json,html,sarif. Supported: "
+    # v2.8.1 U7 — `--output` is the new preferred name; `--format` remains
+    # supported as a deprecation-warned alias.
+    p.add_argument("--format", "--output", default=None, action="append",
+                   dest="format", metavar="FORMAT",
+                   help="emit specific report format(s). Repeat or comma-separate: "
+                        "--output json,html,sarif. Supported: "
                         "json,html,csv,md,xlsx,sarif,burp,docx,exec-pdf. "
                         "Aliases the legacy --json-only / --csv / etc. flags.")
     p.add_argument("--abuseipdb-token", default=os.environ.get("WPSECSCAN_ABUSEIPDB_TOKEN"),
