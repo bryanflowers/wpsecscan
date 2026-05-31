@@ -149,7 +149,7 @@ signed releases, enterprise SSO + RBAC + audit-log + multi-tenant,
 | Group | Items | What it adds |
 |-------|------:|-------------|
 | A — Active exploit verification | 10 | Strict consent-gated PoC verifiers (`exploit_verify.py`) |
-| B — Continuous monitoring | 10 | Always-on watchers (`monitors.py`) |
+| B — Continuous monitoring | 10 | Always-on watchers (`continuous_monitor.py` + `daemon/`; legacy `monitors.py` removed in v2.8.1 T9) |
 | D — Trust signals | 10 | SLSA L3 + Sigstore + Scorecard + security.txt + bounty |
 | E — Threat intel | 10 | CISA KEV / EPSS / Exploit-DB / Metasploit / MITRE ATT&CK / STIX / MISP / OpenCTI / OTX / GreyNoise |
 | F — Modern WP attack surface | 20 | AI/LLM, cryptominer, Magecart, lockfile, typosquat |
