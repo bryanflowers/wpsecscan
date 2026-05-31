@@ -7,7 +7,115 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-The following items were rolled to v2.9.0 via the v2.8.1 stuck-rule.
+The following items rolled to v2.9.0 via the v2.8.2 stuck-rule:
+- **GUI U#11** (tree empty-state callout) — Treeview empty-state
+  painting is non-trivial in Tk; deferred.
+- **GUI U#13** (open prior HTML report from scan-history rows) —
+  cross-window action wiring deferred.
+- **Phase 2.5** wire `json_migrations.load_versioned` into the 3 real
+  callers (cli_extras.py, mobile_v27.py) — existing callers use
+  `load_home_json` with a different shape; full refactor scoped to v2.9.0.
+
+Plus the v2.8.1 carryovers (still applicable):
+
+## [v2.8.2] — 2026-05-31
+
+Hotfix + dead-code-cleanup release. Fixes two regressions introduced
+in v2.8.1, wires the previously-unreachable v28 modules into real CLI
+surface, and lands 11 UX polish wins.
+
+### Critical regressions fixed (C1 + C2)
+
+- **C1** — `__main__._ci_on_progress` parameter order didn't match
+  `scanner.ProgressCallback` (event, check_id, check_name, result).
+  The v2.8.1 signature was reversed, so the `status == "done"` branch
+  never fired and CI dot-fallback was silently broken. Upgrade if you
+  run scans in non-TTY environments.
+- **C2** — `ArgumentParser(allow_abbrev=False)` resolves the
+  ambiguity between `--out` and the new `--output` alias added in
+  v2.8.1. Every v2.8.1 invocation that used `--out` raised
+  `argparse.ArgumentError: ambiguous option`. Upgrade fixes.
+
+### Phase 1 — 19 additional correctness/quality items (H/M/L)
+
+- **H1/H2** `integrations_v28`: `f.extra[...]` mutations guarded with
+  `isinstance(f.extra, dict)` at the write site in `osv_dev_enrich` +
+  `exploitdb_xref`.
+- **H3** `_post_json` refuses non-HTTPS webhook URLs by default; opt
+  out via `WPSECSCAN_ALLOW_INSECURE_WEBHOOK=1` for localhost dev.
+- **H4** `buildkite_annotation` sanitizes `report.target` before
+  `subprocess.run` (defends against downstream re-shell).
+- **H5** `auto_control_mapper` returns an explicit "not yet shipped"
+  stub for SOC2 (was incorrectly mapping to NIST 800-53 IDs).
+- **M1-M10 + L2-L10** — see commit log for the full list including:
+  PyYAML safe-dump for Nuclei templates (M5), atomic write for
+  GitLab CI (M6), `voice_query` removal (M3, always returned skipped),
+  multisite REST-API detection (M9), tighter `global_styles_css_injection`
+  trigger (L8), tighter `tenant_isolated_home` validation (L6),
+  `attestation_letter` frozen-exe-safe version import (M2).
+
+### Phase 2 — Wire dead v28 modules to real CLI surface
+
+The v2.8.1 audit found `integrations_v28`, `ai_v28`, `compliance_v28`,
+`cli_error`, `json_migrations` shipped in the wheel but were never
+imported from any production path. v2.8.2 surfaces them via three new
+umbrella subcommands:
+
+- **`wpsecscan emit <FORMAT> <REPORT.json> [--out FILE]`** — 14 formats:
+  spdx-sbom, intoto, cef, leef, cab, risk-csv, risk-json,
+  attestation-letter, hipaa-map, fedramp, ce-plus, e8,
+  stakeholder-bundle, gdpr-dpia.
+- **`wpsecscan push <PROVIDER> <REPORT.json>`** — 13 providers:
+  gitlab-ci, circleci, azure-devops, buildkite, shortcut, plane, wiz,
+  chat, hosting, automation, osv-enrich, exploitdb-xref, nuclei.
+- **`wpsecscan ai <SUB> ...`** — 6 helpers: remediation, plan,
+  visual-diff, injection-check, drift, control-map.
+
+All three use `cli_error.CliError` + `handle_cli_error` for structured
+errors, exercising the previously-dead `cli_error` module.
+
+### Phase 3 — +75 tests (930 → 1005)
+
+- New `tests/test_v281_dead_code.py` (27 tests): C1+C2 regression
+  guards, `cli_error` plain+JSON, `json_migrations` round-trip for 3
+  upgraders + backup option, `integrations_v28` HTTPS enforcement +
+  subprocess sanitisation + atomic write, `ai_v28` PI detector +
+  budget fallback + SOC2 stub + path-traversal rejection,
+  `compliance_v28` CEF/LEEF/CSV/HIPAA/SPDX/in-toto.
+- New `tests/test_v281_new_checks.py` (48 tests): happy-path +
+  empty-response for all 17 F2-F23 checks plus parametrised
+  crash-on-empty regression guard.
+- Extended `tests/test_new_check_inventory.py` `NEW_PASSIVE` to cover
+  all 17 v2.8.1 check IDs.
+
+### Phase 4 — 11 UX quick wins
+
+**CLI**: `check list --json` (machine-readable inventory), `--format`
+"did you mean?" suggestions, `--diff-since` parse failure → exit 2,
+`WPSECSCAN_OUT_DIR` env var, `sites --help` annotated examples,
+`--shell` REPL Tab completion via readline+rlcompleter, expanded
+`--prove` help.
+
+**GUI**: Context-menu "Copy finding (JSON)"; scan-start status bar
+shows ETA via `eta.estimate_scan_seconds`.
+
+**Reporter**: SARIF deterministic ruleId ordering (CI-diff-friendly);
+new `--md-frontmatter` flag for Hugo/Obsidian/MkDocs YAML front-matter.
+
+Deferred to v2.9.0: GUI U#5 (already present), U#10 (existing
+context-menu equivalent), U#11 (empty-state Treeview painting), U#13
+(cross-window history wiring).
+
+### Phase 5 — docs + CI
+
+- README badges: `checks-270` → `checks-293+`, `tests-780` → `tests-1005`.
+- FEATURES.md: stale `monitors.py` reference removed.
+- New `docs/whats-new.md`, `docs/sdk-helpers.md`, `docs/troubleshooting.md`.
+- CI matrix extended to Python 3.13.
+
+1005 tests pass.
+
+## [v2.8.1] — 2026-05-31
 See `.claude/plans/v2.9.0.md` for the full queue.
 
 - **GUI U27** — toolbar tab-order audit

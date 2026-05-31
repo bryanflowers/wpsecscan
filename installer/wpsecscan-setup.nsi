@@ -7,7 +7,7 @@
 
 !define APP_NAME       "WPSecScan"
 !define APP_PUBLISHER  "Bryan"
-!define APP_VERSION    "2.8.1"
+!define APP_VERSION    "2.8.2"
 !define APP_EXE_CLI    "wpsecscan.exe"
 !define APP_EXE_GUI    "wpsecscan-gui.exe"
 !define APP_URL        "https://github.com/bryanflowers/wpsecscan"
