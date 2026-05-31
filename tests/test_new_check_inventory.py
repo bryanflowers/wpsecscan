@@ -20,6 +20,15 @@ NEW_PASSIVE = [
     "upload_path_predictable", "http2_settings", "favicon_fingerprint", "a11y_lite",
     "smuggling_probe", "tls_deep", "cookie_consent", "websocket_audit",
     "woocommerce_audit", "graphql_dos",
+    # v2.8.2 — extend registry guard to cover all 17 v2.8.1 F2-F23 checks
+    "wc_cart_abandonment_xss", "wc_draft_order_escalation",
+    "wc_payment_link_replay", "stripe_connect_state_csrf",
+    "plugin_update_server_integrity", "wp_auto_update_filter_exposure",
+    "activitypub_data_leak", "synced_pattern_leak",
+    "global_styles_css_injection", "multisite_network_option_idor",
+    "multisite_super_admin_rbac", "rest_only_admin_probe",
+    "nextjs_env_var_exposure", "ai_agent_tool_injection",
+    "wc_multivendor_idor", "webauthn_rp_id_audit", "wc_refund_flow_idor",
 ]
 
 NEW_AGGRESSIVE = [
