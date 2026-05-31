@@ -302,6 +302,24 @@ from .perf_of_target import check as perf_of_target
 # F1 + F12 (v2.8.0) — new check modules
 from .wc_coupon_enum import check as wc_coupon_enum
 from .headless_cors_lockdown import check as headless_cors_lockdown
+# F2-F23 (v2.8.1) — 17 new defensive check modules
+from .wc_cart_abandonment_xss import check as wc_cart_abandonment_xss
+from .wc_draft_order_escalation import check as wc_draft_order_escalation
+from .wc_payment_link_replay import check as wc_payment_link_replay
+from .stripe_connect_state_csrf import check as stripe_connect_state_csrf
+from .plugin_update_server_integrity import check as plugin_update_server_integrity
+from .wp_auto_update_filter_exposure import check as wp_auto_update_filter_exposure
+from .activitypub_data_leak import check as activitypub_data_leak
+from .synced_pattern_leak import check as synced_pattern_leak
+from .global_styles_css_injection import check as global_styles_css_injection
+from .multisite_network_option_idor import check as multisite_network_option_idor
+from .multisite_super_admin_rbac import check as multisite_super_admin_rbac
+from .rest_only_admin_probe import check as rest_only_admin_probe
+from .nextjs_env_var_exposure import check as nextjs_env_var_exposure
+from .ai_agent_tool_injection import check as ai_agent_tool_injection
+from .wc_multivendor_idor import check as wc_multivendor_idor
+from .webauthn_rp_id_audit import check as webauthn_rp_id_audit
+from .wc_refund_flow_idor import check as wc_refund_flow_idor
 
 # Authenticated — only when creds are provided
 from .authenticated import check as authenticated
@@ -615,6 +633,24 @@ ALL_CHECKS = [
     # headless CORS lockdown is a 3-GET probe.
     ("wc_coupon_enum",         "WC coupon-code enumeration oracle (F1)", wc_coupon_enum,         False),
     ("headless_cors_lockdown", "Headless WP REST CORS lockdown (F12)",   headless_cors_lockdown, False),
+    # F2-F23 (v2.8.1) — 17 new defensive checks
+    ("wc_cart_abandonment_xss",        "WC cart-abandonment plugin XSS probe (F2)",       wc_cart_abandonment_xss,        False),
+    ("wc_draft_order_escalation",      "WC draft-order state-machine probe (F3)",         wc_draft_order_escalation,      False),
+    ("wc_payment_link_replay",         "WC pay-for-order Referrer-Policy audit (F4)",     wc_payment_link_replay,         False),
+    ("stripe_connect_state_csrf",      "Stripe-Connect OAuth state-CSRF audit (F5)",      stripe_connect_state_csrf,      False),
+    ("plugin_update_server_integrity", "Plugin update-server HTTPS audit (F6)",           plugin_update_server_integrity, False),
+    ("wp_auto_update_filter_exposure", "Public auto-update state exposure (F7)",          wp_auto_update_filter_exposure, False),
+    ("activitypub_data_leak",          "ActivityPub actor PII leak probe (F8)",           activitypub_data_leak,          False),
+    ("synced_pattern_leak",            "Synced-pattern (block) public-leak probe (F9)",   synced_pattern_leak,            False),
+    ("global_styles_css_injection",    "FSE global-styles CSS-inject probe (F10)",        global_styles_css_injection,    False),
+    ("multisite_network_option_idor",  "Multisite network-option IDOR probe (F11)",       multisite_network_option_idor,  False),
+    ("multisite_super_admin_rbac",     "Multisite super-admin RBAC bypass probe (F13)",   multisite_super_admin_rbac,     False),
+    ("rest_only_admin_probe",          "REST-only headless /wp-admin lockdown (F15)",     rest_only_admin_probe,          False),
+    ("nextjs_env_var_exposure",        "Next.js NEXT_PUBLIC_* secret-leak probe (F16)",   nextjs_env_var_exposure,        False),
+    ("ai_agent_tool_injection",        "WP AI-agent tool-call injection probe (F18)",     ai_agent_tool_injection,        False),
+    ("wc_multivendor_idor",            "WC multi-vendor (Dokan/WCFM) IDOR probe (F19)",   wc_multivendor_idor,            False),
+    ("webauthn_rp_id_audit",           "WebAuthn / Passkeys RP-ID audit (F22)",           webauthn_rp_id_audit,           False),
+    ("wc_refund_flow_idor",            "WC refund-flow IDOR probe (F23)",                 wc_refund_flow_idor,            False),
     # Deep throttle runs last (~20 min) so all fast checks complete first — risk score
     # and findings appear in ~1-2 min instead of after the throttle test finishes.
     # Self-skips unless ctx["deep_throttle"] is set, so position is harmless when off.

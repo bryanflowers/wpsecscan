@@ -1268,5 +1268,22 @@
     "pci_dss": "6.2.4",
     "nist_800_53": "AC-4",
     "iso_27001": "A.8.20"
-  }
+  },
+  "wc_cart_abandonment_xss":      {"pci_dss": "6.2.4", "nist_800_53": "SI-10", "iso_27001": "A.8.28"},
+  "wc_draft_order_escalation":    {"pci_dss": "7.2.2", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
+  "wc_payment_link_replay":       {"pci_dss": "4.1",   "nist_800_53": "SC-8", "iso_27001": "A.8.24"},
+  "stripe_connect_state_csrf":    {"pci_dss": "6.2.4", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
+  "plugin_update_server_integrity": {"pci_dss": "6.4.3","nist_800_53": "SI-7", "iso_27001": "A.8.31"},
+  "wp_auto_update_filter_exposure": {"pci_dss": "1.2.1","nist_800_53": "AC-3", "iso_27001": "A.8.4"},
+  "activitypub_data_leak":        {"pci_dss": "3.4",   "nist_800_53": "SC-28","iso_27001": "A.8.11"},
+  "synced_pattern_leak":          {"pci_dss": "3.4",   "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
+  "global_styles_css_injection":  {"pci_dss": "6.2.4", "nist_800_53": "SI-10","iso_27001": "A.8.28"},
+  "multisite_network_option_idor":{"pci_dss": "7.2.2", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
+  "multisite_super_admin_rbac":   {"pci_dss": "7.2.2", "nist_800_53": "AC-6", "iso_27001": "A.8.2"},
+  "rest_only_admin_probe":        {"pci_dss": "1.2.1", "nist_800_53": "AC-3", "iso_27001": "A.8.20"},
+  "nextjs_env_var_exposure":      {"pci_dss": "3.4",   "nist_800_53": "IA-5", "iso_27001": "A.8.24"},
+  "ai_agent_tool_injection":      {"pci_dss": "6.2.4", "nist_800_53": "SI-10","iso_27001": "A.8.28"},
+  "wc_multivendor_idor":          {"pci_dss": "7.2.2", "nist_800_53": "AC-3", "iso_27001": "A.8.3"},
+  "webauthn_rp_id_audit":         {"pci_dss": "8.3",   "nist_800_53": "IA-2", "iso_27001": "A.8.5"},
+  "wc_refund_flow_idor":          {"pci_dss": "7.2.2", "nist_800_53": "AC-3", "iso_27001": "A.8.3"}
 }

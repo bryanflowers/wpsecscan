@@ -296,5 +296,22 @@
   "headless_vercel_netlify_detect": {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-200", "d3fend": "D3-NTA"},
   "perf_of_target":               {"owasp": "n/a", "owasp_label": "Operational", "attack": "n/a", "attack_label": "Performance audit", "cwe": "CWE-400", "d3fend": "D3-NTA"},
   "wc_coupon_enum":               {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1110.001", "attack_label": "Brute Force: Password Guessing", "cwe": "CWE-799", "d3fend": "D3-NTA"},
-  "headless_cors_lockdown":       {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-942", "d3fend": "D3-NTA"}
+  "headless_cors_lockdown":       {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-942", "d3fend": "D3-NTA"},
+  "wc_cart_abandonment_xss":      {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1059.007", "attack_label": "JavaScript", "cwe": "CWE-79", "d3fend": "D3-NTA"},
+  "wc_draft_order_escalation":    {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-862", "d3fend": "D3-NTA"},
+  "wc_payment_link_replay":       {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1557", "attack_label": "Adversary-in-the-Middle", "cwe": "CWE-200", "d3fend": "D3-FA"},
+  "stripe_connect_state_csrf":    {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-352", "d3fend": "D3-IAA"},
+  "plugin_update_server_integrity": {"owasp": "A08:2021", "owasp_label": "Software & Data Integrity", "attack": "T1195.002", "attack_label": "Compromise Software Supply Chain", "cwe": "CWE-494", "d3fend": "D3-CRO"},
+  "wp_auto_update_filter_exposure": {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-IAA"},
+  "activitypub_data_leak":        {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-200", "d3fend": "D3-IAA"},
+  "synced_pattern_leak":          {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1213", "attack_label": "Data from Information Repositories", "cwe": "CWE-200", "d3fend": "D3-IAA"},
+  "global_styles_css_injection":  {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1059.007", "attack_label": "JavaScript", "cwe": "CWE-79", "d3fend": "D3-NTA"},
+  "multisite_network_option_idor":{"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-639", "d3fend": "D3-NTA"},
+  "multisite_super_admin_rbac":   {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1078.003", "attack_label": "Local Accounts", "cwe": "CWE-269", "d3fend": "D3-IAA"},
+  "rest_only_admin_probe":        {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-284", "d3fend": "D3-NTA"},
+  "nextjs_env_var_exposure":      {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1552.001", "attack_label": "Credentials In Files", "cwe": "CWE-200", "d3fend": "D3-CRO"},
+  "ai_agent_tool_injection":      {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1059", "attack_label": "Command & Scripting Interpreter", "cwe": "CWE-77", "d3fend": "D3-NTA"},
+  "wc_multivendor_idor":          {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-639", "d3fend": "D3-NTA"},
+  "webauthn_rp_id_audit":         {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1556", "attack_label": "Modify Authentication Process", "cwe": "CWE-287", "d3fend": "D3-IAA"},
+  "wc_refund_flow_idor":          {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-639", "d3fend": "D3-NTA"}
 }
