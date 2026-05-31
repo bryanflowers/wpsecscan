@@ -159,8 +159,32 @@ class App:
         base_w, base_h = 1200, 780
         sw = int(base_w * (self._dpi_scale / 1.333))  # 1.333 = 96 DPI baseline
         sh = int(base_h * (self._dpi_scale / 1.333))
-        self.root.geometry(f"{max(960, sw)}x{max(600, sh)}")
+        # U22 (v2.8.1) — persistent window geometry. _load_pref returns
+        # the saved string ("1200x780+200+100") or empty; fall back to
+        # the DPI-scaled default. _save_pref on <Configure> (debounced
+        # via _geom_save_after id so a drag doesn't write 50 times).
+        _saved_geom = ""
+        try:
+            _saved_geom = self._load_pref("geometry", "") or ""
+        except Exception:  # noqa: BLE001
+            pass
+        self.root.geometry(_saved_geom or f"{max(960, sw)}x{max(600, sh)}")
         self.root.minsize(960, 600)
+        self._geom_save_after = None
+
+        def _on_geom_change(_e=None):
+            if self._geom_save_after is not None:
+                try:
+                    self.root.after_cancel(self._geom_save_after)
+                except (tkinter.TclError, ValueError):
+                    pass
+            def _save():
+                try:
+                    self._save_pref("geometry", self.root.geometry())
+                except Exception:  # noqa: BLE001
+                    pass
+            self._geom_save_after = self.root.after(800, _save)
+        self.root.bind("<Configure>", _on_geom_change, add="+")
         self.root.configure(bg=BG)
 
         self.url_var = StringVar(value="")
