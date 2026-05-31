@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json  # v2.8.2 — module-level for the new emit/push/ai subcommands
 import os
 import re
 import sys
@@ -1153,6 +1154,10 @@ def main() -> None:
         # AI
         "ai-cost": "AI & triage", "ai-options": "AI & triage",
         "ai-agent": "AI & triage", "triage": "AI & triage",
+        "ai": "AI & triage", "ai-triage": "AI & triage",
+        # Emit + push (v2.8.2)
+        "emit": "Reporting & comparison",
+        "push": "Integrations & notifications",
         # Auth / credentials
         "creds": "Auth & credentials", "sso": "Auth & credentials",
         "hwkey": "Auth & credentials", "attest": "Auth & credentials",
@@ -1939,6 +1944,10 @@ SUBCOMMAND_HELP: tuple[tuple[str, str], ...] = (
     ("submit-cve SLUG CVE",  "queue community CVE-DB contribution (L129)"),
     # v2.8.1 T10 — surface ai_triage helpers via a CLI subcommand
     ("ai-triage SUB",        "AI triage helpers: tickets/timeline/impact/exec-brief/kev"),
+    # v2.8.2 Phase 2 — wire the v28 modules to real CLI surface
+    ("emit FORMAT REPORT.json", "emit SBOM/CEF/LEEF/SCIM/SPDX/risk-csv/etc. from a saved report"),
+    ("push PROVIDER REPORT.json", "push a saved report to CircleCI/AZDO/Buildkite/Shortcut/Plane/etc."),
+    ("ai SUB",               "ai remediation/plan/visual-diff/injection-check/drift/control-map"),
 )
 
 SUBCOMMAND_NAMES: tuple[str, ...] = tuple(
@@ -2082,6 +2091,12 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         cmd_submit_cve(args)
     elif cmd == "ai-triage":
         _cmd_ai_triage(args)
+    elif cmd == "emit":
+        _cmd_emit(args)
+    elif cmd == "push":
+        _cmd_push(args)
+    elif cmd == "ai":
+        _cmd_ai(args)
     else:
         # U2 (v2.8.0) — "did you mean?" fuzzy suggestion. Pre-fix
         # bare error left users guessing which subcommand they
@@ -4286,6 +4301,256 @@ def _cmd_snooze(args: list[str]) -> None:
 
     print(f"unknown snooze action: {action}", file=sys.stderr)
     sys.exit(2)
+
+
+def _load_report_for_subcommand(path_str: str):
+    """v2.8.2 Phase 2 — shared helper for the new emit/push/ai subcommands.
+    Reads a saved JSON report and reconstructs minimal ScanReport-like access.
+    Raises CliError on failure."""
+    from .cli_error import CliError
+    from pathlib import Path as _P
+    p = _P(path_str)
+    if not p.exists():
+        raise CliError(code="report-not-found",
+                        message=f"report file not found: {path_str}",
+                        exit_code=2,
+                        hint="run `wpsecscan <url>` first to produce a JSON report")
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise CliError(code="report-invalid-json",
+                        message=f"failed to parse {path_str}: {e}",
+                        exit_code=2,
+                        hint="ensure the file is a wpsecscan JSON output, not HTML/CSV")
+
+
+def _report_dict_to_object(data: dict):
+    """Convert a JSON-loaded report dict to a lightweight namespace that the
+    v28 helpers (which expect Report-like attribute access) can consume."""
+    from types import SimpleNamespace
+    findings_list = []
+    results = []
+    for r in (data.get("results") or []):
+        ns_findings = []
+        for f in (r.get("findings") or []):
+            ns_findings.append(SimpleNamespace(
+                severity=f.get("severity", "info"),
+                title=f.get("title") or "",
+                evidence=f.get("evidence") or "",
+                remediation=f.get("remediation") or "",
+                url=f.get("url") or "",
+                extra=f.get("extra") or {},
+            ))
+            findings_list.append(ns_findings[-1])
+        results.append(SimpleNamespace(
+            check_id=r.get("check_id", "?"),
+            check_name=r.get("check_name", r.get("check_id", "?")),
+            findings=ns_findings,
+        ))
+    rep = SimpleNamespace(
+        target=data.get("target", ""),
+        risk_score=data.get("risk_score", 0),
+        summary=data.get("summary", {}),
+        results=results,
+    )
+    rep.worst_severity = lambda: data.get("worst_severity") or (
+        max((f.severity for f in findings_list), key=lambda s: {
+            "critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}.get(s, 0),
+            default="info"))
+    return rep
+
+
+_EMIT_DISPATCH: dict[str, tuple[str, str]] = {
+    # format-name → (module, callable)
+    "spdx-sbom":         ("compliance_v28", "spdx_sbom"),
+    "intoto":            ("compliance_v28", "intoto_attestation"),
+    "cef":               ("compliance_v28", "cef_export"),
+    "leef":              ("compliance_v28", "leef_export"),
+    "cab":               ("compliance_v28", "cab_export"),
+    "risk-csv":          ("compliance_v28", "risk_register_csv"),
+    "risk-json":         ("compliance_v28", "risk_register_json"),
+    "attestation-letter": ("compliance_v28", "attestation_letter"),
+    "hipaa-map":         ("compliance_v28", "hipaa_safeguards_map"),
+    "fedramp":           ("compliance_v28", "fedramp_moderate_baseline"),
+    "ce-plus":           ("compliance_v28", "cyber_essentials_plus_report"),
+    "e8":                ("compliance_v28", "essential_8_scorecard"),
+    "stakeholder-bundle": ("compliance_v28", "per_stakeholder_bundle"),
+    "gdpr-dpia":         ("compliance_v28", "gdpr_dpia_helper"),
+}
+
+
+def _cmd_emit(args: list[str]) -> None:
+    """v2.8.2 Phase 2.1 — `wpsecscan emit <FORMAT> <REPORT.json> [--out FILE]`.
+
+    Emits the requested format (using compliance_v28 helpers) from a saved
+    report. With `--out FILE` writes to that path; otherwise to stdout.
+    """
+    from .cli_error import CliError, handle_cli_error
+    if not args or args[0] in ("-h", "--help"):
+        print("usage: wpsecscan emit <FORMAT> <REPORT.json> [--out FILE]\n"
+              f"formats: {', '.join(sorted(_EMIT_DISPATCH))}")
+        return
+    try:
+        if len(args) < 2:
+            raise CliError(code="emit-usage",
+                            message="usage: wpsecscan emit <FORMAT> <REPORT.json> [--out FILE]",
+                            exit_code=64)
+        fmt = args[0].lower()
+        if fmt not in _EMIT_DISPATCH:
+            raise CliError(code="emit-unknown-format",
+                            message=f"unknown format: {fmt}",
+                            exit_code=64,
+                            hint=f"valid formats: {', '.join(sorted(_EMIT_DISPATCH))}")
+        out_path = None
+        if "--out" in args[2:]:
+            i = args.index("--out", 2)
+            if i + 1 < len(args):
+                out_path = args[i + 1]
+        data = _load_report_for_subcommand(args[1])
+        report = _report_dict_to_object(data)
+        mod_name, fn_name = _EMIT_DISPATCH[fmt]
+        from importlib import import_module
+        mod = import_module(f".{mod_name}", package="wpsecscan")
+        fn = getattr(mod, fn_name)
+        result = fn(report)
+        if isinstance(result, dict):
+            payload = json.dumps(result, indent=2, default=str)
+        else:
+            payload = str(result)
+        if out_path:
+            from .reporters import _atomic_write_text
+            _atomic_write_text(out_path, payload)
+            print(f"wrote {out_path}")
+        else:
+            print(payload)
+    except CliError as e:
+        sys.exit(handle_cli_error(e))
+
+
+def _cmd_push(args: list[str]) -> None:
+    """v2.8.2 Phase 2.2 — `wpsecscan push <PROVIDER> <REPORT.json>`.
+
+    Pushes a saved report to one of the v2.8.1 integrations. Env vars
+    per provider:
+      gitlab-ci      GL_CODE_QUALITY_REPORT
+      circleci       CIRCLECI_WEBHOOK_URL
+      azure-devops   AZDO_ORG, AZDO_PROJECT, AZDO_PAT
+      buildkite      BUILDKITE_AGENT_NAME (must run inside agent)
+      shortcut       SHORTCUT_TOKEN, SHORTCUT_WORKFLOW_STATE_ID
+      plane          PLANE_TOKEN, PLANE_WORKSPACE, PLANE_PROJECT
+      wiz            SEC_TOOL_WEBHOOK_URL
+      chat           MATTERMOST_WEBHOOK_URL / ROCKETCHAT_WEBHOOK_URL / TELEGRAM_*
+      hosting        HOSTING_EVENT_WEBHOOK_URL
+      automation     AUTOMATION_HUB_WEBHOOK_URL
+      osv-enrich     (no env vars; uses public OSV.dev API)
+      exploitdb-xref EXPLOITDB_CSV
+      nuclei         NUCLEI_TEMPLATE_OUT
+    """
+    from .cli_error import CliError, handle_cli_error
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_push.__doc__.strip())
+        return
+    dispatch: dict[str, tuple[str, str]] = {
+        "gitlab-ci":     ("integrations_v28", "gitlab_ci_security_gate"),
+        "circleci":      ("integrations_v28", "circleci_orb_emit"),
+        "azure-devops":  ("integrations_v28", "azure_devops_workitem"),
+        "buildkite":     ("integrations_v28", "buildkite_annotation"),
+        "shortcut":      ("integrations_v28", "push_shortcut"),
+        "plane":         ("integrations_v28", "push_plane"),
+        "wiz":           ("integrations_v28", "wiz_lacework_push"),
+        "chat":          ("integrations_v28", "chat_webhooks"),
+        "hosting":       ("integrations_v28", "hosting_api_event"),
+        "automation":    ("integrations_v28", "automation_hub_webhook"),
+        "osv-enrich":    ("integrations_v28", "osv_dev_enrich"),
+        "exploitdb-xref": ("integrations_v28", "exploitdb_xref"),
+        "nuclei":        ("integrations_v28", "nuclei_template_export"),
+    }
+    try:
+        if len(args) < 2:
+            raise CliError(code="push-usage",
+                            message="usage: wpsecscan push <PROVIDER> <REPORT.json>",
+                            exit_code=64)
+        provider = args[0].lower()
+        if provider not in dispatch:
+            raise CliError(code="push-unknown-provider",
+                            message=f"unknown provider: {provider}",
+                            exit_code=64,
+                            hint=f"valid: {', '.join(sorted(dispatch))}")
+        data = _load_report_for_subcommand(args[1])
+        report = _report_dict_to_object(data)
+        mod_name, fn_name = dispatch[provider]
+        from importlib import import_module
+        mod = import_module(f".{mod_name}", package="wpsecscan")
+        fn = getattr(mod, fn_name)
+        ok, msg = fn(report)
+        if ok:
+            print(f"ok: {msg}")
+        else:
+            print(f"skipped/failed: {msg}", file=sys.stderr)
+            sys.exit(1)
+    except CliError as e:
+        sys.exit(handle_cli_error(e))
+
+
+def _cmd_ai(args: list[str]) -> None:
+    """v2.8.2 Phase 2.3 — `wpsecscan ai <SUB> ...`.
+
+    Subs:
+      remediation <FINDING.json>      — F35 agentic remediation loop
+      plan <URL>                      — F36 self-improving scan plan
+      visual-diff <OLD.json> <NEW.json> — F38 visual diff
+      injection-check <RESPONSE.txt>  — F43 prompt-injection detector
+      drift <URL> <CURRENT_SCORE>     — F48 anomaly drift alert
+      control-map <REPORT.json> --framework <hipaa|pci|iso27001>  — F47
+    """
+    from .cli_error import CliError, handle_cli_error
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_ai.__doc__.strip())
+        return
+    sub = args[0]
+    try:
+        from . import ai_v28 as _ai
+        if sub == "remediation":
+            if len(args) < 2:
+                raise CliError(code="ai-usage", message="usage: wpsecscan ai remediation <FINDING.json>", exit_code=64)
+            data = _load_report_for_subcommand(args[1])
+            print(json.dumps(_ai.agentic_remediation_loop(data), indent=2, default=str))
+        elif sub == "plan":
+            if len(args) < 2:
+                raise CliError(code="ai-usage", message="usage: wpsecscan ai plan <URL>", exit_code=64)
+            print(json.dumps(_ai.self_improving_scan_plan(args[1]), indent=2, default=str))
+        elif sub == "visual-diff":
+            if len(args) < 3:
+                raise CliError(code="ai-usage", message="usage: wpsecscan ai visual-diff <OLD.json> <NEW.json>", exit_code=64)
+            old = _load_report_for_subcommand(args[1])
+            new = _load_report_for_subcommand(args[2])
+            print(json.dumps(_ai.visual_diff_summarise(old, new), indent=2, default=str))
+        elif sub == "injection-check":
+            if len(args) < 2:
+                raise CliError(code="ai-usage", message="usage: wpsecscan ai injection-check <RESPONSE.txt>", exit_code=64)
+            text = Path(args[1]).read_text(encoding="utf-8", errors="replace")
+            print(json.dumps(_ai.detect_prompt_injection_in_response(text), indent=2, default=str))
+        elif sub == "drift":
+            if len(args) < 3:
+                raise CliError(code="ai-usage", message="usage: wpsecscan ai drift <URL> <CURRENT_SCORE>", exit_code=64)
+            print(json.dumps(_ai.anomaly_drift_alert(args[1], int(args[2])), indent=2, default=str))
+        elif sub == "control-map":
+            if len(args) < 2:
+                raise CliError(code="ai-usage", message="usage: wpsecscan ai control-map <REPORT.json> --framework <name>", exit_code=64)
+            framework = "hipaa"
+            if "--framework" in args[2:]:
+                i = args.index("--framework", 2)
+                if i + 1 < len(args):
+                    framework = args[i + 1].lower()
+            data = _load_report_for_subcommand(args[1])
+            report = _report_dict_to_object(data)
+            print(json.dumps(_ai.auto_control_mapper(report, framework), indent=2, default=str))
+        else:
+            raise CliError(code="ai-unknown-sub",
+                            message=f"unknown ai sub: {sub}", exit_code=64,
+                            hint="valid: remediation, plan, visual-diff, injection-check, drift, control-map")
+    except CliError as e:
+        sys.exit(handle_cli_error(e))
 
 
 def _cmd_ai_triage(args: list[str]) -> None:
