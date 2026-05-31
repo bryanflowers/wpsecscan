@@ -1928,6 +1928,8 @@ SUBCOMMAND_HELP: tuple[tuple[str, str], ...] = (
     ("audio-summary URL",    "TTS MP3 of the exec summary (item #118)"),
     ("marketplace",          "marketplace list/search/install/verify/stars/authors/leaderboard (L126-L130)"),
     ("submit-cve SLUG CVE",  "queue community CVE-DB contribution (L129)"),
+    # v2.8.1 T10 — surface ai_triage helpers via a CLI subcommand
+    ("ai-triage SUB",        "AI triage helpers: tickets/timeline/impact/exec-brief/kev"),
 )
 
 SUBCOMMAND_NAMES: tuple[str, ...] = tuple(
@@ -2069,6 +2071,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
     elif cmd == "submit-cve":
         from .marketplace_v27 import cmd_submit_cve
         cmd_submit_cve(args)
+    elif cmd == "ai-triage":
+        _cmd_ai_triage(args)
     else:
         # U2 (v2.8.0) — "did you mean?" fuzzy suggestion. Pre-fix
         # bare error left users guessing which subcommand they
@@ -4273,6 +4277,53 @@ def _cmd_snooze(args: list[str]) -> None:
 
     print(f"unknown snooze action: {action}", file=sys.stderr)
     sys.exit(2)
+
+
+def _cmd_ai_triage(args: list[str]) -> None:
+    """v2.8.1 T10 — `wpsecscan ai-triage <SUB> <REPORT.json>` — surface previously-dead ai_triage helpers.
+
+    Subs:
+      tickets <REPORT.json>      — generate_tickets()
+      timeline <EVENTS.json>     — narrate_timeline()
+      impact <REPORT.json>       — estimate_business_impact()
+      exec-brief <REPORT.json>   — generate_exec_brief()
+      kev <REPORT.json>          — correlate_with_kev()
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_ai_triage.__doc__.strip()); return
+    sub = args[0]
+    if len(args) < 2:
+        print(f"usage: wpsecscan ai-triage {sub} <REPORT.json>", file=sys.stderr)
+        sys.exit(64)
+    src = Path(args[1])
+    if not src.exists():
+        print(f"file not found: {src}", file=sys.stderr); sys.exit(2)
+    try:
+        data = json.loads(src.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"failed to load {src}: {e}", file=sys.stderr); sys.exit(2)
+    from . import ai_triage as _at
+    findings = []
+    if isinstance(data, dict) and "results" in data:
+        for r in data.get("results") or []:
+            for f in r.get("findings") or []:
+                findings.append({**f, "check_id": r.get("check_id")})
+    if sub == "tickets":
+        out = _at.generate_tickets(findings)
+    elif sub == "timeline":
+        out = _at.narrate_timeline(data if isinstance(data, list) else [])
+    elif sub == "impact":
+        out = _at.estimate_business_impact(findings)
+    elif sub == "exec-brief":
+        out = _at.generate_exec_brief(data)
+    elif sub == "kev":
+        out = _at.correlate_with_kev(findings)
+    else:
+        print(f"unknown ai-triage sub: {sub}", file=sys.stderr); sys.exit(64)
+    if isinstance(out, str):
+        print(out)
+    else:
+        print(json.dumps(out, indent=2, default=str))
 
 
 def _cmd_config(args: list[str]) -> None:

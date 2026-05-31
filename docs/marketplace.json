@@ -1,0 +1,8 @@
+{
+  "$schema": "https://wpsecscan/marketplace-index/v1.json",
+  "name": "wpsecscan-marketplace",
+  "version": 1,
+  "updated_at": "2026-05-31",
+  "entries": [],
+  "comment": "v2.8.1 T5 — marketplace index, served from docs/ via GitHub Pages. Populate via wpsecscan marketplace publish + CI."
+}
