@@ -786,8 +786,25 @@ async def _amain(args) -> int:
             if line and not line.startswith("#"):
                 targets.append(line)
     if not targets:
-        console.print("[red]No target provided. Pass a URL or --file <list.txt>.[/red]")
-        return 64
+        # v2.8.1 U3 — interactive TTY prompt for the missing required arg
+        # (rich.prompt if available, plain input() otherwise). Non-TTY
+        # callers still get the immediate error so CI doesn't hang.
+        if sys.stdin.isatty() and not getattr(args, "no_console", False):
+            try:
+                from rich.prompt import Prompt as _RP
+                target = _RP.ask("[cyan]Target URL[/cyan] (or Ctrl+C to abort)")
+            except ImportError:
+                try:
+                    target = input("Target URL (or Ctrl+C to abort): ").strip()
+                except (EOFError, KeyboardInterrupt):
+                    target = ""
+            except KeyboardInterrupt:
+                target = ""
+            if target:
+                targets.append(target.strip())
+        if not targets:
+            console.print("[red]No target provided. Pass a URL or --file <list.txt>.[/red]")
+            return 64
 
     worst = 0
     all_reports: list = []  # list of (report, html_filename)
@@ -1380,7 +1397,7 @@ def main() -> None:
                    help="Lowest severity to export to Notion (default: medium).")
     p.add_argument("--query", default=None, metavar="EXPR", help="L30: after scan, print only findings matching the GraphQL-style filter expression.")
     p.add_argument("--since", default=None, metavar="YYYY-MM-DD", help="K26: incremental mode; skip low-churn checks for targets whose snapshot is newer than this date.")
-    p.add_argument("--completion", default=None, choices=["bash", "zsh", "powershell"], help="O47: print a shell completion script and exit.")
+    p.add_argument("--completion", default=None, choices=["bash", "zsh", "powershell", "fish"], help="O47 + v2.8.1 U4: print a shell completion script and exit.")
     p.add_argument("--no-update-check", action="store_true", help="J19: skip the GitHub-releases update check at startup.")
     # U11 (v2.8.1) — `--self-update` runs `pip install --upgrade wpsecscan`
     # in the current Python's site-packages, then exits. For PyInstaller
@@ -3573,8 +3590,20 @@ def _cmd_creds(args: list[str]) -> None:
         return
 
     if sub == "rm":
+        # v2.8.1 U14 — confirmation prompt on bulk-rm. Removing every field
+        # for a site/account is destructive and lost-credentials cause real
+        # access-recovery work; require explicit confirmation unless --yes.
+        bulk = not kv and "--field" not in args[2:]
+        if bulk and "--yes" not in args[2:] and sys.stdin.isatty():
+            scope = (f" account={account}" if account else "")
+            try:
+                resp = input(f"Remove ALL stored credentials for {site}{scope}? [y/N] ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                print("aborted"); return
+            if resp not in ("y", "yes"):
+                print("aborted"); return
         n = 0
-        if not kv and "--field" not in args[2:]:
+        if bulk:
             # Remove all fields for this site (+ account).
             for f in _cv.list_fields_for(site):
                 if account and not f.endswith(f"@{account}"):
@@ -4228,7 +4257,15 @@ def _cmd_snooze(args: list[str]) -> None:
             after = len(_h.load_annotations().get(url, {}))
             print(f"cleared {before - after} annotation(s) for {cid_filter}")
         else:
-            # nuke all for this URL
+            # v2.8.1 U14 — nuking all annotations for a URL discards human
+            # context (accepted-risk notes, owners). Confirm unless --yes.
+            if before and "--yes" not in rest and sys.stdin.isatty():
+                try:
+                    resp = input(f"Clear ALL {before} annotation(s) for {url}? [y/N] ").strip().lower()
+                except (EOFError, KeyboardInterrupt):
+                    print("aborted"); return
+                if resp not in ("y", "yes"):
+                    print("aborted"); return
             ann.pop(url, None)
             _h._save_annotations(ann)
             print(f"cleared {before} annotation(s) for {url}")

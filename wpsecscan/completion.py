@@ -134,6 +134,20 @@ _wpsecscan
 """
 
 
+def fish() -> str:
+    """v2.8.1 U4 — Fish shell completion.
+
+    Install via: `wpsecscan --completion fish > ~/.config/fish/completions/wpsecscan.fish`
+    """
+    lines = ["# WPSecScan fish completion"]
+    for f in FLAGS:
+        # fish completions take `-l <long>` (strip the leading `--`).
+        if f.startswith("--"):
+            lines.append(f"complete -c wpsecscan -l {f[2:]}")
+            lines.append(f"complete -c wpsecscan-gui -l {f[2:]}")
+    return "\n".join(lines) + "\n"
+
+
 def powershell() -> str:
     flag_list = ",\n        ".join(f"'{f}'" for f in FLAGS)
     return f"""# WPSecScan PowerShell completion
@@ -155,4 +169,6 @@ def generate(shell: str) -> str:
         return zsh()
     if shell in ("powershell", "pwsh"):
         return powershell()
-    raise ValueError(f"unsupported shell {shell!r}; use bash/zsh/powershell")
+    if shell == "fish":
+        return fish()
+    raise ValueError(f"unsupported shell {shell!r}; use bash/zsh/powershell/fish")

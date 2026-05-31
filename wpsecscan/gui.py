@@ -497,9 +497,11 @@ class App:
 
         ttk.Label(top, text="URL").grid(row=0, column=0, sticky="w", padx=(0, 8))
         from . import history as _history
-        recent = _history.recent_urls()
+        # v2.8.1 U33 — "Recent Targets" combobox now groups Profiles + Recent
+        # with a `── separator ──` row so power users with many saved profiles
+        # can pick the right group at a glance.
         self.url_entry = ttk.Combobox(top, textvariable=self.url_var, font=("Segoe UI", 11),
-                                       values=recent if recent else ())
+                                       values=self._build_url_combobox_values())
         self.url_entry.grid(row=0, column=1, sticky="ew", padx=(0, 8))
         self.url_entry.bind("<Return>", lambda _e: self._on_scan_click())
         self._install_placeholder(self.url_entry, "https://example.com")
@@ -965,6 +967,14 @@ class App:
             return
         # Treat placeholder as empty
         raw = "" if getattr(self.url_entry, "_placeholder_active", False) else self.url_var.get()
+        # v2.8.1 U33 — combobox now mixes separator rows and "[profile] url"
+        # entries; strip the cosmetic prefix and reject separator selections.
+        raw = (raw or "").strip()
+        if raw.startswith("── ") and raw.endswith(" ──"):
+            messagebox.showwarning(APP_NAME, "Please pick an entry, not the section header.")
+            return
+        if raw.startswith("[") and "] " in raw:
+            raw = raw.split("] ", 1)[1]
         target = self._normalize_url(raw)
         if not target or urlparse(target).hostname is None:
             messagebox.showwarning(APP_NAME, "Please enter a valid URL (e.g. https://example.com).")
@@ -1641,7 +1651,7 @@ class App:
             pass
         try:
             _history.push_url(report.target)
-            self.url_entry.configure(values=_history.recent_urls())
+            self.url_entry.configure(values=self._build_url_combobox_values())
             from .reporters import json_out as _json_reporter
             _history.save_report_snapshot(report.target, _json_reporter.render(report))
             self.diff_btn.configure(state=NORMAL)
@@ -1744,10 +1754,16 @@ class App:
         self.risk_label_widget.configure(fg=MUTED)
         # #2: convert opaque errors into actionable guidance.
         suggestion = _suggest_for_error(err)
+        body = f"Scan failed:\n\n{err}"
         if suggestion:
-            messagebox.showerror(APP_NAME, f"Scan failed:\n\n{err}\n\n— Suggested next step —\n{suggestion}")
-        else:
-            messagebox.showerror(APP_NAME, f"Scan failed:\n\n{err}")
+            body += f"\n\n— Suggested next step —\n{suggestion}"
+        # v2.8.1 U31 — interactive error dialog with Retry + Copy buttons,
+        # replacing the previous OK-only messagebox. Falls back to plain
+        # messagebox.showerror on any Tk error so the message still surfaces.
+        try:
+            self._show_error_dialog_with_retry(APP_NAME, body, on_retry=self._on_scan_click)
+        except (_tk_mod.TclError, AttributeError):
+            messagebox.showerror(APP_NAME, body)
 
     # ---------- Finding selection ----------
 
@@ -2721,6 +2737,69 @@ class App:
         import threading
         threading.Thread(target=_worker, daemon=True).start()
 
+    def _build_url_combobox_values(self) -> tuple[str, ...]:
+        """v2.8.1 U33 — combine Profiles + Recent into one combobox with a
+        visually-distinct separator row, instead of just dumping recent URLs."""
+        from . import history as _history
+        out: list[str] = []
+        try:
+            profiles = _history.load_profiles() or {}
+            profile_urls = []
+            for name, p in profiles.items():
+                u = (p.get("url") or p.get("target") or "").strip()
+                if u:
+                    profile_urls.append(f"[{name}] {u}")
+            if profile_urls:
+                out.append("── Profiles ──")
+                out.extend(sorted(profile_urls))
+        except (AttributeError, OSError, ValueError):
+            pass
+        recent = _history.recent_urls() or []
+        if recent:
+            if out:
+                out.append("── Recent ──")
+            out.extend(recent)
+        return tuple(out)
+
+    def _show_error_dialog_with_retry(self, title: str, body: str, *, on_retry=None) -> None:
+        """v2.8.1 U31 — error dialog with inline Retry + Copy buttons.
+
+        Replaces messagebox.showerror at high-traffic error sites so users can
+        copy the text or re-trigger the failed action without re-typing.
+        """
+        win = _tk_mod.Toplevel(self.root)
+        win.title(title)
+        win.configure(bg=BG)
+        win.transient(self.root)
+        win.bind("<Escape>", lambda _e: win.destroy())
+        frame = ttk.Frame(win, padding=14)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text="✕  Error", foreground="#e57373",
+                  font=("Segoe UI", 11, "bold")).pack(anchor="w")
+        txt = _tk_mod.Text(frame, height=10, width=72, wrap="word",
+                            relief="flat", bg=BG, fg=FG)
+        txt.insert("1.0", body)
+        txt.configure(state="disabled")
+        txt.pack(fill="both", expand=True, pady=(6, 8))
+        btns = ttk.Frame(frame)
+        btns.pack(fill="x")
+        def _copy():
+            self.root.clipboard_clear()
+            self.root.clipboard_append(body)
+            self._toast("✓ Error copied", duration_ms=2500)
+        def _retry():
+            win.destroy()
+            if callable(on_retry):
+                try:
+                    on_retry()
+                except Exception:  # noqa: BLE001
+                    pass
+        ttk.Button(btns, text="Copy", command=_copy).pack(side="left")
+        if on_retry is not None:
+            ttk.Button(btns, text="Retry", command=_retry,
+                       style="Accent.TButton").pack(side="left", padx=(6, 0))
+        ttk.Button(btns, text="Close", command=win.destroy).pack(side="right")
+
     def _maybe_show_defender_first_run(self):
         """First-launch dialog explaining the Defender false positive.
 
@@ -3028,6 +3107,25 @@ class App:
         ttk.Button(btn_row, text="Add exclusion now (UAC)", command=_run_exclusion,
                    style="Accent.TButton").pack(side="left")
         ttk.Button(btn_row, text="Copy command", command=_copy_cmd).pack(side="left", padx=(6, 0))
+        # v2.8.1 U20 — "Skip Everything" sets the seen-pref for all 4 first-run
+        # dialogs (defender + tutorial + onboarding wizard + any new ones) so
+        # power users can dismiss the entire chain in one click.
+        if is_first_run:
+            def _skip_all_first_run():
+                try:
+                    import json as _j, time as _t
+                    self._defender_ack_path().parent.mkdir(parents=True, exist_ok=True)
+                    self._defender_ack_path().write_text(_j.dumps({"ts": _t.time()}), encoding="utf-8")
+                except OSError:
+                    pass
+                try:
+                    from . import gui_windows as _gw
+                    _gw.mark_tutorial_seen() if hasattr(_gw, "mark_tutorial_seen") else None
+                    _gw.mark_wizard_seen() if hasattr(_gw, "mark_wizard_seen") else None
+                except (ImportError, AttributeError):
+                    pass
+                win.destroy()
+            ttk.Button(btn_row, text="Skip Everything", command=_skip_all_first_run).pack(side="left", padx=(6, 0))
         ttk.Button(btn_row, text="Close", command=_ack_and_close).pack(side="right")
 
         win.update_idletasks()
