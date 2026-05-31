@@ -698,6 +698,8 @@ class App:
         self._ctx_menu.add_command(label="Open URL in browser", command=self._ctx_open_browser)
         self._ctx_menu.add_separator()
         self._ctx_menu.add_command(label="Copy finding (markdown)", command=self._ctx_copy_markdown)
+        # v2.8.2 U#9 — JSON variant for piping into ticket systems.
+        self._ctx_menu.add_command(label="Copy finding (JSON)", command=self._ctx_copy_json)
         self._ctx_menu.add_separator()
         # #3: annotations
         self._ctx_menu.add_command(label="Mark as accepted risk...", command=lambda: self._annotate("accepted-risk"))
@@ -1007,7 +1009,18 @@ class App:
         self.progress.configure(value=0)
         import time as _time
         self._scan_start_t = _time.perf_counter()
-        self.status_var.set(f"Connecting to {target}...")
+        # v2.8.2 U#12 — surface an estimated wall-clock so users have a
+        # cue for whether to wait or do something else.
+        try:
+            from . import eta as _eta
+            est = _eta.estimate_scan_seconds(
+                aggressive=self.aggressive_var.get(),
+                prove=False,
+                deep_throttle=False,
+                authenticated=bool(getattr(self, "_creds_set", False)))
+            self.status_var.set(f"Connecting to {target}... (~{_eta.format_eta(est)} estimated)")
+        except (ImportError, AttributeError):
+            self.status_var.set(f"Connecting to {target}...")
         self.summary_var.set("")
         # Reset summary footer color
         try:
@@ -3652,6 +3665,27 @@ class App:
         self.root.clipboard_clear()
         self.root.clipboard_append(md)
         self._toast("✓ Finding copied as markdown")
+
+    def _ctx_copy_json(self) -> None:
+        """v2.8.2 U#9 — copy finding as JSON; consumable by ticket systems
+        and `jq` post-processing."""
+        f = self._selected_finding()
+        if not f:
+            return
+        import json as _j
+        cid = self._selected_finding_check_id() or "?"
+        payload = _j.dumps({
+            "check_id": cid,
+            "severity": f.severity,
+            "title": f.title,
+            "url": f.url,
+            "evidence": f.evidence,
+            "remediation": f.remediation,
+            "extra": f.extra or {},
+        }, indent=2)
+        self.root.clipboard_clear()
+        self.root.clipboard_append(payload)
+        self._toast("✓ Finding copied as JSON")
 
     # ---- Detail-pane right-click handlers (#4 copy-fix-to-clipboard) ----
 

@@ -11,13 +11,18 @@ from pathlib import Path
 from ..models import ScanReport
 
 
-def render(report: ScanReport, top_n: int | None = None) -> str:
+def render(report: ScanReport, top_n: int | None = None,
+            frontmatter: bool = False) -> str:
     """Render the report as Markdown.
 
     Pass `top_n` to keep only the top-N findings by severity (useful for
     posting into Slack/Discord where 4000-character messages are the limit).
     Severity ordering is critical > high > medium > low > info; within a
     severity, scan-execution order is preserved.
+
+    v2.8.2 U#15 — pass `frontmatter=True` to prepend a YAML front-matter
+    block (title, date, target, risk_score, worst_severity) so the file
+    is consumable by static-site generators (Hugo, Obsidian, MkDocs).
     """
     s = report.summary
     from ..models import SEVERITY_RANK
@@ -54,7 +59,33 @@ def render(report: ScanReport, top_n: int | None = None) -> str:
         # Mutate locally — we don't touch the caller's report object
         report = replace(report, results=filtered)
         s = report.summary
-    lines: list[str] = [
+    lines: list[str] = []
+    if frontmatter:
+        # v2.8.2 U#15 — Hugo/Obsidian/MkDocs front-matter. Keep keys
+        # simple; downstream tools can render or hide.
+        worst = "info"
+        for r in report.results:
+            for f in r.findings:
+                if SEVERITY_RANK.get(f.severity, -1) > SEVERITY_RANK.get(worst, -1):
+                    worst = f.severity
+        # Escape any embedded `"` in target by simple replacement
+        safe_target = (report.target or "").replace('"', '\\"')
+        lines.extend([
+            "---",
+            f"title: \"WPSecScan: {safe_target}\"",
+            f"date: {report.scanned_at}",
+            f"target: \"{safe_target}\"",
+            f"risk_score: {score}",
+            f"worst_severity: {worst}",
+            f"summary_critical: {s.get('critical', 0)}",
+            f"summary_high: {s.get('high', 0)}",
+            f"summary_medium: {s.get('medium', 0)}",
+            f"summary_low: {s.get('low', 0)}",
+            f"summary_info: {s.get('info', 0)}",
+            "---",
+            "",
+        ])
+    lines.extend([
         f"# WPSecScan — {report.target}",
         "",
         f"- **Scanned**: {report.scanned_at}",
@@ -65,7 +96,7 @@ def render(report: ScanReport, top_n: int | None = None) -> str:
         "",
         "---",
         "",
-    ]
+    ])
     for res in report.results:
         if res.error:
             lines.append(f"## ⚠ {res.check_name}\n\nError: `{res.error}`\n")
@@ -113,10 +144,12 @@ def render(report: ScanReport, top_n: int | None = None) -> str:
     return "\n".join(lines)
 
 
-def write(report: ScanReport, path: Path, top_n: int | None = None) -> None:
+def write(report: ScanReport, path: Path, top_n: int | None = None,
+           frontmatter: bool = False) -> None:
+    """v2.8.2 U#15 — pass frontmatter=True for Hugo/Obsidian YAML front-matter."""
     # v2.8.1 B39 — atomic temp+rename via shared helper.
     from . import _atomic_write_text
-    _atomic_write_text(path, render(report, top_n=top_n))
+    _atomic_write_text(path, render(report, top_n=top_n, frontmatter=frontmatter))
     try:
         from .. import activity as _act
         _act.emit("reporter", f"Markdown: {path.name} ({path.stat().st_size // 1024} KB)")

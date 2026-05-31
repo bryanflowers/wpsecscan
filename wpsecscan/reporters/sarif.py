@@ -60,6 +60,10 @@ def render(report: ScanReport) -> str:
                     "remediation": f.remediation,
                 },
             })
+    # v2.8.2 U#14 — sort rules by id for byte-deterministic SARIF output.
+    # Async task scheduling otherwise made the rule insertion order
+    # vary between runs, breaking `git diff` of report files in CI.
+    sorted_rules = [rules[k] for k in sorted(rules.keys())]
     return json.dumps({
         "version": "2.1.0",
         "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
@@ -69,7 +73,7 @@ def render(report: ScanReport) -> str:
                     "name": "WPSecScan",
                     "version": _scanner_version,
                     "informationUri": "https://github.com/bryanflowers/wpsecscan",
-                    "rules": list(rules.values()),
+                    "rules": sorted_rules,
                 }
             },
             "results": results,

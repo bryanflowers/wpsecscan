@@ -328,7 +328,8 @@ async def _scan_one(target: str, args, console: Console):
 
     if args.md:
         md_p = out_dir / f"{stem}.md"
-        md_reporter.write(report, md_p, top_n=args.md_top)
+        md_reporter.write(report, md_p, top_n=args.md_top,
+                            frontmatter=bool(getattr(args, "md_frontmatter", False)))
         if not args.no_console:
             console.print(f"[green]✓[/green] Markdown report: [bold]{md_p}[/bold]")
 
@@ -928,7 +929,10 @@ async def _amain(args) -> int:
             from datetime import datetime as _dt_dur, timedelta as _td_dur, timezone as _tz_dur
             m = _re_dur.match(r"^(\d+)([hdw])$", args.diff_since.strip())
             if not m:
+                # v2.8.2 U#3 — was print-and-continue (exit 0), confusing CI
+                # scripts that expected a non-zero on parse failure.
                 console.print(f"[red]--diff-since: invalid WINDOW '{args.diff_since}' (use e.g. 7d, 24h, 2w)[/red]")
+                return 2
             else:
                 qty, unit = int(m.group(1)), m.group(2)
                 hours = qty * (1 if unit == "h" else 24 if unit == "d" else 24 * 7)
@@ -994,13 +998,25 @@ async def _amain(args) -> int:
     if args.shell and all_reports:
         import code
         report = all_reports[-1][0]
+        local_ns = {"report": report, "wpsecscan": __import__("wpsecscan")}
+        # v2.8.2 U#7 — wire readline + rlcompleter so Tab completes
+        # `report.` attribute names, finding fields, etc.
+        try:
+            import readline as _readline
+            import rlcompleter as _rlcompleter
+            _readline.set_completer(_rlcompleter.Completer(local_ns).complete)
+            _readline.parse_and_bind("tab: complete")
+        except ImportError:
+            # Windows without pyreadline3 — fall back silently
+            pass
         banner = (
             "\n=== WPSecScan interactive shell ===\n"
             f"report = ScanReport for {report.target}, {len(report.results)} check results\n"
             "Try: report.summary  |  report.risk_score  |  "
             "[f for r in report.results for f in r.findings if f.severity=='high']\n"
+            "Tab completes attribute names.\n"
         )
-        code.interact(banner=banner, local={"report": report, "wpsecscan": __import__("wpsecscan")})
+        code.interact(banner=banner, local=local_ns)
 
     return worst
 
@@ -1215,7 +1231,11 @@ def main() -> None:
     )
     p.add_argument("target", nargs="?", help="URL to scan (e.g. https://example.com)")
     p.add_argument("--file", help="File containing URLs, one per line (# comments OK)")
-    p.add_argument("--out", help="Output directory or filename stem")
+    # v2.8.2 U#4 — WPSECSCAN_OUT_DIR env var lets CI pipelines centralise
+    # all artifact outputs in one place without repeating --out on every
+    # invocation. CLI flag still wins when both are set.
+    p.add_argument("--out", default=os.environ.get("WPSECSCAN_OUT_DIR"),
+                   help="Output directory or filename stem (env: WPSECSCAN_OUT_DIR)")
     # #33: load every flag from a YAML/TOML config file. Operator can keep
     # site-specific arg sets on disk instead of repeating long command lines.
     p.add_argument("--config", default=None, metavar="FILE",
@@ -1238,7 +1258,15 @@ def main() -> None:
     p.add_argument("--deep-throttle-attempts", type=int, default=120, metavar="N", help="How many wrong-login attempts the deep throttle test sends (10-500, default 120). Multiply by --deep-throttle-pacing for total runtime.")
     p.add_argument("--deep-throttle-pacing", type=float, default=10.0, metavar="SECONDS", help="Seconds between deep-throttle attempts (5-60, default 10). Below 5s tends to trip network-layer fail2ban before HTTP-layer throttling shows.")
     p.add_argument("--aggressive", "-A", action="store_true", help="Enable active checks: SQLi, XSS, SSRF, path traversal, open redirect, upload probes, default-credentials probe (≤10 attempts).")
-    p.add_argument("--prove", "-P", action="store_true", help="For each confirmed aggressive finding, run a read-only proof helper (single-target only; requires --aggressive). Never writes to the target.")
+    p.add_argument("--prove", "-P", action="store_true", help=(
+        "v2.8.2 U#8 — For each confirmed aggressive finding, run a "
+        "READ-ONLY proof helper that extracts an evidence artifact "
+        "(e.g. a single masked DB column value to prove SQLi, the first "
+        "16 bytes of a leaked secret). Evidence is written under the "
+        "scan's output directory as proof-<check_id>.txt. NEVER writes "
+        "to the scanned target. Single-target only (refuses --file). "
+        "Requires --aggressive. See docs/proof.md for the full evidence "
+        "list."))
     # Sensitive flags read from env vars when not given on the command line —
     # use env to avoid leaking secrets via `ps aux` / shell history.
     p.add_argument("--auth-user", default=os.environ.get("WPSECSCAN_AUTH_USER"),
@@ -1273,6 +1301,10 @@ def main() -> None:
     p.add_argument("--csv", action="store_true", help="Also write CSV report (formula-injection neutralised)")
     p.add_argument("--sarif", action="store_true", help="Also write SARIF 2.1.0 report")
     p.add_argument("--md", action="store_true", help="Also write a Markdown report (handy for tickets / PRs / Slack)")
+    p.add_argument("--md-frontmatter", action="store_true", help=(
+        "v2.8.2 U#15 — prepend YAML front-matter (title, date, target, "
+        "risk_score, worst_severity) to the Markdown report so it's "
+        "consumable by Hugo / Obsidian / MkDocs."))
     p.add_argument("--md-top", type=int, default=None, metavar="N",
                    help="Truncate the Markdown report to the top-N findings by severity "
                         "(useful for Slack/Discord's 4000-char message limit).")
@@ -1568,7 +1600,17 @@ def main() -> None:
         }
         unknown = wanted - set(_FORMAT_ALIASES)
         if unknown:
-            print(f"--format: unknown value(s): {', '.join(sorted(unknown))}", file=sys.stderr)
+            # v2.8.2 U#2 — "did you mean?" suggestions, matching the
+            # --fail-on validator pattern.
+            import difflib as _difflib
+            for u in sorted(unknown):
+                hint = _difflib.get_close_matches(u, _FORMAT_ALIASES.keys(),
+                                                     n=2, cutoff=0.5)
+                if hint:
+                    print(f"--format/--output: unknown value {u!r}. "
+                           f"Did you mean {', '.join(hint)}?", file=sys.stderr)
+                else:
+                    print(f"--format/--output: unknown value {u!r}", file=sys.stderr)
             print(f"valid: {', '.join(sorted(_FORMAT_ALIASES))}", file=sys.stderr)
             sys.exit(2)
         # json + html together = neither --json-only nor --html-only (default).
@@ -2367,7 +2409,9 @@ def _cmd_check(args: list[str]) -> None:
             print(f"  {cid:35s}  ({mode:11s})  {cname}")
         return
     if args[0] == "publish":
-        import json
+        # v2.8.2 — module-level json import now available; local import
+        # was shadowing it and causing UnboundLocalError on the new
+        # `check list --json` path.
         if len(args) < 2:
             print("usage: wpsecscan check publish SLUG", file=sys.stderr); sys.exit(64)
         slug = args[1].strip()
@@ -2398,11 +2442,15 @@ def _cmd_check(args: list[str]) -> None:
         print("usage: wpsecscan check {list|list-custom|new SLUG|publish SLUG} [options]", file=sys.stderr)
         sys.exit(64)
     cat_filter = ""
+    json_out = False  # v2.8.2 U#1 — machine-readable check list
     i = 1
     while i < len(args):
         if args[i] == "--category" and i + 1 < len(args):
             cat_filter = args[i + 1].lower()
             i += 2
+        elif args[i] == "--json":
+            json_out = True
+            i += 1
         else:
             i += 1
     from .checks import ALL_CHECKS
@@ -2414,11 +2462,21 @@ def _cmd_check(args: list[str]) -> None:
         owasp_label = t.get("owasp_label", "") or ""
         if cat_filter and cat_filter not in owasp.lower() and cat_filter not in owasp_label.lower():
             continue
-        rows.append((cid, cname, owasp, owasp_label, "aggressive" if agg else "passive"))
+        rows.append((cid, cname, owasp, owasp_label, "aggressive" if agg else "passive", t))
     rows.sort(key=lambda r: (r[2], r[0]))
+    if json_out:
+        # v2.8.2 U#1 — Powers Rego policies / CI gates / dashboards.
+        # No network calls; stable ordered output.
+        out = [
+            {"id": cid, "name": cname, "owasp": owasp,
+              "owasp_label": owasp_label, "mode": mode, "tags": tags or {}}
+            for cid, cname, owasp, owasp_label, mode, tags in rows
+        ]
+        print(json.dumps(out, indent=2))
+        return
     print(f"{len(rows)} check(s)" + (f" (filtered: {cat_filter})" if cat_filter else ""))
     print()
-    for cid, cname, owasp, owasp_label, mode in rows:
+    for cid, cname, owasp, _owasp_label, mode, _tags in rows:
         print(f"  [{owasp:8s}]  {cid:35s}  ({mode:11s})  {cname}")
 
 
@@ -4852,7 +4910,16 @@ def _cmd_analytics(args: list[str]) -> None:
 def _cmd_sites(args: list[str]) -> None:
     from . import sites as sites_mod
     if not args or args[0] in ("-h", "--help", "help"):
-        print("usage: wpsecscan sites {add|list|remove|scan} ...")
+        # v2.8.2 U#6 — annotated examples for the most common flows.
+        print(
+            "usage: wpsecscan sites {add|list|remove|scan} ...\n"
+            "\n"
+            "examples:\n"
+            "  wpsecscan sites add https://shop.example.com --tag prod\n"
+            "  wpsecscan sites list --tag prod\n"
+            "  wpsecscan sites scan --weekly         # scan all sites marked weekly\n"
+            "  wpsecscan sites remove https://shop.example.com\n"
+        )
         return
     action = args[0]
     rest = args[1:]
