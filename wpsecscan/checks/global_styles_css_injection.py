@@ -19,6 +19,29 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     r = await client.get("/wp-json/wp/v2/global-styles?per_page=1")
     if r is None or r.status_code != 200:
         return []
+    # v2.8.2 L8 — only flag when the JSON actually contains user-defined
+    # CSS. Every WP 5.9+ Block Theme exposes this endpoint by default;
+    # firing on bare presence created significant alert fatigue.
+    try:
+        data = r.json()
+    except ValueError:
+        return []
+    has_user_css = False
+    if isinstance(data, list):
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            settings = item.get("settings") or {}
+            styles = item.get("styles") or {}
+            if isinstance(settings, dict) and (settings.get("custom") or
+                                                 (settings.get("css") or "").strip()):
+                has_user_css = True
+                break
+            if isinstance(styles, dict) and (styles.get("css") or "").strip():
+                has_user_css = True
+                break
+    if not has_user_css:
+        return []
     return [Finding(severity="low",
                      title="F10: FSE global-styles endpoint is publicly readable",
                      evidence=(

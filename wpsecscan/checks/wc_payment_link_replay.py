@@ -17,8 +17,13 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     r = await client.get("/checkout/order-pay/")
     if r is None:
         return []
-    if r.status_code not in (200, 301, 302, 404):
-        return []  # not a WC site
+    # v2.8.2 M10 — 404 means WooCommerce isn't installed (or the
+    # checkout slug differs). Treat as not-WC and return nothing rather
+    # than flagging Referrer-Policy on a non-WC site.
+    if r.status_code == 404:
+        return []
+    if r.status_code not in (200, 301, 302):
+        return []
     rp = (r.headers.get("referrer-policy") or "").lower().strip()
     if not rp:
         return [Finding(severity="medium",

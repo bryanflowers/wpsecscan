@@ -14,16 +14,32 @@ from ..models import Finding
 async def check(client: Client, ctx: dict) -> list[Finding]:
     step = ctx.get("step") or (lambda _s: None)
     step("F11: probing multisite network-option IDOR surfaces")
-    # First confirm multisite is present.
-    home = await client.get("/")
-    if home is None:
-        return []
-    body = home.text or ""
-    if "wp_is_multisite" not in body and "/sites/" not in (body[:5000].lower()):
-        # Best-effort sniff; if no multisite markers, skip.
+    # v2.8.2 M9 — the v2.8.1 body-substring sniff was unreliable
+    # (matched JS, theme paths, etc.). Use the REST API root namespace
+    # listing as the authoritative multisite signal: a multisite install
+    # exposes `network` in the discoverable namespaces, and the root
+    # `/wp-json/` body includes a `_links.https://api.w.org/multisite`
+    # collection link.
+    root = await client.get("/wp-json/")
+    is_multisite = False
+    if root is not None and root.status_code == 200:
+        try:
+            data = root.json()
+            namespaces = data.get("namespaces") if isinstance(data, dict) else []
+            if isinstance(namespaces, list):
+                is_multisite = any(
+                    "network" in (ns or "").lower() or "multisite" in (ns or "").lower()
+                    for ns in namespaces)
+            if not is_multisite and isinstance(data, dict):
+                # Fallback: scan _links for a multisite collection.
+                links = data.get("_links") or {}
+                is_multisite = any("multisite" in k.lower() for k in links.keys())
+        except (ValueError, AttributeError):
+            pass
+    if not is_multisite:
         return [Finding(severity="info",
-                         title="F11: multisite markers not detected (skipping IDOR probe)",
-                         evidence="No multisite signals on homepage.",
+                         title="F11: multisite not detected via REST API (skipping IDOR probe)",
+                         evidence="No multisite namespace in /wp-json/ root.",
                          remediation="No action needed.",
                          url=ctx["target"])]
     findings: list[Finding] = []

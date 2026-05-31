@@ -60,8 +60,10 @@ FLAGS = [
     "--query",
     "--region",
     "--replay-har",
+    "--resume",          # v2.8.2 L3 — added in v2.8.1, missing from completions
     "--sarif",
     "--sbom",
+    "--self-update",     # v2.8.2 L3 — added in v2.8.1, missing from completions
     "--shell",
     "--since",
     "--ssh-audit",
@@ -143,8 +145,10 @@ def fish() -> str:
     for f in FLAGS:
         # fish completions take `-l <long>` (strip the leading `--`).
         if f.startswith("--"):
-            lines.append(f"complete -c wpsecscan -l {f[2:]}")
-            lines.append(f"complete -c wpsecscan-gui -l {f[2:]}")
+            # v2.8.2 M7 — emit empty -d descriptions so a future doc
+            # generator can populate them without changing the line shape.
+            lines.append(f"complete -c wpsecscan -l {f[2:]} -d ''")
+            lines.append(f"complete -c wpsecscan-gui -l {f[2:]} -d ''")
     return "\n".join(lines) + "\n"
 
 

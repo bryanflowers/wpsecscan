@@ -50,13 +50,17 @@ def agentic_remediation_loop(finding: dict, *, max_iters: int = 3,
             f"Finding: {json.dumps(finding)[:1500]}\n"
             f"Previous plan: {plan or '(none)'}\n"
             "Produce a SPECIFIC remediation plan with shell commands. "
-            "Identify and fix gaps in the previous plan."
+            "Identify and fix gaps in the previous plan. When you have a "
+            "complete plan, end the response with the literal token "
+            "[PLAN COMPLETE]."
         )
         try:
             plan = (llm_fn(prompt) or "").strip()
         except Exception as e:  # noqa: BLE001
             return {"status": "error", "iter": i + 1, "error": str(e)}
-        if "DONE" in plan or len(plan) > 4000:
+        # v2.8.2 L7 — `"DONE"` matched in unrelated text ("DONE: update the
+        # plugin"). Use a distinctive sentinel mentioned in the prompt.
+        if "[PLAN COMPLETE]" in plan or len(plan) > 4000:
             break
     return {"status": "ok", "iterations": i + 1, "plan": plan}
 
@@ -165,23 +169,12 @@ def visual_diff_summarise(old_report: dict, new_report: dict, *,
     }
 
 
-# ---------------------------------------------------------------------------
-# F40 — Voice query
-# ---------------------------------------------------------------------------
-def voice_query(seconds: int = 5) -> dict:
-    """Listen via the system mic for `seconds`, transcribe via local
-    whisper.cpp (if installed). Returns transcript or skipped.
-
-    Lightweight wrapper — heavy lifting deferred to the whisper.cpp
-    binary the user already has installed for other projects."""
-    binp = os.environ.get("WHISPER_CPP_BIN")
-    if not binp or not Path(binp).exists():
-        return {"status": "skipped",
-                 "reason": "set WHISPER_CPP_BIN=<path to whisper.cpp main binary>"}
-    # We don't ship audio-capture logic; document the intended pipeline.
-    return {"status": "skipped",
-             "reason": "audio capture not implemented; pipe a .wav to "
-                        f"`{binp} -f input.wav -otxt` manually."}
+# F40 — Voice query (REMOVED in v2.8.2 M3)
+# v2.8.1 shipped a `voice_query` stub that always returned skipped: it
+# checked WHISPER_CPP_BIN but had no audio-capture logic. Removed to
+# avoid promising a feature that didn't exist. Re-add in v2.9.0 once we
+# pick an audio-capture library (sounddevice or pyaudio) and ship the
+# real pipeline.
 
 
 # ---------------------------------------------------------------------------
@@ -205,9 +198,14 @@ def sandboxed_exec(cmd: list[str], *, timeout_s: int = 30) -> dict:
                     "--dev", "/dev", "--unshare-all", "--die-with-parent",
                     "--", *cmd]
     elif sys.platform == "darwin":
-        wrapped = ["sandbox-exec", "-p",
-                    "(version 1)(deny default)(allow process-exec)(allow process-fork)",
-                    *cmd]
+        # v2.8.2 M4 — macOS sandbox-exec is deprecated since macOS 13 AND
+        # the v2.8.1 profile (allow process-exec + process-fork) provided
+        # essentially zero containment. Return skipped with a clear note
+        # so callers don't believe they're getting sandboxing.
+        return {"status": "skipped",
+                 "reason": "macOS sandbox-exec is deprecated and the prior "
+                            "profile granted process-exec+fork (no real "
+                            "isolation); use a container or App Sandbox."}
     else:
         return {"status": "skipped",
                  "reason": f"sandboxed exec not supported on {sys.platform}"}
@@ -304,10 +302,16 @@ def model_with_budget_fallback(prompt: str, *, budget_cents: float = 5.0,
             resp = fn(prompt)
             if resp:
                 return resp, f"tier@{cost}c"
-        except Exception:  # noqa: BLE001
+            # Empty/None response counts as a soft failure — fall through
+            # to the next tier without charging the full cost.
             remaining -= cost / 10
             continue
-        remaining -= cost
+        except Exception:  # noqa: BLE001
+            # v2.8.2 L5 — failed calls charge a 10% "penalty" rather than
+            # the full cost so a string of failures doesn't immediately
+            # exhaust the budget. Document the intent explicitly.
+            remaining -= cost / 10
+            continue
     return None, "all tiers exhausted budget or failed"
 
 
@@ -324,21 +328,39 @@ def auto_control_mapper(report, framework: str = "soc2") -> dict:
         cmap = _t._load_compliance() or {}
     except (ImportError, AttributeError):
         cmap = {}
+    # v2.8.2 H5 — SOC2 maps to the AICPA Trust Services Criteria
+    # (CC1.x-CC9.x + A/PI/C/P series), NOT to NIST 800-53. v2.8.1 was
+    # silently labelling NIST controls as SOC2 controls. We don't yet
+    # have a SOC2 control catalogue in compliance_map.json; surface that
+    # gap explicitly to the caller rather than returning wrong data.
+    if framework == "soc2":
+        return {"framework": "soc2", "controls_triggered": {},
+                 "control_count": 0,
+                 "note": "SOC2 TSC mapping not yet shipped; awaiting "
+                          "compliance_map.json `soc2` field. v2.9.0 "
+                          "candidate."}
+    # v2.8.2 L9 — filter None from controls before keying triggered.
     triggered: dict[str, list[str]] = {}
     for r in report.results:
         if not r.findings:
             continue
         m = cmap.get(r.check_id) or {}
-        controls = []
-        if framework == "soc2":
-            controls = [m.get("nist_800_53")] if m.get("nist_800_53") else []
-        elif framework == "hipaa":
-            controls = [m.get("nist_800_53")] if m.get("nist_800_53") else []
+        controls: list[str] = []
+        if framework == "hipaa":
+            v = m.get("nist_800_53")
+            if v:
+                controls = [v]
         elif framework == "pci":
-            controls = [m.get("pci_dss")] if m.get("pci_dss") else []
+            v = m.get("pci_dss")
+            if v:
+                controls = [v]
         elif framework == "iso27001":
-            controls = [m.get("iso_27001")] if m.get("iso_27001") else []
+            v = m.get("iso_27001")
+            if v:
+                controls = [v]
         for c in controls:
+            if c is None:
+                continue
             triggered.setdefault(c, []).append(r.check_id)
     return {"framework": framework, "controls_triggered": triggered,
              "control_count": len(triggered)}

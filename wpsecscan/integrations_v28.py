@@ -31,7 +31,19 @@ _TIMEOUT = 10.0
 
 
 def _post_json(url: str, body: Any, headers: dict | None = None) -> tuple[bool, str]:
-    """Shared POST helper. Returns (success, message)."""
+    """Shared POST helper. Returns (success, message).
+
+    v2.8.2 H3 — HTTPS-only by default. An operator who misconfigures a
+    webhook to `http://...` would otherwise send full scan reports in
+    cleartext. Set WPSECSCAN_ALLOW_INSECURE_WEBHOOK=1 to bypass (e.g.
+    for `localhost` development integrations).
+    """
+    if not url:
+        return False, "empty webhook URL"
+    if not url.lower().startswith("https://"):
+        if os.environ.get("WPSECSCAN_ALLOW_INSECURE_WEBHOOK") != "1":
+            return False, (f"refused non-HTTPS webhook URL ({url[:40]}...); "
+                            f"set WPSECSCAN_ALLOW_INSECURE_WEBHOOK=1 to override")
     try:
         with httpx.Client(timeout=_TIMEOUT) as c:
             r = c.post(url, json=body, headers=headers or {})
@@ -40,6 +52,16 @@ def _post_json(url: str, body: Any, headers: dict | None = None) -> tuple[bool, 
             return False, f"HTTP {r.status_code} from {url}: {r.text[:120]}"
     except (httpx.RequestError, httpx.HTTPStatusError) as e:
         return False, f"error: {e}"
+
+
+def _sanitize_for_subprocess(text: str, *, max_len: int = 200) -> str:
+    """v2.8.2 H4 — strip non-alphanumeric except safe punctuation before
+    handing user-controlled text to subprocess.run. Defends against
+    target URLs like `https://evil"; rm -rf /` being interpreted by a
+    naive downstream `buildkite-agent` re-shell."""
+    safe = "".join(c if (c.isalnum() or c in " .,:/_-+@#=()") else " "
+                     for c in (text or ""))
+    return safe[:max_len].strip()
 
 
 # ---------------------------------------------------------------------------
@@ -65,9 +87,12 @@ def gitlab_ci_security_gate(report, *, fail_on: str = "high") -> tuple[bool, str
                 "severity": f.severity,
                 "location": {"path": "wpsecscan-scan", "lines": {"begin": 1}},
             })
+    # v2.8.2 M6 — use atomic temp+rename via shared helper so a SIGTERM
+    # mid-write doesn't leave a truncated JSON file that breaks the CI
+    # pipeline with an opaque parse error.
     try:
-        with open(out_path, "w", encoding="utf-8") as fh:
-            json.dump(issues, fh, indent=2)
+        from .reporters import _atomic_write_text
+        _atomic_write_text(out_path, json.dumps(issues, indent=2))
         return True, f"wrote {len(issues)} issue(s) to {out_path}"
     except OSError as e:
         return False, f"write failed: {e}"
@@ -133,7 +158,11 @@ def buildkite_annotation(report) -> tuple[bool, str]:
     sev = report.worst_severity() if hasattr(report, "worst_severity") else "info"
     style = {"critical": "error", "high": "error",
               "medium": "warning", "low": "info", "info": "info"}.get(sev, "info")
-    body = (f"WPSecScan {sev.upper()} on {report.target} — "
+    # v2.8.2 H4 — sanitize target before passing to subprocess; defends
+    # against downstream re-shell if the agent annotation field is later
+    # interpolated unsafely by buildkite-agent.
+    safe_target = _sanitize_for_subprocess(report.target or "")
+    body = (f"WPSecScan {sev.upper()} on {safe_target} — "
              f"risk {report.risk_score}/100")
     try:
         import subprocess
@@ -215,17 +244,39 @@ def nuclei_template_export(report, out_path: str | None = None) -> tuple[bool, s
             if not cve:
                 continue
             slug = f"{r.check_id}-{cve}".replace("/", "_")
-            yaml = (
-                f"id: wpsecscan-{slug}\n"
-                f"info:\n"
-                f"  name: '{(f.title or '')[:80]}'\n"
-                f"  severity: {f.severity}\n"
-                f"  reference:\n    - {report.target}\n"
-                f"  tags: wordpress,{cve.lower()}\n"
-                f"requests:\n  - method: GET\n    path:\n      - '{{{{BaseURL}}}}/'\n"
-            )
+            # v2.8.2 M5 — use PyYAML for proper YAML escaping so a `f.title`
+            # containing newlines or `'` chars cannot inject extra YAML keys
+            # or break the document shape.
             try:
-                (p / f"{slug}.yaml").write_text(yaml, encoding="utf-8")
+                import yaml as _yaml
+                doc = {
+                    "id": f"wpsecscan-{slug}",
+                    "info": {
+                        "name": (f.title or "")[:80],
+                        "severity": f.severity,
+                        "reference": [report.target],
+                        "tags": f"wordpress,{cve.lower()}",
+                    },
+                    "requests": [{"method": "GET",
+                                    "path": ["{{BaseURL}}/"]}],
+                }
+                rendered = _yaml.safe_dump(doc, sort_keys=False,
+                                             default_flow_style=False)
+            except ImportError:
+                # PyYAML missing — fall back to defensive string escaping
+                # by replacing single quotes per YAML 1.2 spec.
+                safe_title = (f.title or "")[:80].replace("'", "''").replace("\n", " ")
+                rendered = (
+                    f"id: wpsecscan-{slug}\n"
+                    f"info:\n"
+                    f"  name: '{safe_title}'\n"
+                    f"  severity: {f.severity}\n"
+                    f"  reference:\n    - {report.target}\n"
+                    f"  tags: wordpress,{cve.lower()}\n"
+                    f"requests:\n  - method: GET\n    path:\n      - '{{{{BaseURL}}}}/'\n"
+                )
+            try:
+                (p / f"{slug}.yaml").write_text(rendered, encoding="utf-8")
                 n += 1
             except OSError:
                 pass
@@ -252,13 +303,17 @@ def osv_dev_enrich(report) -> tuple[bool, str]:
                         continue
                     if rr.status_code != 200:
                         continue
-                    f.extra.setdefault("osv", {})
+                    # v2.8.2 H1 — only mutate when extra is a real dict.
+                    if not isinstance(f.extra, dict):
+                        continue
                     try:
                         f.extra["osv"] = rr.json()
                         n += 1
                     except ValueError:
                         continue
-    except httpx.RequestError as e:
+    # v2.8.2 L4 — inner loop already catches RequestError; outer catch
+    # would only fire on Client init failure (TransportError subclass).
+    except httpx.TransportError as e:
         return False, f"osv error: {e}"
     return (n > 0), f"enriched {n} finding(s) with OSV.dev data"
 
@@ -297,7 +352,8 @@ def exploitdb_xref(report) -> tuple[bool, str]:
             if not cve:
                 continue
             ids = by_cve.get(cve.upper())
-            if ids:
+            if ids and isinstance(f.extra, dict):
+                # v2.8.2 H2 — only mutate when extra is a real dict.
                 f.extra["exploitdb_ids"] = ids
                 n += 1
     return (n > 0), f"tagged {n} finding(s) with ExploitDB IDs"
@@ -359,19 +415,32 @@ def chat_webhooks(report) -> tuple[bool, str]:
 # ---------------------------------------------------------------------------
 # I12 — WP Engine / Kinsta hosting API event
 # ---------------------------------------------------------------------------
-def hosting_api_event(report) -> tuple[bool, str]:
-    """POST a custom event to a managed-host webhook (WP Engine / Kinsta /
-    Cloudways). One unified env var: HOSTING_EVENT_WEBHOOK_URL."""
-    url = os.environ.get("HOSTING_EVENT_WEBHOOK_URL")
+def _generic_webhook_push(report, *, env_var: str,
+                            base_body: dict[str, Any],
+                            extra_fields: dict[str, Any] | None = None) -> tuple[bool, str]:
+    """v2.8.2 L2 — shared helper for the I12/I13 family of simple JSON
+    webhook pushes. base_body is merged with report-derived fields so
+    each caller picks its own naming."""
+    url = os.environ.get(env_var)
     if not url:
-        return False, "set HOSTING_EVENT_WEBHOOK_URL"
+        return False, f"set {env_var}"
     body = {
-        "event_type": "wpsecscan.scan_completed",
+        **base_body,
         "target": report.target,
         "risk_score": report.risk_score,
         "summary": dict(report.summary or {}),
     }
+    if extra_fields:
+        body.update(extra_fields)
     return _post_json(url, body)
+
+
+def hosting_api_event(report) -> tuple[bool, str]:
+    """POST a custom event to a managed-host webhook (WP Engine / Kinsta /
+    Cloudways). One unified env var: HOSTING_EVENT_WEBHOOK_URL."""
+    return _generic_webhook_push(
+        report, env_var="HOSTING_EVENT_WEBHOOK_URL",
+        base_body={"event_type": "wpsecscan.scan_completed"})
 
 
 # ---------------------------------------------------------------------------
@@ -380,14 +449,8 @@ def hosting_api_event(report) -> tuple[bool, str]:
 def automation_hub_webhook(report) -> tuple[bool, str]:
     """Generic JSON webhook used by no-code automation platforms.
     Single env var AUTOMATION_HUB_WEBHOOK_URL covers all (n8n/Make/etc.)."""
-    url = os.environ.get("AUTOMATION_HUB_WEBHOOK_URL")
-    if not url:
-        return False, "set AUTOMATION_HUB_WEBHOOK_URL"
-    body = {
-        "scanner": "wpsecscan",
-        "target": report.target,
-        "risk_score": report.risk_score,
-        "summary": dict(report.summary or {}),
-        "finding_count": sum(len(r.findings) for r in report.results),
-    }
-    return _post_json(url, body)
+    return _generic_webhook_push(
+        report, env_var="AUTOMATION_HUB_WEBHOOK_URL",
+        base_body={"scanner": "wpsecscan"},
+        extra_fields={"finding_count":
+                       sum(len(r.findings) for r in report.results)})

@@ -10,10 +10,10 @@ helper that:
   * Runs registered upgraders to bring it to the current version
   * Returns the upgraded dict (and rewrites the file if `inplace=True`)
 
-Files covered:
+Files covered (v2.8.2 M1 — `audit-log.jsonl` removed; it's JSONL not
+JSON and would crash json.loads on more than one line):
   - ~/.wpsecscan/replay-prompt-log.json
   - ~/.wpsecscan/web-push-subs.json
-  - ~/.wpsecscan/audit-log.jsonl
   - ~/.wpsecscan/marketplace/installed.json
 """
 from __future__ import annotations
@@ -36,8 +36,16 @@ def register(kind: str, *, from_v: int, to_v: int):
 
 def load_versioned(path: str | Path, *, kind: str,
                     current_version: int,
-                    inplace: bool = True) -> Any:
-    """Read `path`, infer/upgrade its version to `current_version`, return data."""
+                    inplace: bool = True,
+                    backup: bool = False) -> Any:
+    """Read `path`, infer/upgrade its version to `current_version`, return data.
+
+    When `inplace=True`, the upgraded blob is written back to `path`. When
+    `backup=True` (v2.8.2 L10), the original file is copied to `<path>.bak`
+    BEFORE the in-place rewrite so a buggy upgrader can be recovered from.
+    The default `backup=False` matches the v2.8.1 behaviour — opt in only
+    for state files where data loss would be unrecoverable.
+    """
     p = Path(path)
     if not p.exists():
         return None
@@ -58,6 +66,12 @@ def load_versioned(path: str | Path, *, kind: str,
         if isinstance(data, dict):
             data["_schema_version"] = ver
     if inplace and isinstance(data, dict):
+        if backup:
+            try:
+                bak = p.with_suffix(p.suffix + ".bak")
+                bak.write_bytes(p.read_bytes())
+            except OSError:
+                pass
         try:
             from .reporters import _atomic_write_text
             _atomic_write_text(p, json.dumps(data, indent=2))

@@ -143,12 +143,13 @@ async def _scan_one(target: str, args, console: Console):
         # dot-per-check fallback so operators see *some* sign of life
         # instead of the prior dead-air-then-final-summary behaviour.
         import sys as _sys
-        def _ci_on_progress(check_id: str, status: str, *_extra) -> None:
-            if status == "done":
+        def _ci_on_progress(event: str, _check_id: str, _check_name: str,
+                              result: object | None = None) -> None:
+            # v2.8.2 C1 — matches scanner.ProgressCallback contract
+            # (event, check_id, check_name, result_or_none). v2.8.1 had
+            # the param order reversed, so dots never fired.
+            if event == "done":
                 _sys.stderr.write(".")
-                _sys.stderr.flush()
-            elif status == "error":
-                _sys.stderr.write("!")
                 _sys.stderr.flush()
         on_progress = _ci_on_progress
 
@@ -1198,6 +1199,14 @@ def main() -> None:
         ),
         epilog="\n".join(epilog_lines) + "\n",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        # v2.8.2 C2 — disable argparse abbreviation matching. v2.8.1 added
+        # `--output` as an alias for `--format`; argparse default
+        # allow_abbrev=True then treats `--out` as ambiguous (could match
+        # `--out` OR `--output`) and raises argparse.ArgumentError at parse
+        # time on every invocation that uses `--out`. allow_abbrev=False
+        # forces exact matching and also prevents future accidental
+        # ambiguity from any flag added later.
+        allow_abbrev=False,
     )
     p.add_argument("target", nargs="?", help="URL to scan (e.g. https://example.com)")
     p.add_argument("--file", help="File containing URLs, one per line (# comments OK)")
