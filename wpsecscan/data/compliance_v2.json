@@ -54,7 +54,6 @@
   "cache_poisoning": {"hitrust": "10.m", "cmmc": "SC.L2-3.13.8","nist_csf": "PR.DS-02", "cis_v8": "3.10","iso_27001_2022": "A.8.24"},
   "cache_poisoning_v2":{"hitrust": "10.m","cmmc": "SC.L2-3.13.8","nist_csf": "PR.DS-02","cis_v8": "3.10","iso_27001_2022": "A.8.24"},
   "smuggling_probe": {"hitrust": "10.m", "cmmc": "SC.L2-3.13.6","nist_csf": "PR.IR-01", "cis_v8": "12.6","iso_27001_2022": "A.8.16"},
-  "http2_smuggling": {"hitrust": "10.m", "cmmc": "SC.L2-3.13.6","nist_csf": "PR.IR-01", "cis_v8": "12.6","iso_27001_2022": "A.8.16"},
   "header_smuggling_case":{"hitrust": "10.m","cmmc": "SC.L2-3.13.6","nist_csf": "PR.IR-01","cis_v8": "12.6","iso_27001_2022": "A.8.16"},
   "race_condition":  {"hitrust": "10.m", "cmmc": "SI.L2-3.14.7","nist_csf": "PR.PS-05", "cis_v8": "16.10","iso_27001_2022": "A.8.28"},
   "dns_security":    {"hitrust": "10.f", "cmmc": "SC.L2-3.13.1","nist_csf": "PR.IR-01", "cis_v8": "4.9", "iso_27001_2022": "A.8.20"},

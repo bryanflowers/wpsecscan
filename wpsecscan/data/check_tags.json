@@ -184,7 +184,6 @@
   "plugin_specific_audit":   {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-200", "d3fend": "D3-NTA"},
   "hosting_platform_audit":  {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1592.004", "attack_label": "Client Configurations", "cwe": "CWE-200", "d3fend": "D3-NTA"},
   "origin_ip_discovery":     {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1590.005", "attack_label": "IP Addresses", "cwe": "CWE-200", "d3fend": "D3-NTA"},
-  "http2_smuggling":         {"owasp": "A05:2021", "owasp_label": "Security Misconfiguration", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-444", "d3fend": "D3-NTA"},
   "upload_bypass_deep":      {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-434", "d3fend": "D3-IVA"},
   "misc_injection_audit":    {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-74", "d3fend": "D3-IVA"},
   "tls_reneg_dos":           {"owasp": "A02:2021", "owasp_label": "Cryptographic Failures", "attack": "T1499", "attack_label": "Endpoint Denial of Service", "cwe": "CWE-400", "d3fend": "D3-CH"},

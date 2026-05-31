@@ -93,7 +93,19 @@ async def crawl(client: Client, *, max_depth: int = 3, max_pages: int = 200,
         seen.add(url)
         parsed = urlparse(url)
         # Same-origin only
-        if parsed.netloc and parsed.netloc != origin.netloc:
+        # v2.8.1 B45 — normalise both sides via idna so IDN entered
+        # either as Unicode (`café.example.com`) or its punycode form
+        # (`xn--caf-dma.example.com`) is treated as the same origin.
+        # Without this, the spider silently skipped its own pages
+        # when the user passed the URL in one form but the page links
+        # used the other.
+        def _norm(n: str) -> str:
+            n = (n or "").lower()
+            try:
+                return n.encode("idna").decode("ascii")
+            except (UnicodeError, AttributeError):
+                return n
+        if parsed.netloc and _norm(parsed.netloc) != _norm(origin.netloc):
             continue
         # Robots check
         if disallows and _is_disallowed(parsed.path, disallows):

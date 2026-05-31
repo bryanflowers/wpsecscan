@@ -993,9 +993,19 @@ def main() -> None:
         return
 
     # Auto-generate the help epilog from the same single source of truth.
+    # v2.8.1 B37 — normalise the display by splitting the leading token
+    # (the actual subcommand name) from the rest of the usage line and
+    # padding both columns. Multi-token usages (`compare URL`, `sla
+    # report URL`) had a confusing dispatch model — the dispatcher
+    # only uses the FIRST token. Show the actual subcommand name in
+    # one column and the remaining usage hint in a second column so
+    # the user can immediately see what the dispatch key is.
     epilog_lines = ["Subcommands (run `wpsecscan <name> --help` for per-command usage):", ""]
     for usage, desc in SUBCOMMAND_HELP:
-        epilog_lines.append(f"  {usage:24s}  {desc}")
+        parts = usage.split(maxsplit=1)
+        name = parts[0]
+        rest = parts[1] if len(parts) > 1 else ""
+        epilog_lines.append(f"  {name:16s} {rest:22s}  {desc}")
     p = argparse.ArgumentParser(
         prog="wpsecscan",
         description=(

@@ -145,6 +145,50 @@ def save_versioned_json(filename: str, data: Any,
     os.replace(tmp, p)
 
 
+def validate_out_path(path_str: str, *, allowed_root: Path | None = None) -> Path:
+    """v2.8.1 B41 — validate a user-supplied --out path. Rejects:
+      - Empty / whitespace
+      - Symlinks resolving outside `allowed_root` (when provided)
+      - Paths that don't fit on the filesystem (eg. write-permission
+        denied at the parent dir level).
+
+    Returns a resolved Path on success. Raises ValueError on failure
+    with an actionable message. Caller passes the result to the
+    reporter's `write(report, path)`.
+
+    Pre-v2.8.1 every `--out FILE` arg was passed verbatim to a reporter
+    that called `path.write_text(...)`; an operator passing
+    `--out ../../etc/crontab` got an unchecked write attempt (limited
+    by OS permissions only). Now: realpath check + writability check
+    + optional prefix check.
+    """
+    s = (path_str or "").strip()
+    if not s:
+        raise ValueError("--out must not be empty")
+    try:
+        p = Path(s).expanduser().resolve(strict=False)
+    except (OSError, ValueError, RuntimeError) as e:
+        raise ValueError(f"--out: cannot resolve path {s!r}: {e}") from e
+    if allowed_root is not None:
+        try:
+            root = Path(allowed_root).expanduser().resolve(strict=False)
+        except (OSError, ValueError, RuntimeError):
+            root = Path(allowed_root)
+        try:
+            p.relative_to(root)
+        except ValueError as e:
+            raise ValueError(
+                f"--out: {p} is outside allowed root {root} "
+                f"(symlink escape or path-traversal attempt)"
+            ) from e
+    # Probe write-ability by ensuring the parent dir exists.
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+    except (OSError, PermissionError) as e:
+        raise ValueError(f"--out: parent dir not writable: {e}") from e
+    return p
+
+
 def custom_check_dirs() -> list[Path]:
     """Return the canonical list of dirs the scanner loads user checks
     from. Order matters — earlier entries take precedence on duplicate

@@ -151,14 +151,21 @@ _INDEX_HTML = """<!doctype html>
   const root = document.getElementById('root');
   const meta = document.getElementById('meta');
 
-  let token = localStorage.getItem('wpsecscan_token') || '';
+  // v2.8.1 B33 — token storage moved from localStorage to
+  // sessionStorage. Pre-fix: localStorage persisted the token across
+  // sessions AND was readable by any same-origin JS (XSS on a sibling
+  // endpoint = token theft). sessionStorage clears on tab close
+  // (mitigates one-tab-leak) AND requires re-entry on each browser
+  // restart (acceptable for a PWA that's mostly used on demand).
+  let token = sessionStorage.getItem('wpsecscan_token') || '';
   if (!token) {
     root.innerHTML = `<div class="auth-box">
       <p>Enter your <code>$WPSECSCAN_MOBILE_TOKEN</code>:</p>
       <input type="password" id="tk">
-      <br><button id="save">Save</button></div>`;
+      <br><button id="save">Save</button>
+      <p style="font-size:11px;opacity:0.7;margin-top:8px">Token is stored in sessionStorage and cleared when you close the tab.</p></div>`;
     document.getElementById('save').onclick = () => {
-      localStorage.setItem('wpsecscan_token', document.getElementById('tk').value);
+      sessionStorage.setItem('wpsecscan_token', document.getElementById('tk').value);
       location.reload();
     };
     return;
@@ -167,7 +174,7 @@ _INDEX_HTML = """<!doctype html>
   try {
     const r = await fetch('/api/reports', {headers: {'X-WPSecScan-Token': token}});
     if (r.status === 401) {
-      localStorage.removeItem('wpsecscan_token');
+      sessionStorage.removeItem('wpsecscan_token');
       location.reload();
       return;
     }

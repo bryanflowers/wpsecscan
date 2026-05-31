@@ -75,11 +75,7 @@ def test_origin_ip_discovery_unhostable():
 
 # ---- Wave R: exploit primitives ----
 
-def test_http2_smuggling_passive():
-    from wpsecscan.checks.http2_smuggling import check
-    findings = _run(check(FakeClient(), _ctx()))
-    assert any("skipped" in f.title.lower() for f in findings)
-
+# v2.8.1 B28 — http2_smuggling check deleted; test removed alongside.
 
 def test_upload_bypass_passive():
     from wpsecscan.checks.upload_bypass_deep import check
@@ -212,7 +208,8 @@ def test_round58_checks_registered():
                 "wp_query_sqli", "wp_salts_age", "heartbeat_abuse",
                 "woocommerce_deep", "hosting_platform_audit",
                 "origin_ip_discovery", "tls_reneg_dos", "osint_enrich",
-                "http2_smuggling", "upload_bypass_deep",
+                # v2.8.1 B28 — http2_smuggling deleted.
+                "upload_bypass_deep",
                 "misc_injection_audit", "cache_poisoning_v2",
                 "plugin_specific_audit"):
         assert cid in ids

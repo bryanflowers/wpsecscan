@@ -739,11 +739,6 @@
     "nist_800_53": "SC-7",
     "iso_27001": "A.8.20"
   },
-  "http2_smuggling": {
-    "pci_dss": "6.4.2",
-    "nist_800_53": "SC-7",
-    "iso_27001": "A.8.20"
-  },
   "upload_bypass_deep": {
     "pci_dss": "6.4.1",
     "nist_800_53": "SI-10",

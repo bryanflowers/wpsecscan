@@ -69,15 +69,25 @@ def jira_payloads(report: ScanReport, project_key: str, min_sev: str = "medium")
 
 def jira_curl_commands(report: ScanReport, project_key: str, base_url: str,
                        email: str, min_sev: str = "medium") -> list[str]:
-    """Return one `curl` command per finding. base_url like 'https://yourorg.atlassian.net'."""
+    """Return one `curl` command per finding. base_url like 'https://yourorg.atlassian.net'.
+
+    v2.8.1 B24 — use shlex.quote on every interpolated value. Pre-fix
+    code used the homebrew `'\"'\"'` single-quote escape on the payload
+    only, leaving backticks + ``$(...)`` substitution active in the
+    `email`, `base_url`, and finding-title content. An operator who
+    pasted the generated script into a shell with finding evidence
+    containing ``$(rm -rf ~)`` would execute arbitrary commands. shlex.quote
+    is POSIX-conforming and immune to backtick/dollar substitution.
+    """
+    import shlex as _shlex
     cmds = []
     for payload in jira_payloads(report, project_key, min_sev):
-        body = json.dumps(payload).replace("'", "'\"'\"'")
+        body = json.dumps(payload)
         cmds.append(
-            f"curl -sS -u '{email}:$JIRA_API_TOKEN' "
+            f"curl -sS -u {_shlex.quote(email + ':$JIRA_API_TOKEN')} "
             f"-H 'Content-Type: application/json' "
-            f"-X POST '{base_url}/rest/api/2/issue' "
-            f"-d '{body}'"
+            f"-X POST {_shlex.quote(base_url + '/rest/api/2/issue')} "
+            f"-d {_shlex.quote(body)}"
         )
     return cmds
 

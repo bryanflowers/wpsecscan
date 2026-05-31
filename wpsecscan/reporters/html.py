@@ -155,7 +155,9 @@ def render(report: ScanReport) -> str:
 
 
 def write(report: ScanReport, path: Path) -> None:
-    path.write_text(render(report), encoding="utf-8")
+    # v2.8.1 B39 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(path, render(report))
     try:
         from .. import activity as _act
         _act.emit("reporter", f"HTML: {path.name} ({path.stat().st_size // 1024} KB)")

@@ -25,6 +25,39 @@ def _has_reportlab() -> bool:
         return False
 
 
+# v2.8.1 B31 — TLD → ISO 639-1 language hint for PDF metadata.
+# Covers the top WordPress markets by language. Defaults to "en" for
+# anything not in this table (including .com/.org/.net which are
+# language-neutral). Full content-language detection (parsing
+# `<html lang="...">` from the cached scan response) is a v2.9.0
+# follow-up; the TLD heuristic catches the common case at zero cost.
+_TLD_LANG = {
+    "de": "de", "at": "de", "ch": "de",
+    "fr": "fr", "be": "fr",
+    "es": "es", "mx": "es", "ar": "es", "cl": "es", "co": "es",
+    "it": "it",
+    "pt": "pt", "br": "pt",
+    "nl": "nl",
+    "se": "sv", "no": "no", "dk": "da", "fi": "fi",
+    "pl": "pl", "cz": "cs", "ru": "ru", "ua": "uk",
+    "jp": "ja", "cn": "zh", "tw": "zh", "hk": "zh", "kr": "ko",
+    "vn": "vi", "th": "th", "id": "id",
+    "tr": "tr", "il": "he", "sa": "ar", "ae": "ar", "eg": "ar",
+    "in": "hi", "gr": "el",
+}
+
+
+def _detect_pdf_lang(target: str) -> str:
+    """Return an ISO 639-1 lang code from the target URL's TLD, or 'en'."""
+    try:
+        from urllib.parse import urlparse as _u
+        host = (_u(target).hostname or "").lower()
+        tld = host.rsplit(".", 1)[-1] if "." in host else ""
+        return _TLD_LANG.get(tld, "en")
+    except (ValueError, AttributeError):
+        return "en"
+
+
 def write(report: ScanReport, path: Path) -> None:
     if _has_reportlab():
         _render_pdf_reportlab(report, path)
@@ -63,6 +96,14 @@ def _render_pdf_reportlab(report: ScanReport, path: Path) -> None:
     # title= which writes /Title in the PDF /Info dict. Full PDF/UA
     # structure tree is reportlab >= 4.x territory and noted in
     # docs/accessibility.md as a follow-up.
+    # v2.8.1 B31 — derive `lang=` from the scan target's TLD.
+    # Pre-fix hardcoded "en"; PDF/UA validators flag mismatch when
+    # the report describes a German/French/Japanese WP site. Heuristic
+    # only — TLD is a coarse proxy for content language but covers
+    # the common case (.de/.fr/.jp/.cn/.es/.it/.ru). Full bidi
+    # processing for RTL languages (Arabic/Hebrew) needs Pango/HarfBuzz
+    # — deferred to v2.9.0.
+    _pdf_lang = _detect_pdf_lang(report.target)
     doc = SimpleDocTemplate(
         str(path), pagesize=letter,
         leftMargin=0.6 * inch, rightMargin=0.6 * inch,
@@ -70,7 +111,7 @@ def _render_pdf_reportlab(report: ScanReport, path: Path) -> None:
         title=f"WPSecScan Auditor Report — {report.target}",
         author="WPSecScan",
         subject=f"Security audit, score {report.risk_score}/100, scanned {report.scanned_at}",
-        lang="en",
+        lang=_pdf_lang,
     )
     flow: list = []
     flow.append(Paragraph("WPSecScan Auditor Report", title_s))

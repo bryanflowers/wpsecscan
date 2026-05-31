@@ -120,15 +120,26 @@ def _sanitise_json_floats(obj):
     return obj
 
 
-def render(report: ScanReport) -> str:
+def render(report: ScanReport, *, ascii_only: bool = False) -> str:
+    """Render the report as JSON.
+
+    `ascii_only=True` forces `ensure_ascii=True` (Unicode escaped to
+    `\\uXXXX`). v2.8.1 B44 — some downstream consumers (legacy log
+    shippers, ES bulk loaders running with strict-ASCII codecs) need
+    this. The default `False` preserves Unicode for the common case.
+    Wire `--json-ascii` in `__main__.py` to pass `ascii_only=True`.
+    """
     return json.dumps(
         _sanitise_json_floats(_enrich(report)),
-        indent=2, ensure_ascii=False, allow_nan=False,
+        indent=2, ensure_ascii=ascii_only, allow_nan=False,
     )
 
 
 def write(report: ScanReport, path: Path) -> None:
-    path.write_text(render(report), encoding="utf-8")
+    # v2.8.1 B39 — atomic temp+rename. Pre-fix bare write_text could
+    # produce a torn file if the process died mid-write.
+    from . import _atomic_write_text
+    _atomic_write_text(path, render(report))
     try:
         from .. import activity as _act
         _act.emit("reporter", f"JSON: {path.name} ({path.stat().st_size // 1024} KB)")

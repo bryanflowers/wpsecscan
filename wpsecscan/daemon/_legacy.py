@@ -102,8 +102,68 @@ def _load_config(path: Path) -> dict:
     )
 
 
+def _acquire_pid_file() -> Path | None:
+    """v2.8.1 B35 — write a PID file at ~/.wpsecscan/daemon.pid with
+    atomic O_CREAT|O_EXCL semantics. If the file already exists, probe
+    the recorded PID — if the process is dead, the lock is stale and
+    we steal it; if alive, refuse to start.
+
+    Returns the PID-file Path on success, None on lock-conflict.
+    """
+    import os as _os
+    from wpsecscan.history import _home as _wh_home
+    pid_path = _wh_home() / "daemon.pid"
+    try:
+        fd = _os.open(str(pid_path),
+                       _os.O_WRONLY | _os.O_CREAT | _os.O_EXCL, 0o600)
+        with _os.fdopen(fd, "w") as fh:
+            fh.write(str(_os.getpid()))
+        return pid_path
+    except FileExistsError:
+        # Probe the existing PID for liveness.
+        try:
+            existing_pid = int((pid_path.read_text(encoding="utf-8") or "0").strip())
+        except (OSError, ValueError):
+            existing_pid = 0
+        is_alive = False
+        if existing_pid > 0:
+            try:
+                _os.kill(existing_pid, 0)  # signal 0 = liveness probe
+                is_alive = True
+            except (OSError, ProcessLookupError):
+                is_alive = False
+        if is_alive:
+            print(f"[daemon] another daemon is already running "
+                  f"(pid {existing_pid} from {pid_path}); refusing to start.",
+                  file=__import__("sys").stderr)
+            return None
+        # Stale lock — steal it.
+        try:
+            pid_path.unlink()
+        except OSError:
+            pass
+        try:
+            fd = _os.open(str(pid_path),
+                           _os.O_WRONLY | _os.O_CREAT | _os.O_EXCL, 0o600)
+            with _os.fdopen(fd, "w") as fh:
+                fh.write(str(_os.getpid()))
+            print(f"[daemon] reclaimed stale PID file (was pid {existing_pid}).")
+            return pid_path
+        except OSError:
+            return None
+    except OSError:
+        return None
+
+
 async def run_daemon(config_path: Path) -> None:
     """Main daemon loop. Wakes up every 30 seconds and triggers matching cron jobs."""
+    # v2.8.1 B35 — refuse to start if another daemon already holds
+    # the PID file (atomic lock; stale-lock detection via os.kill).
+    pid_path = _acquire_pid_file()
+    if pid_path is None:
+        import sys as _sys
+        _sys.exit(75)  # EX_TEMPFAIL — operator should retry after killing the other instance
+
     config = _load_config(config_path)
     targets = config.get("targets") or []
     out_dir = Path(config.get("out_dir") or "./reports")

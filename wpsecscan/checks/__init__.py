@@ -126,7 +126,6 @@ from .woocommerce_deep import check as woocommerce_deep
 from .plugin_specific_audit import check as plugin_specific_audit
 from .hosting_platform_audit import check as hosting_platform_audit
 from .origin_ip_discovery import check as origin_ip_discovery
-from .http2_smuggling import check as http2_smuggling
 from .upload_bypass_deep import check as upload_bypass_deep
 from .misc_injection_audit import check as misc_injection_audit
 from .tls_reneg_dos import check as tls_reneg_dos
@@ -599,7 +598,11 @@ ALL_CHECKS = [
     ("perf_of_target",           "Operational perf audit: TTFB / Lighthouse / DB-queries / cache-hit / cold-start (P146-P150)", perf_of_target, False),
     # ---- Round-58 aggressive checks ----
     ("wp_query_sqli",            "WP_Query/wpdb-specific SQLi (#4)", wp_query_sqli, True),
-    ("http2_smuggling",          "HTTP/2 CRLF smuggling probe (#24)", http2_smuggling, True),
+    # v2.8.1 B28 — http2_smuggling removed. The detection required the
+    # server to echo a CRLF-injected `X-Injected` header back, but
+    # httpx client-side validation rejects CRLF in headers before they
+    # ever reach the wire — so the check could never fire. Re-add when
+    # there's a raw-socket-based redesign.
     ("upload_bypass_deep",       "Upload SVG-XXE/polyglot/TOCTOU (#28-30)", upload_bypass_deep, True),
     ("misc_injection_audit",     "LDAP/XPath/SSI/ESI/CRLF/email-header (#32-34)", misc_injection_audit, True),
     ("cache_poisoning_v2",       "Cache poisoning chain v2 (#35)", cache_poisoning_v2, True),
