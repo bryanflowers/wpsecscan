@@ -7,6 +7,119 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+The following items were rolled to v2.9.0 via the v2.8.1 stuck-rule.
+See `.claude/plans/v2.9.0.md` for the full queue.
+
+- **GUI U27** — toolbar tab-order audit
+- **GUI U30** — "new since your last version" highlighting in the
+  in-app changelog viewer
+- **GUI U32** — multi-target ttk.Treeview window
+- **F39** — local RAG CVE corpus (XL — 2GB index)
+- **F46** — offline quantized model bundle (XL — 2GB GGUF)
+- **T2** — full `_v27` subpackage rename (touches dozens of imports;
+  v2.8.1 instead ships *new* integrations_v28 / ai_v28 / compliance_v28
+  modules so existing _v27 modules stay as-is)
+- **T3** — migrate ~10 `while i < len(args)` loops + ~10 raw
+  `home_dir() / "...json"` sites to `_util` helpers
+- **T7** — full auth wiring (RBAC + SSO + approval-workflow)
+
+## [v2.8.1] — 2026-05-31
+
+The single-release execution of the entire v2.8.0 deferred backlog
+(~83-101 items). Ships in 7 phases per `.claude/plans/calm-discovering-spindle.md`.
+
+**Counts**: 17 new defensive WP checks · 11 CLI/GUI UX
+improvements · 13 integrations · 11 AI helpers · 16 compliance
+& enterprise features · 4 architectural changes · 11 bug fixes
+deferred from v2.8.0. ~80 distinct fixes/features shipped.
+
+### Phase 1 — Bugs (11) + CLI UX (5) + GUI UX (7)
+
+- **B14-followup** Bundle full 2048-word BIP-39 wordlist at
+  `wpsecscan/data/bip39-en.txt`; closes symmetric false-negative.
+- **B24** `reporters/issue_export.py` — shlex.quote every
+  interpolation in jira_curl_commands.
+- **B28** Deleted `checks/http2_smuggling.py` — httpx client-side
+  CRLF validation made the detection unreachable.
+- **B31** `auditor_pdf` derives `lang=` from TLD (de/fr/jp/…).
+- **B33** `mobile_api` token storage `localStorage` → `sessionStorage`.
+- **B35** `daemon/_legacy` PID-file with O_EXCL + liveness probe.
+- **B37** Help epilog table layout fix.
+- **B39** `_atomic_write_text` helper used by 28 reporters.
+- **B41** `_util.validate_out_path` centralises --out validation.
+- **B44** `--json-ascii` flag for ASCII-only JSON output.
+- **B45** Spider netloc IDN normalisation via `.encode("idna")`.
+- **U1** Grouped --help epilog (Scanning, Reporting, Integrations,
+  AI, Auth, Compliance, Marketplace, Vuln DB, Utility).
+- **U6** `--resume <id|list>` for attack_checkpoint state.
+- **U7** `--output` as alias for `--format`.
+- **U9** CI-aware progress fallback: dot-per-check on dumb terminals.
+- **U10** `wpsecscan doctor --json` + non-zero exit on any failure.
+- **U11** `--self-update` for pip installs.
+- **U13** `--fail-on` argparse type=validator.
+- **U16** `--timeout` warning always emitted to stderr.
+- **U17** Batch --file scans show ETA at start + remaining time per site.
+- **U3** Interactive TTY prompt when target URL is missing.
+- **U4** Fish shell completion via `--completion fish`.
+- **U14** Confirmation prompts on bulk `creds rm` + `snooze clear`.
+- **U15** `cli_error.CliError` dataclass for structured errors.
+- **U20** "Skip Everything" button in first-run Defender dialog.
+- **U22** Persistent window geometry (already shipped earlier).
+- **U31** Error dialog with inline Retry + Copy buttons.
+- **U33** Recent Targets combobox grouped (Profiles + Recent).
+
+### Phase 2 — 17 new defensive WP security checks (F2-F23)
+
+`wc_cart_abandonment_xss`, `wc_draft_order_escalation`,
+`wc_payment_link_replay`, `stripe_connect_state_csrf`,
+`plugin_update_server_integrity`, `wp_auto_update_filter_exposure`,
+`activitypub_data_leak`, `synced_pattern_leak`,
+`global_styles_css_injection`, `multisite_network_option_idor`,
+`multisite_super_admin_rbac`, `rest_only_admin_probe`,
+`nextjs_env_var_exposure`, `ai_agent_tool_injection`,
+`wc_multivendor_idor`, `webauthn_rp_id_audit`, `wc_refund_flow_idor`.
+All registered in `checks/__init__.py` with OWASP/ATT&CK/CWE/D3FEND
+tags + PCI/NIST/ISO/HITRUST/CMMC/CIS-v8/ISO-2022 compliance mappings.
+
+### Phase 3 — 13 integrations (`integrations_v28`)
+
+GitLab CI Code Quality JSON · CircleCI Insights webhook · Azure
+DevOps Boards work-item · Buildkite annotation · Shortcut story ·
+Plane.so issue · Nuclei template export · OSV.dev enrichment ·
+ExploitDB CSV xref · Wiz/Lacework webhook · Mattermost/RocketChat/
+Telegram chat · WP Engine/Kinsta hosting event · n8n/Make.com/Notion/
+Power Automate/Patchstack-in automation webhook.
+
+### Phase 4 — 11 AI features (`ai_v28`)
+
+Agentic remediation loop · self-improving scan plan · admin-panel
+screenshot vision · visual-diff summariser · voice-query wrapper ·
+sandboxed exec (bwrap/sandbox-exec) · prompt-injection detector ·
+disk-cached LLM · cheaper-model fallback ladder · SOC2/HIPAA/PCI/ISO
+auto-control mapper · risk-score anomaly drift alert.
+
+### Phase 5 — 16 compliance + enterprise features (`compliance_v28`)
+
+HIPAA §164.312 safeguards · GDPR Art.35 DPIA pre-screen · FedRAMP
+Moderate baseline · UK Cyber Essentials Plus · Australia Essential 8 ·
+SPDX 2.3 SBOM · in-toto Statement v0.1 · ArcSight CEF + IBM LEEF ·
+Sigstore Rekor witness · SCIM 2.0 user→creds · per-tenant home ·
+white-label PDF theme · Change Advisory Board export · risk-register
+CSV/JSON · attestation letter · per-stakeholder bundle (CISO/CIO/
+DevMgr) · CMMC 2.0 Level 2 evidence ZIP.
+
+### Phase 6 — 4 architectural (T5/T6/T9/T10)
+
+- **T5** `docs/marketplace.json` scaffold for GitHub Pages marketplace.
+- **T6** `json_migrations` module with sniff-and-upgrade pattern
+  for the 4 unversioned local-state JSON files.
+- **T9** Deleted dead `monitors.py` (540 LOC, zero callers).
+- **T10** New `wpsecscan ai-triage <SUB>` CLI subcommand surfaces 6
+  previously-dead ai_triage helpers (tickets/timeline/impact/
+  exec-brief/kev).
+
+930 tests pass.
+
 ## [v2.8.0] — 2026-05-31
 
 Third mega bug + code-quality discovery pass (12 parallel audit
