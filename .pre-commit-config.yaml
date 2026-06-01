@@ -1,0 +1,25 @@
+# v2.8.3 — minimal pre-commit config.
+# Install: `pip install pre-commit && pre-commit install`
+# Run on all files: `pre-commit run --all-files`
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: check-json
+        # The data/ JSON files are hand-edited frequently; lint them.
+        files: ^wpsecscan/data/.*\.json$
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: ["--select", "E,W,F,UP,B,I", "--ignore", "E501,B008"]
+        # E501 ignored: 100+ existing lines run long; will tighten in v2.9.0
+        # B008 ignored: Click/argparse patterns use mutable defaults intentionally

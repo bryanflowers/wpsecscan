@@ -8,7 +8,7 @@
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![checks](https://img.shields.io/badge/checks-293%2B-brightgreen)](FEATURES.md)
 [![CVE sources](https://img.shields.io/badge/CVE%20sources-8-blue)](docs/data-sources.md)
-[![tests passing](https://img.shields.io/badge/tests-1005%20passing-brightgreen)](tests/)
+[![tests passing](https://img.shields.io/badge/tests-1066%20passing-brightgreen)](tests/)
 [![PyPI](https://img.shields.io/pypi/v/wpsecscan)](https://pypi.org/project/wpsecscan/)
 [![SLSA Level 3](https://img.shields.io/badge/SLSA-Level%203-success)](docs/verify-release.md)
 [![Sigstore signed](https://img.shields.io/badge/Sigstore-signed-blueviolet)](docs/verify-release.md)
@@ -186,6 +186,33 @@ wpsecscan.exe https://your-wp-site.com --wpscan-token <KEY>
 ```
 
 **Exit codes**: `0` = clean / info only · `1` = medium findings · `2` = critical or high findings · `130` = Ctrl+C.
+
+### v2.8.x subcommand families
+
+```powershell
+# Emit any of 14 formats from a saved JSON report (SBOM, CEF, LEEF,
+# HIPAA/FedRAMP/CMMC mappings, risk-CSV, attestation letter, …)
+wpsecscan emit cef report.json --out splunk-events.cef
+wpsecscan emit spdx-sbom report.json --out sbom.json
+
+# Push a saved report to one of 16 destinations
+wpsecscan push gitlab-ci report.json     # GitLab Code Quality JSON
+wpsecscan push sentry report.json        # Sentry release-health correlation (v2.8.3)
+wpsecscan push defectdojo report.json    # DefectDojo SARIF import (v2.8.3)
+wpsecscan push chat report.json          # Mattermost / RocketChat / Telegram
+
+# AI helpers (LLM-backed; respects existing AI provider config)
+wpsecscan ai injection-check response.txt
+wpsecscan ai control-map report.json --framework hipaa
+wpsecscan ai waf-rule finding.json --target-waf cloudflare    # v2.8.3
+
+# v2.8.3 utilities
+wpsecscan init                           # interactive first-run wizard
+wpsecscan check disable wpgraphql        # skip a check on future scans
+wpsecscan benchmark https://example.com  # time each check individually
+wpsecscan export-config                  # show effective merged config
+wpsecscan compare-pypi-version           # is the installed version current?
+```
 
 ---
 
