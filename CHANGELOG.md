@@ -7,7 +7,148 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-The following items rolled to v2.9.0 via the v2.8.2 stuck-rule:
+Rolled to v2.9.0 via the v2.8.3 stuck-rule:
+- **GUI U#9** (splash screen during slow imports) — Tk
+  Toplevel-during-import ordering is fiddly; not worth the risk.
+- **Phase 2.D2-full** wire `json_migrations.load_versioned()` into the
+  3 unversioned-JSON callers — marketplace cache already uses a
+  `_version` key, so adopting json_migrations requires a parallel
+  shape refactor on both reader + writer sides.
+
+Plus the v2.8.2 / v2.8.1 carry-overs (still applicable).
+
+## [v2.8.3] — 2026-06-01
+
+Bug-fix + dead-code-cleanup + test-coverage-boost + feature-batch
+release. ~40 distinct fixes/improvements across 6 phases. 1066 tests
+pass (was 1005 at v2.8.2 → +61 new tests).
+
+### Phase 1 — Critical & high-impact bugs
+
+- **C1** wp-plugin/wpsecscan-companion/includes/rest.php: wrap all 5
+  `SHOW TABLES LIKE '{$var}'` sites in `$wpdb->prepare(...)`. Sets
+  the correct pattern so neighboring devs don't copy bare
+  interpolation into user-tainted contexts.
+- **H1** checks/cache_poisoning.py: operator-precedence bug — the
+  v2.8.2 expression evaluated `and` before `or`, so the `no-store`
+  guard only applied to the `max-age` sub-clause. A response with
+  `Cache-Control: public, no-store` was wrongly classified
+  cacheable and emitted a false high-severity finding. Parenthesised.
+- **H2** api_server.py: `_history_for()` glob was too greedy
+  (`*{safe}*.json` matched files whose name merely contained the
+  target's safe-filename). Switched to `glob.escape(safe) + "-*.json"`
+  (prefix-anchored, mirrors `history.snapshot_history`).
+- **H3 + H4** reporters/*.py: 24 reporters bypassed the v2.8.1
+  `_atomic_write_text` helper despite the helper being introduced
+  for this. Migrated badge_svg, csv_out, compliance_attestation,
+  burp_export, board_one_pager, diff_viewer, diff_agency,
+  gdpr_dsr_report, finding_heatmap, org_dashboard, issue_export,
+  executive_pack, executive_tldr, share_link, public_page,
+  vex_export, snapshot_compare, user_template, dashboard,
+  xlsx_pivot, attestation, auditor_pdf, d3fend_mapping, docx_report,
+  exec_pdf — all now use `_atomic_write_text`.
+- **H5** gui.py:1283: `_drain_queue` rescheduled `after(40, ...)`
+  without a `winfo_exists` guard. Closing the GUI mid-scan fired
+  the callback on a destroyed widget → unhandled `TclError`. Added.
+- **M3** _util.py: `save_versioned_json` now cleans up its temp file
+  on write failure (matches `reporters._atomic_write_text`).
+- **M5** checks/debug_leaks.py: removed `or weird.status_code == 500`
+  from the outer trigger; bare 500s without PHP markers no longer
+  emit a medium-severity finding with empty evidence.
+- **L9** wp-plugin/wpsecscan-companion/includes/admin.php: admin
+  AJAX fetch now includes `_wpnonce` so `check_ajax_referer`
+  actually validates (was silently failing pre-fix).
+- **wpsecscan.yml** workflow template: bumped pinned version from
+  `==2.7.3` (4 minors stale) to `>=2.8.3,<3` so users of the
+  drop-in scan template auto-track latest 2.x.
+
+### Phase 2 — Dead-code cleanup
+
+- Deleted `wpsecscan/licensing.py` — zero importers, never wired up.
+  The companion v14 PHP plugin handles licensing server-side.
+
+### Phase 3 — Test coverage (+61 tests, 1005 → 1066)
+
+- `tests/test_v283_check_coverage.py` (33 tests) — happy-path +
+  edge-case for cache_headers, csrf_nonce, debug_leaks (incl. M5
+  regression), error_pages, interactivity_api_state_leak,
+  mcp_endpoint_exposure, mixed_content, security_txt,
+  wp_cron_disabled, app_passwords, core_cves; parametrised
+  empty-response matrix across all 20 high-impact untested checks.
+- `tests/test_v283_reporter_coverage.py` (15 tests) — render+write
+  round-trip for compliance_attestation, vex_export, gdpr_dsr_report,
+  auditor_pdf, burp_export, finding_heatmap, executive_tldr,
+  d3fend_mapping.
+- `tests/test_v283_phase1_regressions.py` (7 tests) — H1/H2/H5/M5/C1
+  regression guards + reporter atomic-write source-level guard.
+- `tests/test_v283_cli_dispatch.py` (6 tests) — smoke for
+  _cmd_annotate, _cmd_verify_release, _cmd_ai_options, _cmd_ai_cost,
+  _cmd_doctor exit-code semantics + SUBCOMMAND_NAMES sanity.
+
+### Phase 4 — UX quick wins (9 shipped; U#9 splash → v2.9.0)
+
+CLI:
+- **U#1** `wpsecscan init` — interactive first-run wizard.
+- **U#2** `wpsecscan check disable/enable <ID>` subcommands.
+- **U#3** `wpsecscan compare-pypi-version` — passive staleness check.
+- **U#4** `wpsecscan export-config` — JSON/YAML dump of effective
+  merged config (redacts TOKEN/KEY/SECRET/PASS env values).
+- **U#5** `wpsecscan benchmark <URL>` — per-check timing table.
+- **U#6** SOCKS5 proxy fix in http.py — prefers httpx-socks, falls
+  back to httpx native socksio; raises clear ImportError when
+  neither is installed.
+
+GUI:
+- **U#7** "Quick" toolbar button next to "Scan" — passive-only fast
+  scan with one click.
+- **U#8** Inline severity legend (5 color chips) below the findings
+  Treeview.
+
+Reporter:
+- **U#10** `--single-page-html` flag — injects print-friendly CSS
+  overrides (no sticky nav, page-break-inside avoidance) so browser
+  PDF export produces clean pagination.
+
+### Phase 5 — 5 new checks + 3 new integrations + 1 AI helper
+
+Checks (F66-F70):
+- F66 `interactivity_api_directive_xss` — WP 6.5+ Interactivity
+  API directive-XSS reflection probe.
+- F67 `wc_stores_api_rate_limit_oracle` — 5-burst cart-add timing
+  probe.
+- F68 `wc_hpos_namespace_drift` — HPOS detection + dual-path
+  permission-check advisory.
+- F69 `cookie_banner_cosmetic_vs_blocking` — vanilla-vs-reject probe
+  to distinguish blocking from cosmetic cookie banners.
+- F70 `plugin_slug_squat_check` — wp.org `author` field drift
+  detection across scans (supply-chain attack pattern).
+
+Integrations (I14-I16, surfaced via `wpsecscan push`):
+- I14 `sentry_release_correlation` — Sentry Releases API.
+- I15 `datadog_incident_create` — auto-create incident on critical
+  findings.
+- I16 `defectdojo_push` — SARIF import via /api/v2/import-scan/.
+
+AI helper (F71, surfaced via `wpsecscan ai waf-rule`):
+- F71 `generate_waf_rule_for_finding` — LLM-generated Cloudflare
+  Expression Language or ModSecurity SecRule for findings not in
+  the pre-authored `waf_rules.py` dictionary.
+
+### Phase 6 — docs + dev experience + CI
+
+- README badge: 1005 → 1066 passing tests.
+- README: new "v2.8.x subcommand families" section with 11
+  representative examples.
+- pyproject.toml: added `Programming Language :: Python :: 3.13`
+  classifier.
+- New `Justfile`: test/test-fast/test-k/lint/build/build-exe/run/
+  gui/quick recipes.
+- New `.pre-commit-config.yaml`: ruff E/W/F/UP/B/I + pre-commit-hooks
+  basics + JSON lint on data/.
+
+1066 tests pass.
+
+## [v2.8.2] — 2026-05-31
 - **GUI U#11** (tree empty-state callout) — Treeview empty-state
   painting is non-trivial in Tk; deferred.
 - **GUI U#13** (open prior HTML report from scan-history rows) —
