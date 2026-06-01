@@ -140,4 +140,6 @@ def render(old_report: dict, new_report: dict) -> str:
 def write(old_path: Path, new_path: Path, out_path: Path) -> None:
     old = json.loads(old_path.read_text(encoding="utf-8"))
     new = json.loads(new_path.read_text(encoding="utf-8"))
-    out_path.write_text(render(old, new), encoding="utf-8")
+    # v2.8.3 H3 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(out_path, render(old, new))

@@ -65,4 +65,6 @@ def write_badge(path: str, summary: dict) -> None:
     # Symlink guard
     if p.is_symlink():
         p.unlink()
-    p.write_text(render_badge_svg(summary), encoding="utf-8")
+    # v2.8.3 H3 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(p, render_badge_svg(summary))

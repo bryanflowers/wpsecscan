@@ -120,7 +120,9 @@ def build_share_payload(report: ScanReport, check_id: str, index: int,
 def write(report: ScanReport, check_id: str, index: int, out_path: Path) -> dict:
     """Build + write the share file. Returns the payload dict."""
     payload = build_share_payload(report, check_id, index)
-    out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    # v2.8.3 H3 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(out_path, json.dumps(payload, indent=2))
     return payload
 
 

@@ -170,7 +170,9 @@ def write(report: ScanReport, path: Path, *, vendor: str = "WPSecScan",
             pass
         return
     html_path = path.with_suffix(".html")
-    html_path.write_text(_html_fallback(report, vendor=vendor, customer=customer), encoding="utf-8")
+    # v2.8.3 H3 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(html_path, _html_fallback(report, vendor=vendor, customer=customer))
     try:
         from .. import activity as _act
         _act.emit("reporter", f"Attestation (HTML fallback): {html_path.name}")

@@ -152,4 +152,6 @@ def render(reports: list[tuple[ScanReport, str]], *, agency: bool = False) -> st
 
 def write(reports: list[tuple[ScanReport, str]], path: Path, *,
           agency: bool = False) -> None:
-    path.write_text(render(reports, agency=agency), encoding="utf-8")
+    # v2.8.3 H3 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(path, render(reports, agency=agency))

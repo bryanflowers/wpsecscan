@@ -579,7 +579,10 @@ function wpsecscan_companion_failed_login_geo_callback( $request ) {
 
     // Wordfence logs to its own table `wfHits` / `wfLogins`.
     $wf_table = $wpdb->prefix . 'wfLogins';
-    if ( $wpdb->get_var( "SHOW TABLES LIKE '{$wf_table}'" ) === $wf_table ) {
+    // v2.8.3 C1 — use $wpdb->prepare() even for SHOW TABLES LIKE so the
+    // pattern is correct (sets a good example for neighboring code that
+    // may copy-paste this into truly user-tainted contexts).
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $wf_table ) ) === $wf_table ) {
         $raw = $wpdb->get_results(
             "SELECT IP, COUNT(*) AS c, MAX(ctime) AS last_seen
                FROM {$wf_table}
@@ -599,7 +602,7 @@ function wpsecscan_companion_failed_login_geo_callback( $request ) {
 
     // Solid Security (formerly iThemes) logs to itsec_logs.
     $solid_table = $wpdb->prefix . 'itsec_logs';
-    if ( ! $rows && $wpdb->get_var( "SHOW TABLES LIKE '{$solid_table}'" ) === $solid_table ) {
+    if ( ! $rows && $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $solid_table ) ) === $solid_table ) {
         $raw = $wpdb->get_results(
             "SELECT remote_ip AS ip, COUNT(*) AS c, MAX(timestamp) AS last_seen
                FROM {$solid_table}
@@ -836,7 +839,7 @@ function wpsecscan_companion_recent_admin_actions_callback( $request ) {
 
     // Solid Security keeps a per-action audit table (itsec_logs).
     $solid = $wpdb->prefix . 'itsec_logs';
-    if ( $wpdb->get_var( "SHOW TABLES LIKE '{$solid}'" ) === $solid ) {
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $solid ) ) === $solid ) {
         $raw = $wpdb->get_results(
             "SELECT timestamp, code, init_user_login AS user, data
                FROM {$solid}
@@ -1108,7 +1111,7 @@ function wpsecscan_companion_wp_cron_failures_callback( $request ) {
     // Action Scheduler — installed alongside WooCommerce and many plugins.
     global $wpdb;
     $as_table = $wpdb->prefix . 'actionscheduler_actions';
-    if ( $wpdb->get_var( "SHOW TABLES LIKE '{$as_table}'" ) === $as_table ) {
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $as_table ) ) === $as_table ) {
         $raw = $wpdb->get_results(
             "SELECT hook, status, attempts, scheduled_date_gmt
                FROM {$as_table}
@@ -1163,7 +1166,7 @@ function wpsecscan_companion_scheduled_task_anomalies_callback( $request ) {
     global $wpdb;
     $rows = [];
     $as_table = $wpdb->prefix . 'actionscheduler_actions';
-    if ( $wpdb->get_var( "SHOW TABLES LIKE '{$as_table}'" ) === $as_table ) {
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $as_table ) ) === $as_table ) {
         $raw = $wpdb->get_results(
             "SELECT hook, status, scheduled_date_gmt
                FROM {$as_table}

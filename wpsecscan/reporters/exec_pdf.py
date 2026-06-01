@@ -329,7 +329,9 @@ For a true PDF export, install reportlab (<code>pip install reportlab</code>) an
 and remediation guidance.</div>
 </body></html>
 """
-    path.write_text(doc, encoding="utf-8")
+    # v2.8.3 H3 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(path, doc)
 
 
 def write(report: ScanReport, path: Path) -> None:

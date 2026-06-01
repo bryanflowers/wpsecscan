@@ -139,4 +139,6 @@ def _write_rtf(report: ScanReport, path: Path) -> None:
     lines.append(r"Date:         _____________________________________\par")
     lines.append(r"Signature:    _____________________________________\par")
     lines.append("}")
-    path.write_text("\n".join(lines), encoding="utf-8")
+    # v2.8.3 H3 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(path, "\n".join(lines))

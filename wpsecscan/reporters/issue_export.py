@@ -272,4 +272,6 @@ def write(report: ScanReport, path: Path, *,
         parts.append("# Notion pages (DB ID: " + notion_db + ")")
         parts.extend(notion_curl_commands(report, notion_db, notion_title_prop, min_sev))
         parts.append("")
-    path.write_text("\n".join(parts), encoding="utf-8")
+    # v2.8.3 H3 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(path, "\n".join(parts))

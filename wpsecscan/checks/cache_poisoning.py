@@ -56,7 +56,17 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         # Is the response cacheable? Cache-Control + Age headers are the markers.
         cc = (r.headers.get("cache-control", "") or r.headers.get("Cache-Control", "")).lower()
         age = (r.headers.get("age", "") or r.headers.get("Age", ""))
-        is_cacheable = "public" in cc or "s-maxage" in cc or "max-age" in cc and "no-store" not in cc and bool(age)
+        # v2.8.3 H1 — fix operator precedence: Python evaluates `and`
+        # before `or`, so the v2.8.2 expression only applied the
+        # `no-store` + `bool(age)` guards to the `max-age` sub-clause.
+        # That made `Cache-Control: public, no-store` evaluate True and
+        # emit a false high-severity cache-poisoning finding. Parenthesise
+        # the whole expression so all three clauses respect no-store/age.
+        is_cacheable = (
+            (("public" in cc) or ("s-maxage" in cc) or ("max-age" in cc))
+            and ("no-store" not in cc)
+            and bool(age)
+        )
         if is_cacheable:
             cacheable_url = True
         ev = f"Header `{header}: {canary}` reflected in {', '.join(reflected_in)}."

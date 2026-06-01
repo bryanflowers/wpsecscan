@@ -121,4 +121,6 @@ def _xml_esc(s: str) -> str:
 
 
 def write(target: str, out_path: Path) -> None:
-    out_path.write_text(render_svg(target), encoding="utf-8")
+    # v2.8.3 H3 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(out_path, render_svg(target))

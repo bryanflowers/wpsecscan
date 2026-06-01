@@ -121,4 +121,6 @@ def render() -> str:
 
 
 def write(path: Path) -> None:
-    path.write_text(render(), encoding="utf-8")
+    # v2.8.3 H3 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(path, render())

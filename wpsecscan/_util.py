@@ -141,8 +141,18 @@ def save_versioned_json(filename: str, data: Any,
     p.parent.mkdir(parents=True, exist_ok=True)
     payload = {"_version": version, "data": data}
     tmp = p.with_suffix(p.suffix + f".tmp.{os.getpid()}")
-    tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    os.replace(tmp, p)
+    # v2.8.3 M3 — clean up the temp file on write failure (matches the
+    # discipline already in reporters._atomic_write_text). Pre-fix a
+    # disk-full mid-write left an orphaned `.tmp.{pid}` file on disk.
+    try:
+        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        os.replace(tmp, p)
+    except OSError:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
 
 
 def validate_out_path(path_str: str, *, allowed_root: Path | None = None) -> Path:

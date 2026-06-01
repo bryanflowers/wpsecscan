@@ -159,5 +159,7 @@ def write(old_html_path: Path, new_html_path: Path, out_path: Path) -> dict[str,
     old = _extract_manifest(Path(old_html_path).read_text(encoding="utf-8"))
     new = _extract_manifest(Path(new_html_path).read_text(encoding="utf-8"))
     d = diff(old, new)
-    out_path.write_text(render_html(d), encoding="utf-8")
+    # v2.8.3 H3 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(out_path, render_html(d))
     return d

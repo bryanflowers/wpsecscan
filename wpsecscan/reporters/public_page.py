@@ -84,4 +84,6 @@ def write_public_page(path: str, target: str, summary: dict, *, public: bool = F
     p.parent.mkdir(parents=True, exist_ok=True)
     if p.is_symlink():
         p.unlink()
-    p.write_text(render_public_page(target, summary, scanned_at, public=public), encoding="utf-8")
+    # v2.8.3 H3 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(p, render_public_page(target, summary, scanned_at, public=public))

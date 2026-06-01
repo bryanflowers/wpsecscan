@@ -60,4 +60,6 @@ def render(report: ScanReport, template_path: Path) -> str:
 
 
 def write(report: ScanReport, template_path: Path, out_path: Path) -> None:
-    out_path.write_text(render(report, template_path), encoding="utf-8")
+    # v2.8.3 H3 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(out_path, render(report, template_path))

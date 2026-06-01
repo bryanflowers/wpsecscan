@@ -49,7 +49,10 @@ jobs:
         # users who want to track a branch should pin a specific commit
         # SHA here.
         run: |
-          pip install --quiet 'wpsecscan==2.7.3'
+          # v2.8.3 — bumped from 2.7.3 (4 minors stale) to >=2.8.3,<3
+          # so users of this template auto-track the latest 2.x release.
+          # Pin a specific version (e.g. ==2.8.3) for reproducible CI.
+          pip install --quiet 'wpsecscan>=2.8.3,<3'
 
       - name: Run scan
         # N18 (v2.7.3) — was: `${{ secrets.WPSCAN_TOKEN && format(... ) || '' }}`

@@ -28,10 +28,10 @@ def write(report: ScanReport, out_path: Path) -> None:
         from openpyxl.styles import Font, PatternFill  # type: ignore[import-not-found]
     except ImportError:
         # Fall back: emit a CSV that explains the missing dep.
-        out_path.with_suffix(".csv").write_text(
-            "Install openpyxl for pivot xlsx output\n",
-            encoding="utf-8",
-        )
+        # v2.8.3 H3 — atomic temp+rename via shared helper.
+        from . import _atomic_write_text
+        _atomic_write_text(out_path.with_suffix(".csv"),
+                            "Install openpyxl for pivot xlsx output\n")
         return
 
     wb = openpyxl.Workbook()

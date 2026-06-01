@@ -157,11 +157,13 @@ def write_full_pack(report: ScanReport, out_dir: Path) -> dict[str, Path]:
     Returns {variant: path}."""
     out_dir.mkdir(parents=True, exist_ok=True)
     out: dict[str, Path] = {}
+    # v2.8.3 H3 — atomic temp+rename via shared helper for all writes.
+    from . import _atomic_write_text
     for variant in ("cto", "ciso", "dev", "sales"):
         p = out_dir / f"exec-{variant}.html"
-        p.write_text(render_variant_html(report, variant), encoding="utf-8")
+        _atomic_write_text(p, render_variant_html(report, variant))
         out[variant] = p
-    (out_dir / "cost_analysis.json").write_text(
-        json.dumps(cost_estimates(report), indent=2), encoding="utf-8")
+    _atomic_write_text(out_dir / "cost_analysis.json",
+                        json.dumps(cost_estimates(report), indent=2))
     out["cost_json"] = out_dir / "cost_analysis.json"
     return out

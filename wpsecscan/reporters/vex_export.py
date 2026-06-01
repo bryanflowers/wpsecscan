@@ -86,5 +86,7 @@ def build_document(report: ScanReport) -> dict:
 
 def write(report: ScanReport, out_path: Path) -> dict:
     doc = build_document(report)
-    out_path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+    # v2.8.3 H3 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(out_path, json.dumps(doc, indent=2))
     return doc

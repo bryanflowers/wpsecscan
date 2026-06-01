@@ -62,7 +62,11 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         #     fired on disclaimers, poetry, and recipe pages.
         high_conf_hits = [m for m in HIGH_CONF_PHP_MARKERS if m in text]
         error_line_hits = PHP_ERROR_LINE_RE.findall(text)
-        if high_conf_hits or error_line_hits or weird.status_code == 500:
+        # v2.8.3 M5 — don't fire on bare 500s without any evidence. A
+        # generic "Service Unavailable" page from a load balancer would
+        # previously emit a medium-severity finding with empty evidence.
+        # Require at least one PHP-marker hit in the body.
+        if high_conf_hits or error_line_hits:
             preview_lines: list[str] = []
             if high_conf_hits:
                 preview_lines.extend(

@@ -281,8 +281,11 @@ function wpsecscan_companion_render_admin_page() {
                 status.textContent = 'Running…';
                 tbody.innerHTML = '';
                 table.style.display = '';
+                // v2.8.3 L9 — include the nonce as a query param so the
+                // server-side check_ajax_referer call actually validates.
+                // Pre-fix the AJAX nonce check always failed silently.
                 fetch(
-                    <?php echo wp_json_encode( admin_url( 'admin-ajax.php?action=wpsecscan_companion_test_connection' ) ); ?>,
+                    <?php echo wp_json_encode( admin_url( 'admin-ajax.php?action=wpsecscan_companion_test_connection&_wpnonce=' . wp_create_nonce( 'wpsecscan_companion_admin' ) ) ); ?>,
                     { credentials: 'same-origin' }
                 ).then(function(r){ return r.json(); }).then(function(j){
                     btn.disabled = false;

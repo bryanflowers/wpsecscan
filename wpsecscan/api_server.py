@@ -81,12 +81,20 @@ def _reports_dir() -> Path:
 
 def _history_for(url: str) -> list[dict]:
     from . import history as _h
+    import glob as _glob
     safe = _h._safe_filename(url)
     out = []
     d = _reports_dir()
     if not d.exists():
         return []
-    for p in sorted(d.glob(f"*{safe}*.json")):
+    # v2.8.3 H2 — the v2.8.2 `*{safe}*.json` glob with a leading `*`
+    # matched adjacent files whose filename merely contained the
+    # safe-filename of the target. An attacker who can write to the
+    # reports dir could poison `/history` results by dropping a file
+    # like `malicious-{safe}-evil.json`. Use the same prefix-anchored
+    # pattern (with shell-escaped safe-filename) that
+    # `history.snapshot_history` uses.
+    for p in sorted(d.glob(f"{_glob.escape(safe)}-*.json")):
         try:
             data = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, ValueError):

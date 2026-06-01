@@ -182,7 +182,9 @@ _HTML = r"""<!doctype html>
 
 def write(path: Path) -> None:
     """Write the standalone diff viewer to disk."""
-    path.write_text(_HTML, encoding="utf-8")
+    # v2.8.3 H3 — atomic temp+rename via shared helper.
+    from . import _atomic_write_text
+    _atomic_write_text(path, _HTML)
 
 
 def render() -> str:

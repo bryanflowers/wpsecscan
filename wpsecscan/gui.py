@@ -1280,7 +1280,14 @@ class App:
                     self._append_activity(event)
         except queue.Empty:
             pass
-        self.root.after(40, self._drain_queue)
+        # v2.8.3 H5 — guard re-schedule with winfo_exists. v2.8.2 fired
+        # the callback on a destroyed widget when the GUI was closed
+        # mid-scan, raising an unhandled TclError in the Tk event loop.
+        try:
+            if self.root.winfo_exists():
+                self.root.after(40, self._drain_queue)
+        except _tk_mod.TclError:
+            pass
 
     def _append_activity(self, event: dict) -> None:
         """Round-56: render an activity bus event into the Activity tab."""
