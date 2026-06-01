@@ -293,6 +293,25 @@ async def _scan_one(target: str, args, console: Console):
     if want_html:
         html_p = out_dir / f"{stem}.html"
         html_reporter.write(report, html_p)
+        # v2.8.3 U#10 — single-page mode injects print-friendly CSS
+        # overrides into the rendered HTML so browser PDF export
+        # doesn't break sections across pages and the sticky nav
+        # disappears.
+        if getattr(args, "single_page_html", False) and html_p.exists():
+            from .reporters import _atomic_write_text
+            body = html_p.read_text(encoding="utf-8")
+            overrides = (
+                "\n<style id='wpsecscan-single-page-overrides'>\n"
+                "  /* v2.8.3 U#10 — single-page print/PDF mode */\n"
+                "  [class*='sticky'], [class*='nav'], nav { position: static !important; }\n"
+                "  @media print { body { padding: 0 !important; }\n"
+                "    .finding, section, article { page-break-inside: avoid; }\n"
+                "    @page { margin: 1.5cm; } }\n"
+                "</style>\n</head>"
+            )
+            if "</head>" in body:
+                body = body.replace("</head>", overrides, 1)
+                _atomic_write_text(html_p, body)
         html_path = html_p.name
         if not args.no_console:
             console.print(f"[green]✓[/green] HTML report: [bold]{html_p}[/bold]")
@@ -1190,6 +1209,9 @@ def main() -> None:
         "doctor": "Utility", "paths": "Utility", "config": "Utility",
         "analytics": "Utility", "undo": "Utility", "learn": "Utility",
         "install-completion": "Utility",
+        # v2.8.3 Phase 4 new subcommands
+        "init": "Utility", "benchmark": "Utility",
+        "export-config": "Utility", "compare-pypi-version": "Utility",
     }
     _CATEGORY_ORDER = (
         "Scanning & scheduling", "Reporting & comparison",
@@ -1305,6 +1327,10 @@ def main() -> None:
         "v2.8.2 U#15 — prepend YAML front-matter (title, date, target, "
         "risk_score, worst_severity) to the Markdown report so it's "
         "consumable by Hugo / Obsidian / MkDocs."))
+    p.add_argument("--single-page-html", action="store_true", help=(
+        "v2.8.3 U#10 — render the HTML report in a print-friendly "
+        "single-page mode (no sticky nav, page-break-safe CSS) so it "
+        "exports cleanly to PDF via the browser."))
     p.add_argument("--md-top", type=int, default=None, metavar="N",
                    help="Truncate the Markdown report to the top-N findings by severity "
                         "(useful for Slack/Discord's 4000-char message limit).")
@@ -1990,6 +2016,11 @@ SUBCOMMAND_HELP: tuple[tuple[str, str], ...] = (
     ("emit FORMAT REPORT.json", "emit SBOM/CEF/LEEF/SCIM/SPDX/risk-csv/etc. from a saved report"),
     ("push PROVIDER REPORT.json", "push a saved report to CircleCI/AZDO/Buildkite/Shortcut/Plane/etc."),
     ("ai SUB",               "ai remediation/plan/visual-diff/injection-check/drift/control-map"),
+    # v2.8.3 Phase 4 — quick-win CLI subcommands
+    ("init",                 "interactive first-run wizard (target/proxy/AI/output)"),
+    ("benchmark URL",        "run each check individually + emit timing/findings table"),
+    ("export-config",        "print the effective merged config (CLI defaults + ~/.wpsecscan + env)"),
+    ("compare-pypi-version", "passive check: is the installed version behind the latest PyPI release?"),
 )
 
 SUBCOMMAND_NAMES: tuple[str, ...] = tuple(
@@ -2139,6 +2170,14 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_push(args)
     elif cmd == "ai":
         _cmd_ai(args)
+    elif cmd == "init":
+        _cmd_init(args)
+    elif cmd == "benchmark":
+        _cmd_benchmark(args)
+    elif cmd == "export-config":
+        _cmd_export_config(args)
+    elif cmd == "compare-pypi-version":
+        _cmd_compare_pypi_version(args)
     else:
         # U2 (v2.8.0) — "did you mean?" fuzzy suggestion. Pre-fix
         # bare error left users guessing which subcommand they
@@ -2368,7 +2407,14 @@ def _cmd_check(args: list[str]) -> None:
                                                   for sharing (e.g. via Gist).
     """
     if not args or args[0] in ("-h", "--help"):
-        print("usage: wpsecscan check {list|list-custom|new SLUG|publish SLUG} [options]")
+        print("usage: wpsecscan check {list|list-custom|new SLUG|publish SLUG"
+              "|disable CHECK_ID|enable CHECK_ID} [options]\n"
+              "examples:\n"
+              "  wpsecscan check list --json            # machine-readable check inventory\n"
+              "  wpsecscan check list --category A01    # filter by OWASP top-10 category\n"
+              "  wpsecscan check disable wpgraphql      # skip this check on future scans\n"
+              "  wpsecscan check enable wpgraphql       # re-enable a previously-disabled check\n"
+              "  wpsecscan check new my_check           # scaffold a user-defined check\n")
         return
     if args[0] == "new":
         if len(args) < 2:
@@ -2408,6 +2454,41 @@ def _cmd_check(args: list[str]) -> None:
             mode = "aggressive" if agg else "passive"
             print(f"  {cid:35s}  ({mode:11s})  {cname}")
         return
+    # v2.8.3 U#2 — `check disable/enable <ID>` subcommands. Previously
+    # required manual editing of `~/.wpsecscan/disabled_checks.json`.
+    if args[0] in ("disable", "enable"):
+        if len(args) < 2 or args[1] in ("-h", "--help"):
+            print(f"usage: wpsecscan check {args[0]} CHECK_ID\n"
+                  f"Toggle a check in ~/.wpsecscan/disabled_checks.json.")
+            return
+        check_id = args[1].strip()
+        from .checks import ALL_CHECKS
+        valid_ids = {cid for cid, _n, _f, _agg in ALL_CHECKS}
+        if check_id not in valid_ids:
+            import difflib as _difflib
+            hint = _difflib.get_close_matches(check_id, valid_ids, n=2, cutoff=0.6)
+            print(f"unknown check ID: {check_id!r}", file=sys.stderr)
+            if hint:
+                print(f"did you mean: {', '.join(hint)}?", file=sys.stderr)
+            sys.exit(64)
+        home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+        home.mkdir(parents=True, exist_ok=True)
+        disabled_path = home / "disabled_checks.json"
+        try:
+            current = set(json.loads(disabled_path.read_text(encoding="utf-8"))) \
+                if disabled_path.exists() else set()
+        except (OSError, json.JSONDecodeError):
+            current = set()
+        if args[0] == "disable":
+            current.add(check_id)
+            disabled_path.write_text(json.dumps(sorted(current), indent=2), encoding="utf-8")
+            print(f"disabled: {check_id} (now {len(current)} disabled check(s))")
+        else:
+            current.discard(check_id)
+            disabled_path.write_text(json.dumps(sorted(current), indent=2), encoding="utf-8")
+            print(f"enabled: {check_id} (now {len(current)} disabled check(s))")
+        return
+
     if args[0] == "publish":
         # v2.8.2 — module-level json import now available; local import
         # was shadowing it and causing UnboundLocalError on the new
@@ -4609,6 +4690,192 @@ def _cmd_ai(args: list[str]) -> None:
                             hint="valid: remediation, plan, visual-diff, injection-check, drift, control-map")
     except CliError as e:
         sys.exit(handle_cli_error(e))
+
+
+def _cmd_init(args: list[str]) -> None:
+    """v2.8.3 U#1 — interactive first-run wizard.
+
+    Walks the user through target / proxy / AI provider / preferred output
+    format, then writes `~/.wpsecscan/config.json`. Skipped on non-TTY.
+    """
+    if args and args[0] in ("-h", "--help"):
+        print("usage: wpsecscan init\nInteractive first-run wizard. Writes ~/.wpsecscan/config.json.")
+        return
+    if not sys.stdin.isatty():
+        print("wpsecscan init requires an interactive TTY.", file=sys.stderr)
+        sys.exit(2)
+    print("WPSecScan — first-run setup\n")
+    target = input("Default target URL (e.g. https://example.com), or blank to skip: ").strip()
+    proxy = input("HTTP/HTTPS proxy (e.g. http://localhost:8080), or blank: ").strip()
+    ai = input("AI provider (openai|anthropic|ollama), or blank: ").strip().lower()
+    fmt = input("Preferred output format (json|html|sarif|md), default json: ").strip().lower() or "json"
+    cfg: dict[str, object] = {}
+    if target:
+        cfg["target"] = target
+    if proxy:
+        cfg["proxy"] = proxy
+    if ai in ("openai", "anthropic", "ollama"):
+        cfg["ai_provider"] = ai
+    if fmt in ("json", "html", "sarif", "md"):
+        cfg["format"] = [fmt]
+    home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+    home.mkdir(parents=True, exist_ok=True)
+    cfg_path = home / "config.json"
+    if cfg_path.exists():
+        resp = input(f"{cfg_path} already exists. Overwrite? [y/N] ").strip().lower()
+        if resp not in ("y", "yes"):
+            print("aborted"); return
+    cfg_path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    print(f"\n✓ wrote {cfg_path}")
+    print("Run `wpsecscan <url>` (or just `wpsecscan` if you set a default target) to scan.")
+
+
+def _cmd_benchmark(args: list[str]) -> None:
+    """v2.8.3 U#5 — time each check individually against a target.
+
+    Emits a sorted (check_id, elapsed_ms, finding_count) table so
+    operators can identify the slowest checks. Useful for CI budget
+    diagnostics.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print("usage: wpsecscan benchmark <URL> [--aggressive]\nRuns each check individually + emits a timing table.")
+        return
+    url = args[0]
+    aggressive = "--aggressive" in args[1:]
+    import asyncio as _asyncio
+    import time as _time
+    from .http import Client
+    from .checks import select_checks
+
+    async def _bench():
+        active = select_checks(aggressive=aggressive)
+        rows: list[tuple[str, int, int]] = []
+        ctx = {"target": url, "shared": {}, "step": lambda _s: None}
+        async with Client(url) as client:
+            for cid, _cname, fn in active:
+                t0 = _time.perf_counter()
+                try:
+                    findings = await fn(client, ctx) or []
+                    n = len(findings)
+                except Exception as e:  # noqa: BLE001
+                    n = -1
+                    print(f"  ! {cid}: {e}", file=sys.stderr)
+                elapsed_ms = int((_time.perf_counter() - t0) * 1000)
+                rows.append((cid, elapsed_ms, n))
+        return rows
+
+    print(f"Benchmarking {url} (aggressive={aggressive})...\n")
+    rows = _asyncio.run(_bench())
+    rows.sort(key=lambda r: r[1], reverse=True)
+    print(f"{'check_id':40s} {'elapsed_ms':>12s} {'findings':>10s}")
+    print("-" * 64)
+    for cid, ms, n in rows[:50]:
+        print(f"{cid:40s} {ms:>12d} {n:>10d}")
+    total_ms = sum(r[1] for r in rows)
+    print("-" * 64)
+    print(f"{'TOTAL':40s} {total_ms:>12d} {sum(r[2] for r in rows if r[2] >= 0):>10d}")
+
+
+def _cmd_export_config(args: list[str]) -> None:
+    """v2.8.3 U#4 — print the effective merged config.
+
+    Includes CLI defaults + ~/.wpsecscan/config.json + relevant env vars
+    so operators can debug "why is this check disabled?" / "what proxy
+    is being used?" without manually reconstructing the merge order.
+    """
+    if args and args[0] in ("-h", "--help"):
+        print("usage: wpsecscan export-config [--format json|yaml]\nPrints the effective merged config to stdout.")
+        return
+    out_format = "json"
+    if "--format" in args:
+        i = args.index("--format")
+        if i + 1 < len(args):
+            out_format = args[i + 1].lower()
+    home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+    cfg: dict = {"_source": "merged effective config (v2.8.3 U#4)"}
+    cfg_path = home / "config.json"
+    if cfg_path.exists():
+        try:
+            cfg["from_config_json"] = json.loads(cfg_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as e:
+            cfg["from_config_json_error"] = str(e)
+    profiles_path = home / "profiles.json"
+    if profiles_path.exists():
+        try:
+            cfg["from_profiles_json"] = json.loads(profiles_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            pass
+    disabled_path = home / "disabled_checks.json"
+    if disabled_path.exists():
+        try:
+            cfg["disabled_checks"] = json.loads(disabled_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            pass
+    cfg["env_vars_set"] = {
+        k: ("<redacted>" if "TOKEN" in k or "KEY" in k or "SECRET" in k or "PASS" in k else os.environ[k])
+        for k in sorted(os.environ) if k.startswith("WPSECSCAN_") or k.startswith("WPSCAN_")
+    }
+    cfg["home_dir"] = str(home)
+    if out_format == "yaml":
+        try:
+            import yaml as _yaml
+            print(_yaml.safe_dump(cfg, sort_keys=False, default_flow_style=False))
+            return
+        except ImportError:
+            print("# PyYAML not installed; falling back to JSON\n", file=sys.stderr)
+    print(json.dumps(cfg, indent=2))
+
+
+def _cmd_compare_pypi_version(args: list[str]) -> None:
+    """v2.8.3 U#3 — passive staleness check.
+
+    Compares the installed __version__ against the latest PyPI release.
+    Caches the result for 7 days at `~/.wpsecscan/pypi-version.json`
+    so scans don't hammer PyPI on every invocation.
+    """
+    if args and args[0] in ("-h", "--help"):
+        print("usage: wpsecscan compare-pypi-version [--force]\nPrints installed vs latest-PyPI version.")
+        return
+    import urllib.request as _ur
+    import time as _time
+    home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
+    home.mkdir(parents=True, exist_ok=True)
+    cache_path = home / "pypi-version.json"
+    force = "--force" in args
+    cached = None
+    if cache_path.exists() and not force:
+        try:
+            data = json.loads(cache_path.read_text(encoding="utf-8"))
+            if _time.time() - data.get("checked_at", 0) < 7 * 86400:
+                cached = data
+        except (OSError, json.JSONDecodeError):
+            pass
+    if cached is None:
+        try:
+            req = _ur.Request("https://pypi.org/pypi/wpsecscan/json",
+                                headers={"User-Agent": f"wpsecscan/{__version__}"})
+            with _ur.urlopen(req, timeout=10) as r:
+                resp = json.loads(r.read().decode("utf-8"))
+            latest = resp.get("info", {}).get("version", "")
+            cached = {"checked_at": _time.time(), "latest": latest, "installed": __version__}
+            cache_path.write_text(json.dumps(cached, indent=2), encoding="utf-8")
+        except Exception as e:  # noqa: BLE001
+            print(f"could not query PyPI: {e}", file=sys.stderr)
+            sys.exit(2)
+    latest = cached.get("latest", "")
+    installed = __version__
+    if latest and latest != installed:
+        # Naive version compare — assume PEP 440 dotted notation.
+        try:
+            from packaging.version import Version as _V  # type: ignore[import-not-found]
+            is_behind = _V(installed) < _V(latest)
+        except ImportError:
+            is_behind = installed != latest
+        if is_behind:
+            print(f"installed: {installed}\nlatest:    {latest}\n\n"
+                   f"Upgrade: pip install --upgrade wpsecscan  (or `wpsecscan --self-update`)")
+            sys.exit(1)
+    print(f"installed: {installed}\nlatest:    {latest}\n\n✓ up to date")
 
 
 def _cmd_ai_triage(args: list[str]) -> None:

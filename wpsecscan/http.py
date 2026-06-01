@@ -64,12 +64,39 @@ class Client:
             "http2": True,
         }
         if proxy_url:
-            # httpx >=0.26 uses singular `proxy=`; older versions used `proxies=`.
-            # Pass `proxy=` and fall back to `proxies=` for compat.
-            try:
-                self._client = httpx.AsyncClient(proxy=proxy_url, **httpx_kwargs)
-            except TypeError:
-                self._client = httpx.AsyncClient(proxies=proxy_url, **httpx_kwargs)
+            # v2.8.3 U#6 — SOCKS5 proxies need a dedicated transport.
+            # Prefer `httpx-socks` (modern; AsyncProxyTransport). Fall
+            # back to httpx's native socksio path. Raise ImportError
+            # with a clear remediation when neither is installed.
+            is_socks = proxy_url.lower().startswith(("socks5://", "socks5h://", "socks4://"))
+            if is_socks:
+                try:
+                    from httpx_socks import AsyncProxyTransport  # type: ignore[import-not-found]
+                    transport = AsyncProxyTransport.from_url(proxy_url)
+                    self._client = httpx.AsyncClient(transport=transport, **httpx_kwargs)
+                except ImportError:
+                    # Fall through to httpx's native SOCKS handling
+                    # (requires `socksio`). If socksio isn't installed
+                    # either, httpx itself raises ImportError matching
+                    # "socks" which our caller can surface.
+                    try:
+                        try:
+                            self._client = httpx.AsyncClient(proxy=proxy_url, **httpx_kwargs)
+                        except TypeError:
+                            self._client = httpx.AsyncClient(proxies=proxy_url, **httpx_kwargs)
+                    except ImportError as e:
+                        raise ImportError(
+                            f"SOCKS proxy ({proxy_url}) requires either `httpx-socks` "
+                            f"or `socksio`. Install with: pip install httpx-socks  "
+                            f"(or pip install httpx[socks])."
+                        ) from e
+            else:
+                # httpx >=0.26 uses singular `proxy=`; older versions used `proxies=`.
+                # Pass `proxy=` and fall back to `proxies=` for compat.
+                try:
+                    self._client = httpx.AsyncClient(proxy=proxy_url, **httpx_kwargs)
+                except TypeError:
+                    self._client = httpx.AsyncClient(proxies=proxy_url, **httpx_kwargs)
         else:
             self._client = httpx.AsyncClient(**httpx_kwargs)
         self._proxy_url = proxy_url

@@ -512,6 +512,14 @@ class App:
 
         self.scan_btn = ttk.Button(top, text="Scan", style="Accent.TButton", command=self._on_scan_click)
         self.scan_btn.grid(row=0, column=2, padx=(0, 8))
+        # v2.8.3 U#7 — "Quick" scan button with sensible defaults:
+        # passive only, no auth, no aggressive, fast timeout. One-click
+        # "is this site obviously broken?" entry point.
+        self.quick_btn = ttk.Button(top, text="Quick", command=self._on_quick_scan_click)
+        self.quick_btn.grid(row=0, column=3, padx=(0, 8))
+        _Tooltip(self.quick_btn,
+                  "v2.8.3 — passive-only scan with fast timeout.\n"
+                  "Aggressive checks + auth probes disabled.")
         # #7: live scan-duration estimate, updates as toggles change
         self.eta_var = StringVar(value="")
         ttk.Label(top, textvariable=self.eta_var, foreground=MUTED).grid(row=0, column=8, padx=(8, 0), sticky="w")
@@ -686,6 +694,19 @@ class App:
         self.tree.configure(yscrollcommand=tree_scroll.set)
         self.tree.pack(side="left", fill="both", expand=True)
         tree_scroll.pack(side="right", fill="y")
+        # v2.8.3 U#8 — inline severity legend below the Treeview so new
+        # users understand the row colour-coding without docs.
+        try:
+            legend = ttk.Frame(left, style="Panel.TFrame")
+            legend.pack(side="bottom", fill="x", padx=4, pady=(2, 4))
+            for sev, color in (("critical", "#e57373"), ("high", "#ff9800"),
+                                  ("medium", "#fdd835"), ("low", "#42a5f5"),
+                                  ("info", MUTED)):
+                chip = _tk_mod.Label(legend, text=" ", bg=color, width=2)
+                chip.pack(side="left", padx=(4, 2))
+                ttk.Label(legend, text=sev, foreground=MUTED).pack(side="left", padx=(0, 8))
+        except (_tk_mod.TclError, NameError):
+            pass
         self.tree.bind("<<TreeviewSelect>>", self._on_select)
         # #43 — double-click a finding row opens its URL in the system browser.
         self.tree.bind("<Double-Button-1>", self._on_tree_double_click)
@@ -963,6 +984,29 @@ class App:
         entry.bind("<FocusOut>", on_focus_out)
 
     # ---------- Scan lifecycle ----------
+
+    def _on_quick_scan_click(self) -> None:
+        """v2.8.3 U#7 — start a passive-only fast scan. Saves the current
+        aggressive/prove state, forces them off for this scan, then
+        triggers a normal scan via _on_scan_click."""
+        try:
+            saved_agg = self.aggressive_var.get()
+            saved_prove = self.prove_var.get()
+        except (AttributeError, _tk_mod.TclError):
+            self._on_scan_click()
+            return
+        self.aggressive_var.set(False)
+        try:
+            self.prove_var.set(False)
+        except (AttributeError, _tk_mod.TclError):
+            pass
+        self._on_scan_click()
+        # Restore after the scan starts (the scan reads the var at click
+        # time; restoring here means the next manual Scan click reuses
+        # whatever the user had configured).
+        self.root.after(500, lambda: (self.aggressive_var.set(saved_agg),
+                                          self.prove_var.set(saved_prove)
+                                          if hasattr(self, "prove_var") else None))
 
     def _on_scan_click(self) -> None:
         if self._scan_thread and self._scan_thread.is_alive():
