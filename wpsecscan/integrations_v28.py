@@ -454,3 +454,129 @@ def automation_hub_webhook(report) -> tuple[bool, str]:
         base_body={"scanner": "wpsecscan"},
         extra_fields={"finding_count":
                        sum(len(r.findings) for r in report.results)})
+
+
+# ---------------------------------------------------------------------------
+# I14 (v2.8.3) — Sentry release-health correlation
+# ---------------------------------------------------------------------------
+def sentry_release_correlation(report) -> tuple[bool, str]:
+    """v2.8.3 I14 — query Sentry's Releases API for crash-rate around the
+    scan time. Requires SENTRY_AUTH_TOKEN + SENTRY_ORG + SENTRY_PROJECT.
+
+    Returns (ok, message). When findings include plugin-version
+    changes, the operator can correlate against crash spikes.
+    """
+    tok = os.environ.get("SENTRY_AUTH_TOKEN", "")
+    org = os.environ.get("SENTRY_ORG", "")
+    proj = os.environ.get("SENTRY_PROJECT", "")
+    if not (tok and org and proj):
+        return False, "set SENTRY_AUTH_TOKEN + SENTRY_ORG + SENTRY_PROJECT"
+    url = (f"https://sentry.io/api/0/projects/{org}/{proj}/"
+            f"releases/?per_page=5")
+    try:
+        with httpx.Client(timeout=_TIMEOUT) as c:
+            r = c.get(url, headers={"Authorization": f"Bearer {tok}"})
+            if r.status_code != 200:
+                return False, f"Sentry HTTP {r.status_code}: {r.text[:120]}"
+            try:
+                releases = r.json()
+            except ValueError:
+                return False, "Sentry response not JSON"
+            if not isinstance(releases, list):
+                return False, f"Sentry response unexpected: {type(releases).__name__}"
+            return True, (f"Sentry: {len(releases)} recent release(s). "
+                            f"Latest: {releases[0].get('version', '?') if releases else 'none'}. "
+                            f"Risk={report.risk_score}. Correlate manually in the Sentry UI "
+                            f"with plugin-version findings.")
+    except (httpx.RequestError, httpx.HTTPStatusError) as e:
+        return False, f"Sentry error: {e}"
+
+
+# ---------------------------------------------------------------------------
+# I15 (v2.8.3) — DataDog incident creation
+# ---------------------------------------------------------------------------
+def datadog_incident_create(report) -> tuple[bool, str]:
+    """v2.8.3 I15 — auto-create a DataDog incident when scan finds
+    critical-severity items. Requires DATADOG_API_KEY + DATADOG_APP_KEY
+    (and optional DATADOG_SITE; defaults to datadoghq.com).
+    """
+    api = os.environ.get("DATADOG_API_KEY", "")
+    app = os.environ.get("DATADOG_APP_KEY", "")
+    site = os.environ.get("DATADOG_SITE", "datadoghq.com").strip()
+    if not (api and app):
+        return False, "set DATADOG_API_KEY + DATADOG_APP_KEY"
+    crit = sum(1 for r in report.results for f in r.findings
+                if f.severity == "critical")
+    if crit == 0:
+        return False, "no critical findings — DataDog incident not created"
+    url = f"https://api.{site}/api/v2/incidents"
+    body = {
+        "data": {
+            "type": "incidents",
+            "attributes": {
+                "title": f"WPSecScan critical findings on {report.target}",
+                "customer_impact_scope": "Targeted users",
+                "fields": {
+                    "severity": {"type": "dropdown", "value": "SEV-3"},
+                    "summary": {"type": "textbox",
+                                  "value": f"{crit} critical finding(s) on {report.target}. "
+                                            f"Risk={report.risk_score}/100."},
+                },
+            },
+        },
+    }
+    try:
+        with httpx.Client(timeout=_TIMEOUT) as c:
+            r = c.post(url, json=body, headers={
+                "DD-API-KEY": api,
+                "DD-APPLICATION-KEY": app,
+                "Content-Type": "application/json",
+            })
+            if 200 <= r.status_code < 300:
+                return True, f"DataDog incident created (HTTP {r.status_code})"
+            return False, f"DataDog HTTP {r.status_code}: {r.text[:120]}"
+    except (httpx.RequestError, httpx.HTTPStatusError) as e:
+        return False, f"DataDog error: {e}"
+
+
+# ---------------------------------------------------------------------------
+# I16 (v2.8.3) — DefectDojo SARIF import
+# ---------------------------------------------------------------------------
+def defectdojo_push(report, sarif_path: str | None = None) -> tuple[bool, str]:
+    """v2.8.3 I16 — import SARIF into DefectDojo via /api/v2/import-scan/.
+
+    Requires DEFECTDOJO_URL + DEFECTDOJO_TOKEN + DEFECTDOJO_ENGAGEMENT_ID.
+    If sarif_path is omitted, renders the SARIF inline from the report.
+    """
+    url = os.environ.get("DEFECTDOJO_URL", "").rstrip("/")
+    tok = os.environ.get("DEFECTDOJO_TOKEN", "")
+    eng = os.environ.get("DEFECTDOJO_ENGAGEMENT_ID", "")
+    if not (url and tok and eng):
+        return False, "set DEFECTDOJO_URL + DEFECTDOJO_TOKEN + DEFECTDOJO_ENGAGEMENT_ID"
+    if sarif_path:
+        try:
+            sarif_text = open(sarif_path, encoding="utf-8").read()
+        except OSError as e:
+            return False, f"sarif file unreadable: {e}"
+    else:
+        try:
+            from .reporters import sarif as _sarif
+            sarif_text = _sarif.render(report)
+        except (ImportError, AttributeError) as e:
+            return False, f"sarif render failed: {e}"
+    try:
+        with httpx.Client(timeout=_TIMEOUT) as c:
+            r = c.post(
+                f"{url}/api/v2/import-scan/",
+                headers={"Authorization": f"Token {tok}"},
+                data={"scan_type": "SARIF",
+                       "engagement": str(eng),
+                       "active": "true",
+                       "verified": "false"},
+                files={"file": ("wpsecscan.sarif.json", sarif_text,
+                                 "application/json")})
+            if 200 <= r.status_code < 300:
+                return True, f"DefectDojo SARIF imported (HTTP {r.status_code})"
+            return False, f"DefectDojo HTTP {r.status_code}: {r.text[:120]}"
+    except (httpx.RequestError, httpx.HTTPStatusError) as e:
+        return False, f"DefectDojo error: {e}"

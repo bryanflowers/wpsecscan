@@ -4603,6 +4603,10 @@ def _cmd_push(args: list[str]) -> None:
         "osv-enrich":    ("integrations_v28", "osv_dev_enrich"),
         "exploitdb-xref": ("integrations_v28", "exploitdb_xref"),
         "nuclei":        ("integrations_v28", "nuclei_template_export"),
+        # v2.8.3 Phase 5 — 3 new push destinations
+        "sentry":        ("integrations_v28", "sentry_release_correlation"),
+        "datadog":       ("integrations_v28", "datadog_incident_create"),
+        "defectdojo":    ("integrations_v28", "defectdojo_push"),
     }
     try:
         if len(args) < 2:
@@ -4641,6 +4645,7 @@ def _cmd_ai(args: list[str]) -> None:
       injection-check <RESPONSE.txt>  — F43 prompt-injection detector
       drift <URL> <CURRENT_SCORE>     — F48 anomaly drift alert
       control-map <REPORT.json> --framework <hipaa|pci|iso27001>  — F47
+      waf-rule <FINDING.json> --target-waf <cloudflare|modsecurity>  — F71 (v2.8.3)
     """
     from .cli_error import CliError, handle_cli_error
     if not args or args[0] in ("-h", "--help"):
@@ -4684,10 +4689,29 @@ def _cmd_ai(args: list[str]) -> None:
             data = _load_report_for_subcommand(args[1])
             report = _report_dict_to_object(data)
             print(json.dumps(_ai.auto_control_mapper(report, framework), indent=2, default=str))
+        elif sub == "waf-rule":
+            # v2.8.3 F71 — LLM-generated WAF rule for a finding.
+            if len(args) < 2:
+                raise CliError(code="ai-usage", message="usage: wpsecscan ai waf-rule <FINDING.json> --target-waf <cloudflare|modsecurity>", exit_code=64)
+            target_waf = "cloudflare"
+            if "--target-waf" in args[2:]:
+                i = args.index("--target-waf", 2)
+                if i + 1 < len(args):
+                    target_waf = args[i + 1].lower()
+            data = _load_report_for_subcommand(args[1])
+            # FINDING.json may be a single finding or a whole report;
+            # pick the first finding if it's a report.
+            finding = data
+            if isinstance(data, dict) and "results" in data:
+                first = next((f for r in data.get("results") or []
+                                for f in r.get("findings") or []), None)
+                finding = first or {}
+            print(json.dumps(_ai.generate_waf_rule_for_finding(
+                finding, target_waf=target_waf), indent=2, default=str))
         else:
             raise CliError(code="ai-unknown-sub",
                             message=f"unknown ai sub: {sub}", exit_code=64,
-                            hint="valid: remediation, plan, visual-diff, injection-check, drift, control-map")
+                            hint="valid: remediation, plan, visual-diff, injection-check, drift, control-map, waf-rule")
     except CliError as e:
         sys.exit(handle_cli_error(e))
 

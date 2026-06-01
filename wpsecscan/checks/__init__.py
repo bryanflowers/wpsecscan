@@ -320,6 +320,12 @@ from .ai_agent_tool_injection import check as ai_agent_tool_injection
 from .wc_multivendor_idor import check as wc_multivendor_idor
 from .webauthn_rp_id_audit import check as webauthn_rp_id_audit
 from .wc_refund_flow_idor import check as wc_refund_flow_idor
+# F66-F70 (v2.8.3) — 5 new defensive check modules
+from .interactivity_api_directive_xss import check as interactivity_api_directive_xss
+from .wc_stores_api_rate_limit_oracle import check as wc_stores_api_rate_limit_oracle
+from .wc_hpos_namespace_drift import check as wc_hpos_namespace_drift
+from .cookie_banner_cosmetic_vs_blocking import check as cookie_banner_cosmetic_vs_blocking
+from .plugin_slug_squat_check import check as plugin_slug_squat_check
 
 # Authenticated — only when creds are provided
 from .authenticated import check as authenticated
@@ -651,6 +657,12 @@ ALL_CHECKS = [
     ("wc_multivendor_idor",            "WC multi-vendor (Dokan/WCFM) IDOR probe (F19)",   wc_multivendor_idor,            False),
     ("webauthn_rp_id_audit",           "WebAuthn / Passkeys RP-ID audit (F22)",           webauthn_rp_id_audit,           False),
     ("wc_refund_flow_idor",            "WC refund-flow IDOR probe (F23)",                 wc_refund_flow_idor,            False),
+    # F66-F70 (v2.8.3) — 5 new defensive check modules
+    ("interactivity_api_directive_xss", "WP 6.5+ Interactivity API directive-XSS probe (F66)",   interactivity_api_directive_xss,        False),
+    ("wc_stores_api_rate_limit_oracle", "WC Stores API cart-add rate-limit probe (F67)",         wc_stores_api_rate_limit_oracle,        False),
+    ("wc_hpos_namespace_drift",         "WC HPOS namespace-drift advisory (F68)",                wc_hpos_namespace_drift,                False),
+    ("cookie_banner_cosmetic_vs_blocking", "Cookie banner cosmetic-vs-blocking probe (F69)",     cookie_banner_cosmetic_vs_blocking,     False),
+    ("plugin_slug_squat_check",         "Plugin slug-squatting (wp.org author drift) (F70)",     plugin_slug_squat_check,                False),
     # Deep throttle runs last (~20 min) so all fast checks complete first — risk score
     # and findings appear in ~1-2 min instead of after the throttle test finishes.
     # Self-skips unless ctx["deep_throttle"] is set, so position is harmless when off.

@@ -313,5 +313,10 @@
   "ai_agent_tool_injection":      {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1059", "attack_label": "Command & Scripting Interpreter", "cwe": "CWE-77", "d3fend": "D3-NTA"},
   "wc_multivendor_idor":          {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-639", "d3fend": "D3-NTA"},
   "webauthn_rp_id_audit":         {"owasp": "A07:2021", "owasp_label": "Identification & Authn Failures", "attack": "T1556", "attack_label": "Modify Authentication Process", "cwe": "CWE-287", "d3fend": "D3-IAA"},
-  "wc_refund_flow_idor":          {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-639", "d3fend": "D3-NTA"}
+  "wc_refund_flow_idor":          {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-639", "d3fend": "D3-NTA"},
+  "interactivity_api_directive_xss":     {"owasp": "A03:2021", "owasp_label": "Injection", "attack": "T1059.007", "attack_label": "JavaScript", "cwe": "CWE-79", "d3fend": "D3-NTA"},
+  "wc_stores_api_rate_limit_oracle":     {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1499.002", "attack_label": "Service Exhaustion", "cwe": "CWE-770", "d3fend": "D3-NTA"},
+  "wc_hpos_namespace_drift":             {"owasp": "A01:2021", "owasp_label": "Broken Access Control", "attack": "T1190", "attack_label": "Exploit Public-Facing Application", "cwe": "CWE-863", "d3fend": "D3-IAA"},
+  "cookie_banner_cosmetic_vs_blocking":  {"owasp": "A04:2021", "owasp_label": "Insecure Design", "attack": "T1592", "attack_label": "Gather Victim Host Information", "cwe": "CWE-359", "d3fend": "D3-FA"},
+  "plugin_slug_squat_check":             {"owasp": "A08:2021", "owasp_label": "Software & Data Integrity", "attack": "T1195.001", "attack_label": "Compromise Software Dependencies", "cwe": "CWE-1357", "d3fend": "D3-SBA"}
 }

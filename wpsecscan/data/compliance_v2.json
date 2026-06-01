@@ -171,5 +171,11 @@
   "ai_agent_tool_injection":        {"hitrust": "10.b","cmmc": "SI.L2-3.14.3","nist_csf": "GV.OC-05","cis_v8": "3.13","iso_27001_2022": "A.8.34"},
   "wc_multivendor_idor":            {"hitrust": "01.v","cmmc": "AC.L1-3.1.1","nist_csf": "PR.AA-01","cis_v8": "6.8","iso_27001_2022": "A.8.3"},
   "webauthn_rp_id_audit":           {"hitrust": "01.b","cmmc": "IA.L2-3.5.3","nist_csf": "PR.AA-02","cis_v8": "6.5","iso_27001_2022": "A.5.17"},
-  "wc_refund_flow_idor":            {"hitrust": "01.v","cmmc": "AC.L1-3.1.1","nist_csf": "PR.AA-01","cis_v8": "6.8","iso_27001_2022": "A.8.3"}
+  "wc_refund_flow_idor":            {"hitrust": "01.v","cmmc": "AC.L1-3.1.1","nist_csf": "PR.AA-01","cis_v8": "6.8","iso_27001_2022": "A.8.3"},
+
+  "interactivity_api_directive_xss":     {"hitrust": "10.b","cmmc": "SI.L2-3.14.7","nist_csf": "PR.PS-05","cis_v8": "16.10","iso_27001_2022": "A.8.28"},
+  "wc_stores_api_rate_limit_oracle":     {"hitrust": "09.k","cmmc": "CP.L2-3.7.6","nist_csf": "PR.IR-04","cis_v8": "11.3","iso_27001_2022": "A.5.30"},
+  "wc_hpos_namespace_drift":             {"hitrust": "01.v","cmmc": "AC.L1-3.1.1","nist_csf": "PR.AA-01","cis_v8": "6.8","iso_27001_2022": "A.8.3"},
+  "cookie_banner_cosmetic_vs_blocking":  {"hitrust": "06.d","cmmc": "MP.L2-3.8.1","nist_csf": "PR.DS-01","cis_v8": "3.3","iso_27001_2022": "A.8.11"},
+  "plugin_slug_squat_check":             {"hitrust": "10.h","cmmc": "SI.L2-3.14.6","nist_csf": "PR.DS-06","cis_v8": "16.11","iso_27001_2022": "A.8.31"}
 }

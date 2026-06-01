@@ -401,3 +401,58 @@ def anomaly_drift_alert(target: str, current_score: int, *,
         "anomaly": abs(z) > 2.0,
         "current": current_score, "n": len(scores),
     }
+
+
+# ---------------------------------------------------------------------------
+# F71 (v2.8.3) — Generate WAF rule for a finding
+# ---------------------------------------------------------------------------
+def generate_waf_rule_for_finding(finding: dict, *, target_waf: str = "cloudflare",
+                                     llm_fn: Any = None) -> dict:
+    """v2.8.3 F71 — LLM-generated WAF rule for a finding that isn't in
+    the pre-authored `waf_rules.py` dictionary.
+
+    target_waf: "cloudflare" (Expression Language) or "modsecurity"
+    (SecRule). Other values return a skipped status.
+
+    llm_fn signature: `(prompt: str) -> str`. If absent, falls back
+    to ai_assist.assist when available.
+    """
+    target_waf = (target_waf or "cloudflare").lower()
+    if target_waf not in ("cloudflare", "modsecurity"):
+        return {"status": "skipped",
+                 "reason": f"unsupported target_waf={target_waf!r}; use cloudflare|modsecurity"}
+    if not isinstance(finding, dict):
+        return {"status": "error", "reason": "finding must be a dict"}
+    if llm_fn is None:
+        try:
+            from . import ai_assist as _aa
+            llm_fn = getattr(_aa, "assist", None)
+        except ImportError:
+            llm_fn = None
+    if not callable(llm_fn):
+        return {"status": "skipped",
+                 "reason": "no llm_fn available (set OPENAI_API_KEY + ai_assist)"}
+    syntax_hint = (
+        "Cloudflare Expression Language — single line starting with "
+        "`(http.request.uri.path matches \"...\" and ...)`"
+        if target_waf == "cloudflare"
+        else "ModSecurity SecRule — single rule line starting with "
+              "`SecRule ARGS \"...\" \"id:1234,phase:2,deny,log,...\"`"
+    )
+    prompt = (
+        f"Generate a {target_waf.upper()} WAF rule that blocks the attack "
+        f"pattern described by this wpsecscan finding.\n\n"
+        f"Title: {finding.get('title', '')!r}\n"
+        f"Evidence: {(finding.get('evidence') or '')[:1000]!r}\n"
+        f"check_id: {finding.get('check_id', '')!r}\n"
+        f"severity: {finding.get('severity', '')!r}\n\n"
+        f"Output ONLY the rule itself, no markdown fence, no commentary. "
+        f"Syntax: {syntax_hint}"
+    )
+    try:
+        rule = (llm_fn(prompt) or "").strip()
+    except Exception as e:  # noqa: BLE001
+        return {"status": "error", "error": str(e)}
+    if not rule:
+        return {"status": "skipped", "reason": "LLM returned empty"}
+    return {"status": "ok", "target_waf": target_waf, "rule": rule}
