@@ -81,19 +81,27 @@ class _Tooltip:
     def _show(self, _e=None):
         if self.tip:
             return
-        x = self.widget.winfo_rootx() + 20
-        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
-        self.tip = tkinter.Toplevel(self.widget)
-        self.tip.wm_overrideredirect(True)
-        self.tip.wm_geometry(f"+{x}+{y}")
-        tkinter.Label(self.tip, text=self.text, bg="#1f2630", fg="#e6edf3",
-                      relief="solid", borderwidth=1,
-                      font=("Segoe UI", 9), padx=8, pady=4,
-                      justify="left", wraplength=320).pack()
+        # v2.8.4 L2 — guard against TclError when the parent widget is
+        # being torn down (e.g., FocusIn during shutdown).
+        try:
+            x = self.widget.winfo_rootx() + 20
+            y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
+            self.tip = tkinter.Toplevel(self.widget)
+            self.tip.wm_overrideredirect(True)
+            self.tip.wm_geometry(f"+{x}+{y}")
+            tkinter.Label(self.tip, text=self.text, bg="#1f2630", fg="#e6edf3",
+                          relief="solid", borderwidth=1,
+                          font=("Segoe UI", 9), padx=8, pady=4,
+                          justify="left", wraplength=320).pack()
+        except tkinter.TclError:
+            self.tip = None
 
     def _hide(self, _e=None):
         if self.tip:
-            self.tip.destroy()
+            try:
+                self.tip.destroy()
+            except tkinter.TclError:
+                pass
             self.tip = None
 
 
@@ -1391,7 +1399,13 @@ class App:
             # Cap to ~200 lines post-insert. tk.Text.delete("1.0", "K.0")
             # removes lines 1..K-1, so to drop down to 199 lines (then we add
             # one more) we delete to line `line_count - 199 + 1`.
-            line_count = int(self.activity_text.index("end-1c").split(".")[0])
+            # v2.8.4 M9 — defensively parse the Text widget index in
+            # case Tk returns a non-standard string. Pre-fix a ValueError
+            # would silently kill the activity-feed handler.
+            try:
+                line_count = int(self.activity_text.index("end-1c").split(".")[0])
+            except (ValueError, IndexError):
+                line_count = 0
             if line_count > 200:
                 self.activity_text.delete("1.0", f"{line_count - 199}.0")
             self.activity_text.insert("end", f"{ts}  ", "ts")
@@ -1842,7 +1856,12 @@ class App:
         if self.save_reports_var.get():
             ts = datetime.now().strftime("%Y%m%d-%H%M%S")
             stem = f"wpsecscan-{_safe_host(report.target)}-{ts}"
-            out_dir = Path.cwd() / "wpsecscan-reports"
+            # v2.8.4 M7 — reports default to ~/.wpsecscan/reports so
+            # frozen-exe users find them next to history snapshots.
+            # Pre-fix `Path.cwd()` evaluated to the Desktop when a
+            # user double-clicked the .exe.
+            from . import history as _h
+            out_dir = Path(_h._home()) / "reports"
             out_dir.mkdir(parents=True, exist_ok=True)
             html_path = out_dir / f"{stem}.html"
             json_path = out_dir / f"{stem}.json"
@@ -1989,11 +2008,25 @@ class App:
     # ---------- Buttons ----------
 
     def _open_html(self) -> None:
+        """v2.8.4 M3 — surface a clear error if the report file is gone
+        (was a silent no-op pre-fix)."""
         if self._last_html_path and self._last_html_path.exists():
             webbrowser.open(self._last_html_path.as_uri())
+            return
+        if self._last_html_path:
+            self._toast(f"✗ Report file missing: {self._last_html_path.name}", duration_ms=6000)
+        else:
+            self._toast("✗ No HTML report saved yet", duration_ms=4000)
 
     def _open_out_folder(self) -> None:
-        """#3: open the output folder in Windows Explorer (or system file manager)."""
+        """#3: open the output folder in the system file manager.
+
+        v2.8.4 M4 — cross-platform: os.startfile is Windows-only.
+        Pre-fix Linux/macOS users saw a confusing
+        `module 'os' has no attribute 'startfile'` error.
+        """
+        import sys as _sys
+        import subprocess as _sp
         target = None
         for cand in (self._last_html_path, self._last_json_path):
             if cand and cand.exists():
@@ -2003,7 +2036,12 @@ class App:
             target = Path.home() / ".wpsecscan" / "reports"
             target.mkdir(parents=True, exist_ok=True)
         try:
-            os.startfile(str(target))  # noqa: S606 — opens in OS file manager
+            if _sys.platform.startswith("win"):
+                os.startfile(str(target))  # noqa: S606 — opens in OS file manager
+            elif _sys.platform == "darwin":
+                _sp.Popen(["open", str(target)])
+            else:
+                _sp.Popen(["xdg-open", str(target)])
         except Exception as e:  # noqa: BLE001
             messagebox.showinfo(APP_NAME, f"Folder: {target}\n\n(Couldn't auto-open: {e})")
 
@@ -2473,10 +2511,43 @@ class App:
                 results=results,
             )
         self._current_report = report
-        if hasattr(self, "_populate_tree"):
-            self._populate_tree(report)
+        # v2.8.4 L8 — _populate_tree didn't exist; the hasattr branch
+        # was always False, so "Open saved report" loaded data into
+        # _current_report but never repainted the tree. Reuse the
+        # existing _rebuild_tree_by_check + summary rebuild path used
+        # by a normal scan completion.
+        self._populate_tree(report)
         self.status_var.set(f"Opened: {Path(path).name} — {len(report.all_findings)} findings.")
         self._toast(f"✓ Loaded {Path(path).name}", duration_ms=4000)
+
+    def _populate_tree(self, report: "ScanReport") -> None:
+        """v2.8.4 L8 — rebuild the findings Treeview from a ScanReport.
+        Mirrors the per-scan completion path. Clears any prior tree,
+        rebuilds per-check rows, refreshes summary + risk badge."""
+        try:
+            for iid in self.tree.get_children(""):
+                self.tree.delete(iid)
+        except _tk_mod.TclError:
+            pass
+        self._finding_for_iid.clear()
+        self._check_rows.clear()
+        try:
+            self._rebuild_tree_by_check()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            s = report.summary
+            self.summary_var.set(
+                f"{s.get('critical', 0)} critical · {s.get('high', 0)} high · "
+                f"{s.get('medium', 0)} medium · {s.get('low', 0)} low · "
+                f"{s.get('info', 0)} info"
+            )
+        except (AttributeError, _tk_mod.TclError):
+            pass
+        try:
+            self.risk_var.set(f"{report.risk_score}/100")
+        except (AttributeError, _tk_mod.TclError):
+            pass
 
     def _open_diff_viewer(self) -> None:
         """E4: launch the standalone two-report HTML viewer in the browser."""

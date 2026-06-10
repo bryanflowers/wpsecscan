@@ -761,8 +761,26 @@ def open_playbook_walker(app, finding_info: dict) -> None:
     """E3: step through a playbook one tool at a time with a progress strip.
 
     finding_info = {"check_id": "...", "check_name": "...", "target": "..."}
+
+    v2.8.4 M8 — singleton guard per check_id. Double-clicking "Walk
+    exploit playbook" used to stack walkers each with its own progress
+    state. Raise the existing walker if one is already open for the
+    same check.
     """
     cid = finding_info.get("check_id", "")
+    walker_map = getattr(app, "_walker_wins", None)
+    if walker_map is None:
+        walker_map = {}
+        app._walker_wins = walker_map
+    existing = walker_map.get(cid)
+    if existing is not None:
+        try:
+            if existing.winfo_exists():
+                existing.lift()
+                existing.focus_set()
+                return
+        except tk.TclError:
+            pass
     target = finding_info.get("target") or (app.url_var.get() or "")
     from . import playbook as _pb
     raw = _pb.get_playbook(cid)
@@ -777,6 +795,10 @@ def open_playbook_walker(app, finding_info: dict) -> None:
         return
 
     win = tk.Toplevel(app.root)
+    # v2.8.4 M8 — register in the walker singleton map; auto-clear on close.
+    walker_map[cid] = win
+    win.bind("<Destroy>", lambda _e, c=cid, w=win: walker_map.pop(c, None)
+              if walker_map.get(c) is w else None)
     win.title(f"Exploit playbook walker - {finding_info.get('check_name', cid)}")
     win.configure(bg=BG)
     win.geometry("820x560")

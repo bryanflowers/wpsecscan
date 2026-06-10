@@ -386,6 +386,11 @@ function wpsecscan_companion_test_connection_ajax() {
             || ! check_ajax_referer( 'wpsecscan_companion_admin', '_wpnonce', false ) ) {
         wp_send_json_error( [ 'error' => 'forbidden' ], 403 );
     }
+    // v2.8.4 L6 — preserve the operator's prepared token. Pre-fix the
+    // test handler overwrote any existing token + deleted it on
+    // cleanup, silently destroying whatever the operator had pinned
+    // for their next scan. Save → overwrite → restore on cleanup.
+    $saved_token = get_option( WPSECSCAN_COMPANION_TOKEN_OPTION, null );
     // Issue an out-of-band single-use token. We bypass the user-facing
     // generator (which stores hash + shows plaintext once) so the test
     // doesn't burn the "real" token the operator might have prepared.
@@ -443,8 +448,13 @@ function wpsecscan_companion_test_connection_ajax() {
             $passed++;
         }
     }
-    // Clean up the test token so it can't be reused.
-    delete_option( WPSECSCAN_COMPANION_TOKEN_OPTION );
+    // v2.8.4 L6 — restore the operator's prepared token (or delete the
+    // test token if none was saved).
+    if ( null !== $saved_token ) {
+        update_option( WPSECSCAN_COMPANION_TOKEN_OPTION, $saved_token, false );
+    } else {
+        delete_option( WPSECSCAN_COMPANION_TOKEN_OPTION );
+    }
     wp_send_json( [
         'results' => $results,
         'passed'  => $passed,

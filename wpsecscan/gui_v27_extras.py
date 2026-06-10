@@ -172,8 +172,24 @@ def offer_pin_to_taskbar() -> tuple[bool, str]:
 # ---------------------------------------------------------------------------
 
 def show_changelog_window(parent: tk.Tk) -> None:
-    """Open a Toplevel showing the top section of CHANGELOG.md."""
+    """Open a Toplevel showing the top section of CHANGELOG.md.
+
+    v2.8.4 M2 — singleton guard. Rapid Help-menu clicks used to stack
+    duplicate windows. If an existing changelog window is open, raise
+    it instead of opening a second."""
+    existing = getattr(parent, "_changelog_win", None)
+    if existing is not None:
+        try:
+            if existing.winfo_exists():
+                existing.lift()
+                existing.focus_set()
+                return
+        except tk.TclError:
+            pass
     win = tk.Toplevel(parent)
+    parent._changelog_win = win
+    win.bind("<Destroy>", lambda _e, w=win: setattr(parent, "_changelog_win", None)
+              if getattr(parent, "_changelog_win", None) is w else None)
     win.title("What's new")
     win.geometry("700x500")
     text = tk.Text(win, wrap="word", bg="#0d1117", fg="#c9d1d9",
