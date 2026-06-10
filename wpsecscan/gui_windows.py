@@ -151,9 +151,10 @@ def open_multitarget(app) -> None:
     win.geometry("700x540")
     win.transient(app.root)
     # Drop the singleton reference when the window is destroyed
+    # v2.8.4 H6 — was duplicated; second bind silently replaced the first
+    # via Tk's default add= semantics. Removed the duplicate.
     win.bind("<Destroy>", lambda _e, w=win: setattr(app, "_mt_win", None) if getattr(app, "_mt_win", None) is w else None)
     win.bind("<Escape>", lambda _e: win.destroy())  # #6
-    win.bind("<Destroy>", lambda _e, w=win: setattr(app, "_mt_win", None) if getattr(app, "_mt_win", None) is w else None)
 
     body = ttk.Frame(win, padding=12)
     body.pack(fill="both", expand=True)
@@ -298,20 +299,39 @@ def _mt_start(app, win, url_text: tk.Text, results_tv: ttk.Treeview,
     if start_btn is not None:
         start_btn.configure(state="disabled")
     import threading
-    t = threading.Thread(target=_mt_worker, args=(app, urls, results_tv, start_btn), daemon=True)
+    # v2.8.4 C2 — pass the Toplevel so the worker can guard every
+    # after() callback with winfo_exists, avoiding TclError when the
+    # window is closed mid-scan.
+    t = threading.Thread(target=_mt_worker, args=(app, urls, results_tv, start_btn, win), daemon=True)
     t.start()
 
 
-def _mt_worker(app, urls: list[str], results_tv: ttk.Treeview, start_btn=None) -> None:
-    """Background scan loop. Updates the Treeview via after() per URL."""
+def _mt_worker(app, urls: list[str], results_tv: ttk.Treeview, start_btn=None, win=None) -> None:
+    """Background scan loop. Updates the Treeview via after() per URL.
+
+    v2.8.4 C2 — every after() callback is guarded by winfo_exists on the
+    Toplevel `win`. Pre-fix the worker fired insert() on a destroyed
+    Treeview after the user closed the window mid-scan, raising
+    unhandled TclError in the Tk event loop.
+    """
     import asyncio
     from .scanner import scan as _scan
     from . import history as _h
+
+    def _safe_after(fn):
+        """Schedule fn() on the main thread only if the Toplevel still exists."""
+        try:
+            if win is not None and not win.winfo_exists():
+                return
+            app.root.after(0, fn)
+        except tk.TclError:
+            pass
+
     for url in urls:
         try:
             report = asyncio.run(_scan(url, timeout=15.0, aggressive=False, sequential=True))
         except Exception as e:  # noqa: BLE001
-            app.root.after(0, lambda u=url, m=str(e): results_tv.insert("", "end", text=u, values=("ERR", m[:20], "", "", "")))
+            _safe_after(lambda u=url, m=str(e): results_tv.insert("", "end", text=u, values=("ERR", m[:20], "", "", "")))
             continue
         # Compute delta vs last snapshot
         prior_path = _h.previous_report_path(url)
@@ -332,15 +352,12 @@ def _mt_worker(app, urls: list[str], results_tv: ttk.Treeview, start_btn=None) -
         except Exception:  # noqa: BLE001
             pass
         s = report.summary
-        app.root.after(0, lambda u=url, r=report, d=delta, s=s: results_tv.insert(
+        _safe_after(lambda u=url, r=report, d=delta, s=s: results_tv.insert(
             "", "end", text=u, values=(r.risk_score, d, s.get("critical", 0), s.get("high", 0), s.get("medium", 0))
         ))
     # Re-enable the start button on the main thread once the worker finishes.
     if start_btn is not None:
-        try:
-            app.root.after(0, lambda: start_btn.configure(state="normal"))
-        except Exception:  # noqa: BLE001
-            pass
+        _safe_after(lambda: start_btn.configure(state="normal"))
 
 
 # ----------------------- #2 Schedule recurring scan -----------------------

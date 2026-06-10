@@ -220,13 +220,16 @@ class App:
         # Side-window singletons
         self._settings_win = None
         self._mt_win = None
-        self.show_critical_var = BooleanVar(value=True)
-        self.show_high_var = BooleanVar(value=True)
-        self.show_medium_var = BooleanVar(value=True)
-        self.show_low_var = BooleanVar(value=True)
+        # v2.8.4 H2 — filter state persisted to prefs.json so the
+        # user's "critical+high only" preference survives restart.
+        _filters_saved = self._load_pref("filters", {}) or {}
+        self.show_critical_var = BooleanVar(value=_filters_saved.get("critical", True))
+        self.show_high_var = BooleanVar(value=_filters_saved.get("high", True))
+        self.show_medium_var = BooleanVar(value=_filters_saved.get("medium", True))
+        self.show_low_var = BooleanVar(value=_filters_saved.get("low", True))
         # Default OFF: a typical scan emits ~50 info findings that bury actionable ones.
         # User can flip the pill to see them.
-        self.show_info_var = BooleanVar(value=False)
+        self.show_info_var = BooleanVar(value=_filters_saved.get("info", False))
         self.db_status_var = StringVar(value="DB: checking...")
         self.status_var = StringVar(value="Ready. Enter a URL and click Scan.")
         self.summary_var = StringVar(value="")
@@ -507,7 +510,7 @@ class App:
         self._install_placeholder(self.url_entry, "https://example.com")
         self.url_entry.focus_set()
         self.diff_btn = ttk.Button(top, text="Diff w/ last", command=self._on_diff_last, state=DISABLED)
-        self.diff_btn.grid(row=0, column=7, padx=(8, 0))
+        self.diff_btn.grid(row=0, column=8, padx=(8, 0))
         _Tooltip(self.diff_btn, "Enabled after a scan if a previous report\nfor this URL exists in ~/.wpsecscan/reports/.")
 
         self.scan_btn = ttk.Button(top, text="Scan", style="Accent.TButton", command=self._on_scan_click)
@@ -522,29 +525,33 @@ class App:
                   "Aggressive checks + auth probes disabled.")
         # #7: live scan-duration estimate, updates as toggles change
         self.eta_var = StringVar(value="")
-        ttk.Label(top, textvariable=self.eta_var, foreground=MUTED).grid(row=0, column=8, padx=(8, 0), sticky="w")
+        ttk.Label(top, textvariable=self.eta_var, foreground=MUTED).grid(row=0, column=9, padx=(8, 0), sticky="w")
 
+        # v2.8.4 C1 — cancel_btn used to share column 3 with quick_btn,
+        # so Quick was invisible whenever cancel_btn rendered on top.
+        # Each toolbar button now gets its own column; downstream columns
+        # shift right by one to make room.
         self.cancel_btn = ttk.Button(top, text="Cancel", command=self._on_cancel, state=DISABLED)
-        self.cancel_btn.grid(row=0, column=3, padx=(0, 8))
+        self.cancel_btn.grid(row=0, column=4, padx=(0, 8))
         # #51: pause/resume — disabled until a scan starts. Same lifecycle as cancel.
         self.pause_btn = ttk.Button(top, text="Pause", command=self._on_pause, state=DISABLED)
-        self.pause_btn.grid(row=0, column=4, padx=(0, 8))
+        self.pause_btn.grid(row=0, column=5, padx=(0, 8))
         _Tooltip(self.pause_btn, "Pause the scan (Ctrl+P).\nThe currently-running check finishes, then the loop blocks until you Resume.")
         # #4: re-scan re-uses the last-scanned URL + current toggle state. Disabled until a scan completes.
         self.rescan_btn = ttk.Button(top, text="Re-scan", command=self._on_rescan, state=DISABLED)
-        self.rescan_btn.grid(row=0, column=5, padx=(0, 8))
+        self.rescan_btn.grid(row=0, column=6, padx=(0, 8))
         _Tooltip(self.rescan_btn, "Re-run against the last URL using CURRENT toggles.\nTo repeat the same settings, save them via File → Profiles first.\nEnabled after a scan completes.")
 
         self.open_html_btn = ttk.Button(top, text="Open HTML", command=self._open_html, state=DISABLED)
-        self.open_html_btn.grid(row=0, column=6, padx=(0, 8))
+        self.open_html_btn.grid(row=0, column=7, padx=(0, 8))
         _Tooltip(self.open_html_btn, "Open the saved HTML report in your browser.\nEnabled after a successful scan.")
         # #3: open the output directory in Explorer so users find their JSON/CSV/SARIF files.
         self.open_folder_btn = ttk.Button(top, text="Open folder", command=self._open_out_folder, state=DISABLED)
-        self.open_folder_btn.grid(row=0, column=9, padx=(0, 8))
+        self.open_folder_btn.grid(row=0, column=10, padx=(0, 8))
         _Tooltip(self.open_folder_btn, "Open the output folder in Explorer.\nEnabled after a successful scan.")
 
         self.copy_btn = ttk.Button(top, text="Copy JSON", command=self._copy_json, state=DISABLED)
-        self.copy_btn.grid(row=0, column=10)
+        self.copy_btn.grid(row=0, column=11)
         _Tooltip(self.copy_btn, "Copy the full scan report (JSON) to clipboard.\nEnabled after a successful scan.")
 
         ttk.Checkbutton(
@@ -988,7 +995,13 @@ class App:
     def _on_quick_scan_click(self) -> None:
         """v2.8.3 U#7 — start a passive-only fast scan. Saves the current
         aggressive/prove state, forces them off for this scan, then
-        triggers a normal scan via _on_scan_click."""
+        triggers a normal scan via _on_scan_click.
+
+        v2.8.4 H4 — restore vars via _handle_done/_handle_error rather
+        than via a 500ms timer. Pre-fix the timer fired unconditionally
+        (clobbering user state when the URL was invalid) and two Quick
+        clicks within 500ms raced.
+        """
         try:
             saved_agg = self.aggressive_var.get()
             saved_prove = self.prove_var.get()
@@ -1000,13 +1013,33 @@ class App:
             self.prove_var.set(False)
         except (AttributeError, _tk_mod.TclError):
             pass
+        # Stash the saved state. _handle_done and _handle_error will
+        # restore + clear this attribute. If _on_scan_click early-returns
+        # (invalid URL), the saved state stays attached but is restored
+        # at the START of any subsequent _on_scan_click call as a
+        # belt-and-braces guard.
+        self._quick_scan_restore = (saved_agg, saved_prove)
         self._on_scan_click()
-        # Restore after the scan starts (the scan reads the var at click
-        # time; restoring here means the next manual Scan click reuses
-        # whatever the user had configured).
-        self.root.after(500, lambda: (self.aggressive_var.set(saved_agg),
-                                          self.prove_var.set(saved_prove)
-                                          if hasattr(self, "prove_var") else None))
+        # If URL validation failed, no scan thread started — restore now.
+        if not (self._scan_thread and self._scan_thread.is_alive()):
+            self._restore_quick_scan_state()
+
+    def _restore_quick_scan_state(self) -> None:
+        """v2.8.4 H4 — restore aggressive/prove vars after a Quick scan.
+        Idempotent + safe to call when no Quick scan is in flight."""
+        restore = getattr(self, "_quick_scan_restore", None)
+        if not restore:
+            return
+        try:
+            self.aggressive_var.set(restore[0])
+        except (AttributeError, _tk_mod.TclError):
+            pass
+        try:
+            if hasattr(self, "prove_var"):
+                self.prove_var.set(restore[1])
+        except (AttributeError, _tk_mod.TclError):
+            pass
+        self._quick_scan_restore = None
 
     def _on_scan_click(self) -> None:
         if self._scan_thread and self._scan_thread.is_alive():
@@ -1134,6 +1167,9 @@ class App:
                     abuseipdb_token=tokens.get("abuseipdb_token") or None,
                     vt_token=tokens.get("vt_token") or None,
                     github_search_token=tokens.get("github_search_token") or None,
+                    # v2.8.4 H3 — patchstack_token was collected by the
+                    # onboarding wizard but silently ignored at scan time.
+                    patchstack_token=tokens.get("patchstack_token") or None,
                 )
             )
             self._queue.put(("done", report))
@@ -1154,6 +1190,15 @@ class App:
             "high":     self.show_high_var.get(),
             "medium":   self.show_medium_var.get(),
             "low":      self.show_low_var.get(),
+        }
+        # v2.8.4 H2 — persist the filter state on every change so the
+        # user's "critical+high only" preference survives restart.
+        try:
+            self._save_pref("filters", {**show, "info": self.show_info_var.get()})
+        except Exception:  # noqa: BLE001
+            pass
+        show = {
+            **show,
             "info":     self.show_info_var.get(),
         }
         q = self.search_var.get().strip().lower()
@@ -1675,6 +1720,8 @@ class App:
         return best_name
 
     def _handle_done(self, report: ScanReport) -> None:
+        # v2.8.4 H4 — restore Quick-scan toggle state at scan completion.
+        self._restore_quick_scan_state()
         self._current_report = report
         s = report.summary
         cancelled = self._cancel_requested
@@ -1807,6 +1854,8 @@ class App:
             self.status_var.set(f"Scan complete · reports saved to {out_dir}")
 
     def _handle_error(self, err: str) -> None:
+        # v2.8.4 H4 — restore Quick-scan toggle state on scan error.
+        self._restore_quick_scan_state()
         self.scan_btn.configure(state=NORMAL, text="Scan")
         self.cancel_btn.configure(state=DISABLED)
         self.pause_btn.configure(state=DISABLED, text="Pause")
@@ -2745,7 +2794,11 @@ class App:
     # ---------- Round-S misc helpers ----------
 
     def _load_pref(self, key: str, default):
-        """Cheap key/value preference store backed by ~/.wpsecscan/prefs.json."""
+        """Cheap key/value preference store backed by ~/.wpsecscan/prefs.json.
+
+        v2.8.4 — prefs.json is owned by gui.py (theme, geometry,
+        tts_enabled, locale, filters, sash, etc.). API tokens live in
+        settings.json (owned by gui_windows.py)."""
         try:
             from . import history as _h
             import json as _j
@@ -2757,18 +2810,43 @@ class App:
             return default
 
     def _save_pref(self, key: str, value) -> None:
+        """v2.8.4 H1 — atomic temp+rename write + threading.Lock so the
+        800ms debounced geometry handler racing a theme save can't
+        corrupt prefs.json mid-write."""
         try:
             from . import history as _h
             import json as _j
-            p = Path(_h._home()) / "prefs.json"
-            blob = {}
-            if p.exists():
+            # Lazy-create the serialisation lock on the instance.
+            lock = getattr(self, "_pref_save_lock", None)
+            if lock is None:
+                import threading as _th
+                lock = _th.Lock()
+                self._pref_save_lock = lock
+            with lock:
+                p = Path(_h._home()) / "prefs.json"
+                blob = {}
+                if p.exists():
+                    try:
+                        blob = _j.loads(p.read_text(encoding="utf-8")) or {}
+                    except (OSError, ValueError):
+                        blob = {}
+                blob[key] = value
                 try:
-                    blob = _j.loads(p.read_text(encoding="utf-8")) or {}
-                except (OSError, ValueError):
-                    blob = {}
-            blob[key] = value
-            p.write_text(_j.dumps(blob), encoding="utf-8")
+                    from .reporters import _atomic_write_text as _aw
+                    _aw(p, _j.dumps(blob, indent=2))
+                except ImportError:
+                    # Fallback: in-process temp+rename
+                    import os as _os
+                    tmp = p.with_suffix(p.suffix + f".tmp.{_os.getpid()}")
+                    try:
+                        tmp.write_text(_j.dumps(blob, indent=2), encoding="utf-8")
+                        _os.replace(tmp, p)
+                    except OSError:
+                        try:
+                            tmp.unlink(missing_ok=True)
+                        except OSError:
+                            pass
+                        raise
         except OSError:
             pass
 
@@ -2957,6 +3035,16 @@ class App:
             if tray is not None:
                 tray.hide_to_tray(self)
                 return
+        except Exception:  # noqa: BLE001
+            pass
+        # v2.8.4 H5 — join the scan thread with a short timeout so it
+        # doesn't read Tk vars after root.destroy(). Pre-fix this raised
+        # `RuntimeError: main thread is not in main loop` on exit during
+        # an in-flight scan.
+        try:
+            scan_thread = getattr(self, "_scan_thread", None)
+            if scan_thread is not None and scan_thread.is_alive():
+                scan_thread.join(timeout=2.0)
         except Exception:  # noqa: BLE001
             pass
         try:

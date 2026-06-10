@@ -102,6 +102,7 @@ async def scan(
     abuseipdb_token: str | None = None,   # C6 / round-S
     vt_token: str | None = None,          # C5 / round-S
     github_search_token: str | None = None,  # B6 / round-S
+    patchstack_token: str | None = None,  # v2.8.4 H3 — was collected by GUI wizard but never used
     since=None,  # K26 incremental: datetime — skip low-churn checks when target snapshot is newer
     on_progress: ProgressCallback | None = None,
     is_cancelled: Callable[[], bool] | None = None,
@@ -162,6 +163,7 @@ async def scan(
         "abuseipdb_token": abuseipdb_token,
         "vt_token": vt_token,
         "github_search_token": github_search_token,
+        "patchstack_token": patchstack_token,
         "aggressive": aggressive,
         "deep_throttle": deep_throttle,
         "deep_throttle_attempts": deep_throttle_attempts,

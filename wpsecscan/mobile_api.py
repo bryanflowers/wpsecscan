@@ -231,11 +231,22 @@ class _Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):  # noqa: A003
         pass
 
+    def _cors_origin(self) -> str:
+        """v2.8.4 H7 — CORS origin policy. Default `*` so the PWA works
+        through a reverse proxy or LAN tunnel; operators can lock down
+        via WPSECSCAN_MOBILE_API_CORS_ORIGIN env var."""
+        return os.environ.get("WPSECSCAN_MOBILE_API_CORS_ORIGIN", "*")
+
     def _send_json(self, obj: Any, code: int = 200) -> None:
         body = json.dumps(obj).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        # v2.8.4 H7 — CORS headers so the PWA can be accessed via a
+        # different origin (Tailscale tunnel, reverse proxy, etc.).
+        self.send_header("Access-Control-Allow-Origin", self._cors_origin())
+        self.send_header("Access-Control-Allow-Headers", "X-WPSecScan-Token, Content-Type")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.end_headers()
         self.wfile.write(body)
 
@@ -244,8 +255,20 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", f"{ctype}; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
+        # v2.8.4 H7 — CORS headers (same rationale as _send_json).
+        self.send_header("Access-Control-Allow-Origin", self._cors_origin())
+        self.send_header("Access-Control-Allow-Headers", "X-WPSecScan-Token, Content-Type")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.end_headers()
         self.wfile.write(raw)
+
+    def _send_404(self) -> None:
+        """v2.8.4 H7 — explicit Content-Length on 404 so HTTP/1.1 clients
+        don't hang waiting for the body length."""
+        self.send_response(404)
+        self.send_header("Content-Length", "0")
+        self.send_header("Access-Control-Allow-Origin", self._cors_origin())
+        self.end_headers()
 
     def _check_auth(self) -> bool:
         expected = os.environ.get("WPSECSCAN_MOBILE_TOKEN", "")
@@ -286,15 +309,15 @@ class _Handler(BaseHTTPRequestHandler):
             # control char outright, BEFORE the Path round-trip.
             if (not raw or "\\" in raw or "/" in raw or "\x00" in raw
                     or ".." in raw):
-                self.send_response(404); self.end_headers(); return
+                self._send_404(); return
             safe = Path(raw).name
             if not safe or safe.startswith(".") or safe != raw:
-                self.send_response(404); self.end_headers(); return
+                self._send_404(); return
             data = _read_one_report(safe)
             if data is None:
-                self.send_response(404); self.end_headers(); return
+                self._send_404(); return
             return self._send_json(data)
-        self.send_response(404); self.end_headers()
+        self._send_404()
 
 
 def serve(host: str = "127.0.0.1", port: int = 8765) -> None:
