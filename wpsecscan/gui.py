@@ -358,6 +358,29 @@ class App:
         file_menu.add_separator()
         # #13: bulk export of all findings as one markdown document
         file_menu.add_command(label="Export all findings as Markdown...", command=self._export_markdown)
+        # v2.8.4 Phase 4 — "Export As…" submenu surfaces every emit
+        # format from the v2.8.x `wpsecscan emit` CLI family.
+        export_menu = tkinter.Menu(file_menu, tearoff=False)
+        for fmt in (
+            "spdx-sbom", "intoto", "cef", "leef", "cab",
+            "risk-csv", "risk-json", "attestation-letter",
+            "hipaa-map", "fedramp", "ce-plus", "e8",
+            "stakeholder-bundle", "gdpr-dpia",
+        ):
+            export_menu.add_command(label=fmt,
+                                       command=lambda f=fmt: self._export_via_emit(f))
+        file_menu.add_cascade(label="Export As…", menu=export_menu)
+        # v2.8.4 Phase 4 — "Push to…" submenu surfaces every push provider.
+        push_menu = tkinter.Menu(file_menu, tearoff=False)
+        for provider in (
+            "gitlab-ci", "circleci", "azure-devops", "buildkite",
+            "shortcut", "plane", "wiz", "chat", "hosting",
+            "automation", "osv-enrich", "exploitdb-xref", "nuclei",
+            "sentry", "datadog", "defectdojo",
+        ):
+            push_menu.add_command(label=provider,
+                                     command=lambda p=provider: self._push_via_provider(p))
+        file_menu.add_cascade(label="Push to…", menu=push_menu)
         file_menu.add_separator()
         # #8: consolidated settings window
         file_menu.add_command(label="Settings...", accelerator="Ctrl+,", command=self._open_settings)
@@ -821,6 +844,14 @@ class App:
         self._ctx_menu.add_separator()
         self._ctx_menu.add_command(label="Run nuclei tag for this check", command=self._ctx_run_nuclei)
         self._ctx_menu.add_command(label="Open in sqlmap (proven param)", command=self._ctx_open_sqlmap)
+        # v2.8.4 Phase 4 — AI helper context-menu items.
+        self._ctx_menu.add_separator()
+        self._ctx_menu.add_command(label="Get AI remediation plan (BYO key)…",
+                                      command=self._ctx_ai_remediation)
+        self._ctx_menu.add_command(label="Generate WAF rule (Cloudflare)…",
+                                      command=lambda: self._ctx_ai_waf_rule("cloudflare"))
+        self._ctx_menu.add_command(label="Generate WAF rule (ModSecurity)…",
+                                      command=lambda: self._ctx_ai_waf_rule("modsecurity"))
         # #52: per-check skip from the right-click menu
         self._ctx_menu.add_separator()
         self._ctx_menu.add_command(label="Never run this check again",
@@ -2207,6 +2238,202 @@ class App:
                 pass
             self._toast_after_id = None
         self._toast_after_id = self.root.after(duration_ms, _clear)
+
+    # ==========================================================================
+    # v2.8.4 Phase 4 — GUI surface for emit / push / ai subcommand families
+    # ==========================================================================
+
+    def _ctx_ai_remediation(self) -> None:
+        """v2.8.4 Phase 4 — context-menu: get AI remediation plan for the
+        selected finding. Runs in a background thread; result inserted
+        as a new section in the detail pane."""
+        f = self._selected_finding()
+        if not f:
+            self._toast("✗ No finding selected", duration_ms=4000)
+            return
+        cid = self._selected_finding_check_id() or "?"
+        finding_dict = {
+            "check_id": cid, "severity": f.severity, "title": f.title,
+            "evidence": (f.evidence or "")[:1500], "remediation": f.remediation,
+        }
+        self._toast("⏳ Asking AI for remediation plan…", duration_ms=4000)
+        def _worker():
+            try:
+                from . import ai_v28 as _ai
+                result = _ai.agentic_remediation_loop(finding_dict, max_iters=2)
+                plan = result.get("plan") or result.get("reason") or str(result)
+            except Exception as e:  # noqa: BLE001
+                plan = f"AI error: {e}"
+            self.root.after(0, lambda: self._show_ai_result_dialog(
+                f"AI Remediation — {f.title[:80]}", plan))
+        import threading
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _ctx_ai_waf_rule(self, target_waf: str) -> None:
+        """v2.8.4 Phase 4 — context-menu: generate WAF rule for the
+        selected finding. Copies to clipboard + shows in a small dialog."""
+        f = self._selected_finding()
+        if not f:
+            self._toast("✗ No finding selected", duration_ms=4000)
+            return
+        cid = self._selected_finding_check_id() or "?"
+        finding_dict = {
+            "check_id": cid, "severity": f.severity, "title": f.title,
+            "evidence": (f.evidence or "")[:1500],
+        }
+        self._toast(f"⏳ Generating {target_waf} rule…", duration_ms=4000)
+        def _worker():
+            try:
+                from . import ai_v28 as _ai
+                result = _ai.generate_waf_rule_for_finding(
+                    finding_dict, target_waf=target_waf)
+                rule = result.get("rule") or result.get("reason") or str(result)
+            except Exception as e:  # noqa: BLE001
+                rule = f"AI error: {e}"
+            self.root.after(0, lambda: self._show_ai_result_dialog(
+                f"{target_waf.upper()} WAF rule — {f.title[:60]}",
+                rule, copy_to_clipboard=True))
+        import threading
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _show_ai_result_dialog(self, title: str, body: str,
+                                  *, copy_to_clipboard: bool = False) -> None:
+        """Render an AI-generated result in a small Toplevel with copy button."""
+        win = _tk_mod.Toplevel(self.root)
+        win.title(title)
+        win.configure(bg=BG)
+        win.geometry("700x420")
+        win.transient(self.root)
+        win.bind("<Escape>", lambda _e: win.destroy())
+        frame = ttk.Frame(win, padding=12)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text=title, foreground=ACCENT,
+                   font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=(0, 6))
+        txt = _tk_mod.Text(frame, wrap="word", bg=BG, fg=FG, font=("Consolas", 10))
+        txt.insert("1.0", body or "(empty)")
+        txt.configure(state="normal")
+        txt.pack(fill="both", expand=True)
+        btns = ttk.Frame(frame)
+        btns.pack(fill="x", pady=(8, 0))
+        def _copy():
+            self.root.clipboard_clear()
+            self.root.clipboard_append(body)
+            self._toast("✓ Copied to clipboard", duration_ms=2500)
+        ttk.Button(btns, text="Copy", command=_copy).pack(side="left")
+        ttk.Button(btns, text="Close", command=win.destroy).pack(side="right")
+        if copy_to_clipboard:
+            _copy()
+
+    def _export_via_emit(self, fmt: str) -> None:
+        """v2.8.4 Phase 4 — "Export As…" submenu dispatcher. Renders the
+        requested emit format from the current report in a background
+        thread and writes via a file-save dialog."""
+        if not self._current_report:
+            self._toast("✗ Run a scan first", duration_ms=4000)
+            return
+        from tkinter import filedialog as _fd
+        default_ext = ".json" if "json" in fmt or fmt in ("intoto", "spdx-sbom") else ".txt"
+        if fmt == "cef":
+            default_ext = ".cef"
+        elif fmt == "leef":
+            default_ext = ".leef"
+        elif fmt == "risk-csv":
+            default_ext = ".csv"
+        elif fmt == "cab":
+            default_ext = ".md"
+        path = _fd.asksaveasfilename(
+            defaultextension=default_ext,
+            initialfile=f"wpsecscan-{fmt}{default_ext}",
+            title=f"Export as {fmt}")
+        if not path:
+            return
+        self._toast(f"⏳ Exporting {fmt}…", duration_ms=4000)
+        def _worker():
+            try:
+                # Convert ScanReport to dict that emit dispatch expects.
+                from .reporters import json_out as _jr
+                data = json.loads(_jr.render(self._current_report))
+                # Dispatch via the same handler as the CLI.
+                from importlib import import_module as _imp
+                # Mirror _EMIT_DISPATCH from __main__.py
+                emit_map = {
+                    "spdx-sbom": ("compliance_v28", "spdx_sbom"),
+                    "intoto": ("compliance_v28", "intoto_attestation"),
+                    "cef": ("compliance_v28", "cef_export"),
+                    "leef": ("compliance_v28", "leef_export"),
+                    "cab": ("compliance_v28", "cab_export"),
+                    "risk-csv": ("compliance_v28", "risk_register_csv"),
+                    "risk-json": ("compliance_v28", "risk_register_json"),
+                    "attestation-letter": ("compliance_v28", "attestation_letter"),
+                    "hipaa-map": ("compliance_v28", "hipaa_safeguards_map"),
+                    "fedramp": ("compliance_v28", "fedramp_moderate_baseline"),
+                    "ce-plus": ("compliance_v28", "cyber_essentials_plus_report"),
+                    "e8": ("compliance_v28", "essential_8_scorecard"),
+                    "stakeholder-bundle": ("compliance_v28", "per_stakeholder_bundle"),
+                    "gdpr-dpia": ("compliance_v28", "gdpr_dpia_helper"),
+                }
+                mod_name, fn_name = emit_map.get(fmt, (None, None))
+                if not mod_name:
+                    raise ValueError(f"Unknown format {fmt}")
+                mod = _imp(f".{mod_name}", package="wpsecscan")
+                from .__main__ import _report_dict_to_object
+                report_obj = _report_dict_to_object(data)
+                result = getattr(mod, fn_name)(report_obj)
+                payload = json.dumps(result, indent=2, default=str) \
+                    if isinstance(result, dict) else str(result)
+                from .reporters import _atomic_write_text as _aw
+                _aw(path, payload)
+                self.root.after(0, lambda: self._toast(
+                    f"✓ Wrote {fmt} → {Path(path).name}", duration_ms=6000))
+            except Exception as e:  # noqa: BLE001
+                self.root.after(0, lambda: self._toast(
+                    f"✗ Export failed: {e}", duration_ms=8000))
+        import threading
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _push_via_provider(self, provider: str) -> None:
+        """v2.8.4 Phase 4 — "Push to…" submenu dispatcher. Pushes the
+        current report to the requested provider in a background thread.
+        Each provider has its own env-var requirements (documented in
+        `wpsecscan push --help`)."""
+        if not self._current_report:
+            self._toast("✗ Run a scan first", duration_ms=4000)
+            return
+        self._toast(f"⏳ Pushing to {provider}…", duration_ms=4000)
+        def _worker():
+            try:
+                from . import integrations_v28 as _iv
+                push_map = {
+                    "gitlab-ci": "gitlab_ci_security_gate",
+                    "circleci": "circleci_orb_emit",
+                    "azure-devops": "azure_devops_workitem",
+                    "buildkite": "buildkite_annotation",
+                    "shortcut": "push_shortcut",
+                    "plane": "push_plane",
+                    "wiz": "wiz_lacework_push",
+                    "chat": "chat_webhooks",
+                    "hosting": "hosting_api_event",
+                    "automation": "automation_hub_webhook",
+                    "osv-enrich": "osv_dev_enrich",
+                    "exploitdb-xref": "exploitdb_xref",
+                    "nuclei": "nuclei_template_export",
+                    "sentry": "sentry_release_correlation",
+                    "datadog": "datadog_incident_create",
+                    "defectdojo": "defectdojo_push",
+                }
+                fn_name = push_map.get(provider)
+                if not fn_name:
+                    raise ValueError(f"Unknown provider {provider}")
+                ok, msg = getattr(_iv, fn_name)(self._current_report)
+                icon = "✓" if ok else "ℹ"
+                duration = 6000 if ok else 9000
+                self.root.after(0, lambda: self._toast(
+                    f"{icon} {provider}: {msg}", duration_ms=duration))
+            except Exception as e:  # noqa: BLE001
+                self.root.after(0, lambda: self._toast(
+                    f"✗ Push failed: {e}", duration_ms=8000))
+        import threading
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _show_changelog_window(self) -> None:
         """v2.8.4 U#20 — open the in-app changelog viewer (E76)."""
