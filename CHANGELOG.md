@@ -7,15 +7,120 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Rolled to v2.9.0 via the v2.8.3 stuck-rule:
-- **GUI U#9** (splash screen during slow imports) — Tk
-  Toplevel-during-import ordering is fiddly; not worth the risk.
-- **Phase 2.D2-full** wire `json_migrations.load_versioned()` into the
-  3 unversioned-JSON callers — marketplace cache already uses a
-  `_version` key, so adopting json_migrations requires a parallel
-  shape refactor on both reader + writer sides.
+Rolled to v2.9.0 via the v2.8.4 stuck-rule:
+- **GUI M10/M11/L1/L4/L5/L9** — Tk-interactive polish items (mkdir
+  blocking, mark_wizard_seen ordering, Windows ACL via icacls, trend
+  rename fallback, proxy lock during scan, background report writes).
+- **Branch protection on `main`** — needs admin click in repo settings.
+- **9 Dependabot PRs** (#10–#18) — pre-existing CI failures on Python
+  3.10/3.11 need triage independent of release flow.
 
-Plus the v2.8.2 / v2.8.1 carry-overs (still applicable).
+Plus the v2.8.3 / v2.8.2 carry-overs.
+
+## [v2.8.4] — 2026-06-10
+
+GUI-focused quality + UX release. **2 Critical bugs**, **7 High**,
+**12 Medium/Low**, **10 UX wins**, **GUI surface for the v2.8.x
+emit/push/ai subcommand families** (the biggest UX gap), **mobile
+PWA** improvements, **+31 tests** (1066 → 1097), repo ops hygiene.
+
+### Phase 1 — Critical + High GUI bugs
+
+- **C1** gui.py: `quick_btn` + `cancel_btn` shared grid column 3, so
+  the Quick button was invisible during every scan. Each toolbar
+  button now owns its own column; downstream columns shifted right.
+- **C2** gui_windows._mt_worker: fired `after()` callbacks on the
+  multi-target Treeview after it could be destroyed. Wrapped every
+  callback in `_safe_after` guarded by `win.winfo_exists()`.
+- **H1** gui._save_pref: non-atomic write could corrupt `prefs.json`
+  when the 800ms debounced geometry handler raced a theme save.
+  Now uses `reporters._atomic_write_text` + `threading.Lock`.
+- **H2** gui: filter state vars (`show_*_var`, `search_var`) are now
+  loaded from + saved to prefs.json — "critical+high only" survives
+  restart.
+- **H3** scanner.scan() + gui._run_scan: `patchstack_token` was
+  collected by the onboarding wizard but silently ignored. Added the
+  kwarg + ctx entry + wired through `_run_scan`.
+- **H4** gui._on_quick_scan_click: 500ms `after()` timer for
+  restoring aggressive/prove vars fired unconditionally (clobbering
+  user state on URL-invalid early return) and two Quick clicks within
+  500ms raced. Replaced with `_restore_quick_scan_state()` called
+  from `_handle_done`/`_handle_error`/early-return.
+- **H5** gui._on_window_close: now joins the scan thread with
+  `timeout=2.0` before `root.destroy()`. Pre-fix exit-during-scan
+  raised `RuntimeError: main thread is not in main loop`.
+- **H6** gui_windows.open_multitarget: removed duplicate `<Destroy>`
+  binding.
+- **H7** mobile_api: `_send_json` / `_send_text` now emit CORS
+  headers (Allow-Origin/Headers/Methods); new `_send_404` helper has
+  explicit `Content-Length: 0`. Configurable via
+  `WPSECSCAN_MOBILE_API_CORS_ORIGIN` env var (default `*`).
+
+### Phase 2 — 12 Medium + Low GUI bugs
+
+- M2 changelog viewer + tutorial singleton guards
+- M3 `_open_html` shows toast when file is missing (was silent no-op)
+- M4 `_open_out_folder` cross-platform (`os.startfile` on Windows,
+  `open` on macOS, `xdg-open` on Linux)
+- M5 `OnboardingTour._dismiss` TclError guard
+- M7 reports saved to `~/.wpsecscan/reports` instead of `Path.cwd()`
+- M8 `open_playbook_walker` singleton per check_id
+- M9 `_append_activity` defensive int parse
+- L2 `_Tooltip._show`/`_hide` TclError guards
+- L3 `open_history_search` removed duplicate KeyRelease+trace_add
+- L6 PHP companion `test_connection_ajax` saves/restores operator's
+  prepared token (was silently destroying it on cleanup)
+- L7 "Schedule recurring scan…" Tools menu hidden on non-Windows
+- L8 `_populate_tree` implemented (previously called behind
+  `hasattr` and silently did nothing — "Open saved report" loaded
+  data into `_current_report` but never repainted the tree)
+
+### Phase 3 — 10 UX wins
+
+- **U#1** Ctrl+F focuses the search/filter Entry
+- **U#2** Ctrl+R triggers Re-scan
+- **U#3** F1 opens context-sensitive docs
+- **U#4** Alt+D triggers Diff with last
+- **U#8** Panedwindow sash position persisted to prefs.json
+- **U#9** Findings tree changed to `selectmode="extended"` for
+  multi-select bulk actions
+- **U#14** New "Copy CLI" toolbar button
+- **U#16** New "★ Star" toolbar button — copies JSON+HTML to
+  `~/.wpsecscan/starred/` so it's never pruned
+- **U#19** Tooltips on Aggressive + Prove checkboxes
+- **U#20** Help menu surfaces the existing changelog viewer
+
+### Phase 4 — GUI surface for v2.8.x subcommand families
+
+The biggest UX gap closed: 14 emit formats + 16 push providers + 7 AI
+helpers were CLI-only. Now surfaced in the desktop GUI:
+
+- Context-menu: "Get AI remediation plan", "Generate WAF rule
+  (Cloudflare)", "Generate WAF rule (ModSecurity)"
+- File → "Export As…" submenu: 14 entries
+- File → "Push to…" submenu: 16 entries
+
+All callbacks run in a background thread + toast on success/failure.
+
+### Phase 5 — Mobile PWA improvements
+
+- **P1** `POST /api/scan` endpoint (token-gated)
+- **P2** `GET /api/report/<host>/findings/<idx>` per-finding detail
+- **P4** `do_OPTIONS` CORS preflight handler
+- **P3** Tools → "Start mobile companion server…" with QR-code launcher
+
+### Phase 6 — Test coverage (+31 tests, 1066 → 1097)
+
+- 21 regression tests for Phase 1 bugs + Phase 3 UX + Phase 4 dispatch
+- 10 mobile_api endpoint tests (CORS, OPTIONS, POST /scan, per-finding)
+
+### Phase 7 — Repo ops hygiene
+
+- Created missing GitHub labels `automated` + `ci`
+- New `.github/workflows/codeql.yml` — Python SAST closing the
+  Scorecard SAST: 0 → 10 gap
+
+1097 tests pass.
 
 ## [v2.8.3] — 2026-06-01
 
