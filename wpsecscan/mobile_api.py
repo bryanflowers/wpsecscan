@@ -317,7 +317,92 @@ class _Handler(BaseHTTPRequestHandler):
             if data is None:
                 self._send_404(); return
             return self._send_json(data)
+        # v2.8.4 P2 — per-finding detail endpoint.
+        # GET /api/report/<host>/findings/<idx> returns one finding's
+        # evidence + remediation extracted from the saved report.
+        if "/findings/" in path and path.startswith("/api/report/"):
+            if not self._check_auth():
+                self.send_response(401); self.end_headers(); return
+            try:
+                rest = path.removeprefix("/api/report/")
+                host_part, _, fid = rest.partition("/findings/")
+                idx = int(fid)
+            except (ValueError, AttributeError):
+                self._send_404(); return
+            if not host_part or "\\" in host_part or "/" in host_part or ".." in host_part:
+                self._send_404(); return
+            data = _read_one_report(host_part)
+            if data is None:
+                self._send_404(); return
+            # Flatten findings; idx is across the report.
+            all_findings: list = []
+            for r in (data.get("results") or []):
+                for f in (r.get("findings") or []):
+                    all_findings.append({**f, "check_id": r.get("check_id"),
+                                          "check_name": r.get("check_name")})
+            if idx < 0 or idx >= len(all_findings):
+                self._send_404(); return
+            return self._send_json(all_findings[idx])
         self._send_404()
+
+    def do_OPTIONS(self):  # noqa: N802 — CORS preflight
+        """v2.8.4 P4 — handle CORS preflight requests so the PWA can
+        be embedded in a different-origin shell or accessed via a
+        reverse proxy."""
+        self.send_response(204)
+        self.send_header("Content-Length", "0")
+        self.send_header("Access-Control-Allow-Origin", self._cors_origin())
+        self.send_header("Access-Control-Allow-Headers",
+                          "X-WPSecScan-Token, Content-Type")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Max-Age", "600")
+        self.end_headers()
+
+    def do_POST(self):  # noqa: N802
+        """v2.8.4 P1 — token-gated POST /api/scan endpoint enqueues a
+        new scan URL. Other POST paths return 404.
+
+        Request body: {"target": "https://example.com"}
+        Response: {"queued": true, "target": "..."}
+
+        The scan itself runs in the same Python process via a daemon
+        thread; result will appear in /api/reports on the next refresh.
+        """
+        if self.path != "/api/scan":
+            self._send_404(); return
+        if not self._check_auth():
+            self.send_response(401); self.end_headers(); return
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            if length > 10000:
+                self._send_json({"error": "body too large"}, code=413); return
+            raw = self.rfile.read(length).decode("utf-8", errors="replace")
+            body = json.loads(raw)
+        except (ValueError, OSError, UnicodeDecodeError):
+            self._send_json({"error": "invalid JSON body"}, code=400); return
+        target = (body.get("target") or "").strip()
+        if not target.startswith(("http://", "https://")):
+            self._send_json(
+                {"error": "target must be a full http(s):// URL"}, code=400); return
+        # Enqueue a scan via the existing scanner module. Run in a
+        # daemon thread so the HTTP response isn't blocked.
+        def _bg_scan():
+            try:
+                import asyncio as _asyncio
+                from .scanner import scan as _scan
+                from . import history as _h
+                from .reporters import json_out as _jr
+                report = _asyncio.run(_scan(target, timeout=15.0,
+                                              aggressive=False, sequential=True))
+                _h.save_report_snapshot(target, _jr.render(report))
+                _h.push_url(target)
+            except Exception:  # noqa: BLE001
+                # Failures are best-effort visible only via the next
+                # /api/reports GET (which won't show the new report).
+                pass
+        import threading as _th
+        _th.Thread(target=_bg_scan, daemon=True).start()
+        return self._send_json({"queued": True, "target": target})
 
 
 def serve(host: str = "127.0.0.1", port: int = 8765) -> None:

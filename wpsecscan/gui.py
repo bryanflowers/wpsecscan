@@ -415,6 +415,10 @@ class App:
         tools.add_command(label="Drop-in marketplace...", command=self._open_marketplace)
         # Round-56: synthetic demo so users can see every feature working
         tools.add_command(label="Demo mode (synthetic scan)", command=self._run_demo)
+        # v2.8.4 P3 — mobile companion server (PWA on your phone)
+        tools.add_separator()
+        tools.add_command(label="Start mobile companion server…",
+                            command=self._open_mobile_server_dialog)
         tools.add_separator()
         # C1 / C3 / C5: new tools-menu entries from the 24-feature round
         tools.add_command(label="Enable / disable checks...", command=self._open_disable_grid)
@@ -2238,6 +2242,83 @@ class App:
                 pass
             self._toast_after_id = None
         self._toast_after_id = self.root.after(duration_ms, _clear)
+
+    def _open_mobile_server_dialog(self) -> None:
+        """v2.8.4 P3 — start the mobile_api PWA server in a background
+        thread, then show a dialog with the LAN URL + a QR-encoded
+        token URL the user can scan with their phone."""
+        import socket as _s
+        import secrets as _sec
+        # Generate a fresh token if none set in env; surface it in dialog.
+        token = os.environ.get("WPSECSCAN_MOBILE_TOKEN") or _sec.token_urlsafe(24)
+        os.environ["WPSECSCAN_MOBILE_TOKEN"] = token
+        # Detect a LAN-routable IP (best-effort).
+        try:
+            with _s.socket(_s.AF_INET, _s.SOCK_DGRAM) as sock:
+                sock.connect(("8.8.8.8", 80))
+                lan_ip = sock.getsockname()[0]
+        except OSError:
+            lan_ip = "127.0.0.1"
+        port = 8765
+        url = f"http://{lan_ip}:{port}/"
+        # Start the server in a background thread if not already running.
+        if not getattr(self, "_mobile_server_started", False):
+            def _bg():
+                try:
+                    from . import mobile_api as _mob
+                    _mob.serve(host="0.0.0.0", port=port)
+                except Exception:  # noqa: BLE001
+                    pass
+            import threading as _th
+            _th.Thread(target=_bg, daemon=True).start()
+            self._mobile_server_started = True
+        # Show URL + token in a dialog with QR code if `qrcode` is installed.
+        win = _tk_mod.Toplevel(self.root)
+        win.title("Mobile companion server")
+        win.configure(bg=BG)
+        win.transient(self.root)
+        win.bind("<Escape>", lambda _e: win.destroy())
+        frame = ttk.Frame(win, padding=14)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text="📱 Mobile PWA running",
+                   font=("Segoe UI", 12, "bold"), foreground=ACCENT).pack(anchor="w")
+        ttk.Label(frame, text=f"\nURL: {url}", foreground=FG).pack(anchor="w")
+        token_frame = ttk.Frame(frame)
+        token_frame.pack(fill="x", pady=(8, 8))
+        ttk.Label(token_frame, text="Token:", foreground=MUTED).pack(side="left")
+        _tk_mod.Entry(token_frame, width=42).pack(side="left", padx=(6, 0))
+        # Insert read-only token text via Text widget so it copy-pastes
+        ttk.Label(frame, text=token, font=("Consolas", 10),
+                   foreground=ACCENT, wraplength=480, justify="left").pack(anchor="w")
+        # QR code if available.
+        try:
+            import qrcode as _qr  # type: ignore[import-not-found]
+            qr_url = f"{url}?token={token}"
+            qr = _qr.QRCode(version=1, box_size=4, border=2)
+            qr.add_data(qr_url)
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+            from io import BytesIO as _Bio
+            buf = _Bio()
+            img.save(buf, format="PNG")
+            buf.seek(0)
+            ph = _tk_mod.PhotoImage(data=buf.read())
+            ph_label = _tk_mod.Label(frame, image=ph, bg=BG)
+            ph_label.image = ph  # keep reference
+            ph_label.pack(pady=(8, 8))
+            ttk.Label(frame, text="Scan this QR with your phone's camera.",
+                       foreground=MUTED).pack(anchor="w")
+        except ImportError:
+            ttk.Label(frame, text="(Install `qrcode` for a scannable QR code.)",
+                       foreground=MUTED, font=("Segoe UI", 9, "italic")).pack(anchor="w")
+        btns = ttk.Frame(frame)
+        btns.pack(fill="x", pady=(8, 0))
+        def _copy_url():
+            self.root.clipboard_clear()
+            self.root.clipboard_append(f"{url}?token={token}")
+            self._toast("✓ URL+token copied to clipboard", duration_ms=4000)
+        ttk.Button(btns, text="Copy URL", command=_copy_url).pack(side="left")
+        ttk.Button(btns, text="Close", command=win.destroy).pack(side="right")
 
     # ==========================================================================
     # v2.8.4 Phase 4 — GUI surface for emit / push / ai subcommand families
