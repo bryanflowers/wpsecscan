@@ -468,6 +468,10 @@ class App:
         # Round-57: manual update check (always re-fetches, ignoring the 24h cache)
         help_menu.add_command(label="Check for updates now",
                               command=lambda: self._maybe_show_update_notice(force=True))
+        # v2.8.4 U#20 — the E76 changelog viewer in gui_v27_extras was
+        # unreachable from any menu. Surface it from Help.
+        help_menu.add_command(label="What's new (changelog)…",
+                              command=self._show_changelog_window)
         help_menu.add_command(label="About Windows Defender warnings",
                               command=lambda: self._open_defender_dialog(is_first_run=False))
         help_menu.add_command(label=f"About {APP_NAME}", command=self._show_about)
@@ -499,6 +503,15 @@ class App:
         # so the shortcut works regardless of which widget has focus.
         self.root.bind_all("<Alt-Key-s>", lambda _e: self._on_scan_click())
         self.root.bind_all("<Alt-Key-r>", lambda _e: self._open_html())
+        # v2.8.4 U#1-U#4 — new keyboard shortcuts.
+        # U#1 Ctrl+F = focus the search/filter Entry.
+        self.root.bind_all("<Control-f>", lambda _e: self._focus_search_entry())
+        # U#2 Ctrl+R = trigger Re-scan (matches browser reload).
+        self.root.bind_all("<Control-r>", lambda _e: self._on_rescan())
+        # U#3 F1 = open context-sensitive docs.
+        self.root.bind_all("<F1>", lambda _e: self._open_context_docs())
+        # U#4 Alt+D = diff with last saved snapshot.
+        self.root.bind_all("<Alt-Key-d>", lambda _e: self._on_diff_last())
         # U26 (v2.8.0) — Ctrl+Q clean quit. Goes through the unified
         # WM_DELETE_WINDOW handler (N3 from Wave 1) so scan thread
         # cancellation + tray cleanup happen properly.
@@ -565,24 +578,52 @@ class App:
         self.copy_btn = ttk.Button(top, text="Copy JSON", command=self._copy_json, state=DISABLED)
         self.copy_btn.grid(row=0, column=11)
         _Tooltip(self.copy_btn, "Copy the full scan report (JSON) to clipboard.\nEnabled after a successful scan.")
+        # v2.8.4 U#16 — "Star" toolbar button copies the current
+        # JSON+HTML to ~/.wpsecscan/starred/ so it's never overwritten.
+        self.star_btn = ttk.Button(top, text="★ Star", command=self._star_current_scan, state=DISABLED)
+        self.star_btn.grid(row=0, column=12, padx=(8, 0))
+        _Tooltip(self.star_btn,
+                  "v2.8.4 — copy this scan's JSON + HTML to\n"
+                  "~/.wpsecscan/starred/ so it's never pruned.\n"
+                  "Useful for keeping evidence of a fixed issue.")
+        # v2.8.4 U#14 — "Copy CLI" button reproduces the current scan
+        # as a wpsecscan CLI invocation.
+        self.copy_cli_btn = ttk.Button(top, text="Copy CLI", command=self._copy_cli_command, state=DISABLED)
+        self.copy_cli_btn.grid(row=0, column=13, padx=(8, 0))
+        _Tooltip(self.copy_cli_btn,
+                  "v2.8.4 — copy the equivalent `wpsecscan` CLI\n"
+                  "command for the current scan settings.")
 
         ttk.Checkbutton(
             top, text="Save HTML + JSON to disk", variable=self.save_reports_var
         ).grid(row=1, column=1, sticky="w", pady=(8, 0))
 
-        ttk.Checkbutton(
+        # v2.8.4 U#19 — Tooltips on the Aggressive + Prove checkboxes
+        # so users have a quick reminder without dismissing the
+        # confirmation dialog.
+        _agg_chk = ttk.Checkbutton(
             top,
             text="Aggressive mode (SQLi + XSS + SSRF + path-traversal + open-redirect + upload-endpoint probes)",
             variable=self.aggressive_var,
             command=self._on_aggressive_toggle,
-        ).grid(row=2, column=1, sticky="w", pady=(2, 0))
+        )
+        _agg_chk.grid(row=2, column=1, sticky="w", pady=(2, 0))
+        _Tooltip(_agg_chk,
+                  "When ON, sends payload-based probes that REAL\n"
+                  "attackers would send. Use only on sites you own.\n"
+                  "Set WPSECSCAN_OWNED_TARGETS=1 to confirm.")
 
-        ttk.Checkbutton(
+        _prove_chk = ttk.Checkbutton(
             top,
             text="Extract read-only proof for confirmed vulnerabilities (single-target, no writes)",
             variable=self.prove_var,
             command=self._on_prove_toggle,
-        ).grid(row=2, column=2, columnspan=4, sticky="w", pady=(2, 0))
+        )
+        _prove_chk.grid(row=2, column=2, columnspan=4, sticky="w", pady=(2, 0))
+        _Tooltip(_prove_chk,
+                  "When ON, runs a READ-ONLY proof helper for each\n"
+                  "confirmed finding (single-target only; requires\n"
+                  "--aggressive). Never writes to the scanned target.")
 
         dt_row = ttk.Frame(top)
         dt_row.grid(row=5, column=1, columnspan=4, sticky="w", pady=(2, 0))
@@ -658,6 +699,8 @@ class App:
         ttk.Label(filt, text="  Search:", foreground=MUTED).pack(side="left", padx=(8, 4))
         sx = ttk.Entry(filt, textvariable=self.search_var, width=28)
         sx.pack(side="left")
+        # v2.8.4 U#1 — expose the search Entry so Ctrl+F can focus it.
+        self.search_entry = sx
         sx.bind("<KeyRelease>", lambda _e: self._apply_filter())
         # Tree control buttons
         ttk.Button(filt, text="Expand all", command=self._expand_all).pack(side="left", padx=(8, 0))
@@ -693,12 +736,35 @@ class App:
 
         paned = ttk.Panedwindow(body, orient="horizontal")
         paned.pack(fill="both", expand=True)
+        # v2.8.4 U#8 — persist sash position across sessions (companion
+        # to the v2.8.1 U22 window-geometry persistence).
+        self._paned = paned
+        try:
+            saved_sash = int(self._load_pref("sash_position", 0) or 0)
+            if saved_sash > 50:
+                # Restore after the window is fully laid out.
+                self.root.after(150, lambda: self._restore_sash(saved_sash))
+        except (ValueError, TypeError):
+            pass
+        # Debounced save on <ButtonRelease-1> over the sash. Tk doesn't
+        # emit a sash-move event, so hook on the paned window itself.
+        self._sash_save_after = None
+        def _on_sash_drag(_e):
+            if self._sash_save_after:
+                try:
+                    self.root.after_cancel(self._sash_save_after)
+                except Exception:  # noqa: BLE001
+                    pass
+            self._sash_save_after = self.root.after(600, self._persist_sash)
+        paned.bind("<ButtonRelease-1>", _on_sash_drag, add="+")
 
         # Left: tree of checks/findings
         left = ttk.Frame(paned, style="Panel.TFrame")
         paned.add(left, weight=2)
 
-        self.tree = ttk.Treeview(left, columns=("severity",), show="tree headings", selectmode="browse")
+        # v2.8.4 U#9 — multi-select enables bulk actions on findings
+        # (mark-as-accepted-risk, export selected, copy multiple, etc.).
+        self.tree = ttk.Treeview(left, columns=("severity",), show="tree headings", selectmode="extended")
         self.tree.heading("#0", text="Check / Finding")
         self.tree.heading("severity", text="Severity")
         self.tree.column("#0", width=380, anchor="w")
@@ -1848,6 +1914,12 @@ class App:
         self.pause_btn.configure(state=DISABLED, text="Pause")
         self._pause_requested = False
         self.copy_btn.configure(state=NORMAL)
+        # v2.8.4 U#14 + U#16 — enable Star + Copy CLI alongside Copy JSON.
+        try:
+            self.star_btn.configure(state=NORMAL)
+            self.copy_cli_btn.configure(state=NORMAL)
+        except (AttributeError, _tk_mod.TclError):
+            pass
         # #3 / #4: enable open-folder + re-scan once we have a completed report
         self.open_folder_btn.configure(state=NORMAL)
         self.rescan_btn.configure(state=NORMAL)
@@ -2136,6 +2208,60 @@ class App:
             self._toast_after_id = None
         self._toast_after_id = self.root.after(duration_ms, _clear)
 
+    def _show_changelog_window(self) -> None:
+        """v2.8.4 U#20 — open the in-app changelog viewer (E76)."""
+        try:
+            from . import gui_v27_extras as _gx
+            _gx.show_changelog_window(self.root)
+        except Exception as e:  # noqa: BLE001
+            self._toast(f"✗ Changelog viewer unavailable: {e}", duration_ms=6000)
+
+    def _restore_sash(self, pos: int) -> None:
+        """v2.8.4 U#8 — set the Panedwindow sash to a saved x-coord."""
+        try:
+            self._paned.sashpos(0, pos)
+        except (_tk_mod.TclError, AttributeError):
+            pass
+
+    def _persist_sash(self) -> None:
+        """v2.8.4 U#8 — debounced save of the current sash position."""
+        try:
+            pos = self._paned.sashpos(0)
+            if pos and pos > 50:
+                self._save_pref("sash_position", int(pos))
+        except (_tk_mod.TclError, AttributeError):
+            pass
+        self._sash_save_after = None
+
+    def _focus_search_entry(self) -> None:
+        """v2.8.4 U#1 — Ctrl+F handler. Focus the filter search Entry."""
+        entry = getattr(self, "search_entry", None)
+        if entry is None:
+            return
+        try:
+            entry.focus_set()
+            entry.select_range(0, "end")
+        except (_tk_mod.TclError, AttributeError):
+            pass
+
+    def _open_context_docs(self) -> None:
+        """v2.8.4 U#3 — F1 handler. Open context-sensitive docs.
+
+        If a finding is selected, open the docs for its check_id.
+        Otherwise open the main docs index.
+        """
+        url = "https://wpsecscan.com/docs/"
+        try:
+            cid = self._selected_finding_check_id()
+            if cid:
+                url = f"https://wpsecscan.com/docs/checks/{cid}/"
+        except (AttributeError, _tk_mod.TclError):
+            pass
+        try:
+            webbrowser.open(url)
+        except Exception:  # noqa: BLE001
+            pass
+
     def _on_rescan(self) -> None:
         """#4: re-run against the previous URL.
 
@@ -2155,6 +2281,66 @@ class App:
         self.root.clipboard_clear()
         self.root.clipboard_append(json_reporter.render(self._current_report))
         self._toast("✓ JSON copied to clipboard")
+
+    def _star_current_scan(self) -> None:
+        """v2.8.4 U#16 — copy the current scan's JSON + HTML to
+        ~/.wpsecscan/starred/ so it's never pruned by snapshot rotation."""
+        if not self._current_report:
+            self._toast("✗ No scan to star yet", duration_ms=4000)
+            return
+        try:
+            from . import history as _h
+            from datetime import datetime as _dt
+            star_dir = Path(_h._home()) / "starred"
+            star_dir.mkdir(parents=True, exist_ok=True)
+            ts = _dt.now().strftime("%Y%m%d-%H%M%S")
+            host = _safe_host(self._current_report.target)
+            json_p = star_dir / f"{host}-{ts}.json"
+            json_p.write_text(json_reporter.render(self._current_report),
+                                encoding="utf-8")
+            # If we have a saved HTML report, copy it alongside.
+            if self._last_html_path and self._last_html_path.exists():
+                html_p = star_dir / f"{host}-{ts}.html"
+                html_p.write_text(self._last_html_path.read_text(encoding="utf-8"),
+                                    encoding="utf-8")
+            self._toast(f"★ Starred: {star_dir.name}/{json_p.name}", duration_ms=5000)
+        except OSError as e:
+            self._toast(f"✗ Star failed: {e}", duration_ms=6000)
+
+    def _copy_cli_command(self) -> None:
+        """v2.8.4 U#14 — copy a `wpsecscan ...` CLI invocation that
+        reproduces the current scan settings."""
+        target = (self.url_var.get() or "").strip()
+        if not target:
+            self._toast("✗ No target URL set", duration_ms=4000)
+            return
+        parts = ["wpsecscan", target]
+        try:
+            if self.aggressive_var.get():
+                parts.append("--aggressive")
+        except (AttributeError, _tk_mod.TclError):
+            pass
+        try:
+            if hasattr(self, "prove_var") and self.prove_var.get():
+                parts.append("--prove")
+        except (AttributeError, _tk_mod.TclError):
+            pass
+        try:
+            timeout = self.http_timeout_var.get()
+            if timeout and float(timeout) != 15.0:
+                parts.extend(["--timeout", str(int(float(timeout)))])
+        except (AttributeError, _tk_mod.TclError, ValueError):
+            pass
+        try:
+            auth_user = (self.auth_user_var.get() or "").strip()
+            if auth_user:
+                parts.extend(["--auth-user", auth_user, "--auth-pass", "<REDACTED>"])
+        except (AttributeError, _tk_mod.TclError):
+            pass
+        cmd = " ".join(parts)
+        self.root.clipboard_clear()
+        self.root.clipboard_append(cmd)
+        self._toast("✓ CLI command copied to clipboard")
 
     def _cycle_finding(self, direction: int) -> None:
         """Ctrl+Down/Up cycles through visible findings across all check parents."""
