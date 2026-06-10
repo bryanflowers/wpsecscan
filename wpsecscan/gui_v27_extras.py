@@ -353,4 +353,9 @@ class OnboardingTour:
             (_home() / "onboarding-shown").write_text("v2.7.0", encoding="utf-8")
         except OSError:
             pass
-        self._win.destroy()
+        # v2.8.4 M5 — guard against TclError when the window is already
+        # destroyed (e.g., main window closed mid-tour).
+        try:
+            self._win.destroy()
+        except tk.TclError:
+            pass

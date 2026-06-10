@@ -366,8 +366,12 @@ class App:
         tools.add_command(label="Payload Tester...", accelerator="Ctrl+T", command=self._open_payload_tester)
         # #1: multi-target window
         tools.add_command(label="Multi-target scan...", command=self._open_multitarget)
-        # #2: scheduled scan registration
-        tools.add_command(label="Schedule recurring scan...", command=self._open_schedule)
+        # #2: scheduled scan registration — v2.8.4 L7, Windows-only
+        # (uses schtasks.exe). Hidden on Linux/macOS to avoid a
+        # confusing FileNotFoundError when clicked.
+        import sys as _sys
+        if _sys.platform.startswith("win"):
+            tools.add_command(label="Schedule recurring scan...", command=self._open_schedule)
         # #11: trend sparkline window
         tools.add_command(label="Show risk trend for current URL", command=self._open_trend)
         # E8: multi-URL trend overlay

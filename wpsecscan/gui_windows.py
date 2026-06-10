@@ -688,7 +688,11 @@ def open_history_search(app) -> None:
                                           values=(f.get("severity", "?").upper(),
                                                   url, f.get("title", "")[:120], scanned))
 
-    entry.bind("<KeyRelease>", _do_search)
+    # v2.8.4 L3 — the `<KeyRelease>` bind AND the `trace_add("write")`
+    # both fire on every keystroke, doubling the per-keystroke I/O over
+    # every JSON report in the history directory. trace_add is
+    # sufficient (it fires when the StringVar is written, which
+    # includes every Entry edit). Removed the duplicate bind.
     query_var.trace_add("write", lambda *_: _do_search())
 
 
