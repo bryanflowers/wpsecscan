@@ -102,7 +102,7 @@ all = [
 # Test deps (also installed by CI). T4 (v2.8.0) — upper bound added
 # per the v2.7.3 Agent F F5 finding (pre-fix `>=7.4` could pull a
 # breaking major into CI).
-test = ["pytest>=7.4,<9"]
+test = ["pytest>=7.4,<10"]
 
 [project.scripts]
 wpsecscan = "wpsecscan.__main__:main"
