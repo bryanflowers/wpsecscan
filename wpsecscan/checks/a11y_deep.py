@@ -42,7 +42,10 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     # WCAG 1.1.1 — non-text content (img alt)
     imgs = IMG_RE.findall(body)
     missing_alt = [i for i in imgs if not ALT_RE.search(i)]
-    empty_alt   = [i for i in imgs if ALT_RE.search(i) and not (m := ALT_RE.search(i)).group(1).strip()]
+    # v2.8.5 H10 — pre-fix re-ran ALT_RE.search twice per img AND leaked
+    # `m` into outer scope. Single walrus + None-fallthrough is correct.
+    empty_alt   = [i for i in imgs
+                   if (_m_alt := ALT_RE.search(i)) and not _m_alt.group(1).strip()]
     if missing_alt:
         fails.append(("1.1.1", "high", f"{len(missing_alt)} <img> without alt attribute"))
     if len(empty_alt) > 5:

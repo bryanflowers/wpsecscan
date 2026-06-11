@@ -89,12 +89,19 @@ def _load() -> list[dict]:
 
 
 def _save(sites: list[dict]) -> None:
+    # v2.8.5 H11 — pre-fix bare `p.write_text(...)` truncated sites.json
+    # to 0 bytes on power loss / SIGKILL between truncate and write.
+    # Atomic temp+rename so the file is always either old-state or
+    # new-state, never empty.
     p = _sites_path()
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
         if p.is_symlink():
             p.unlink()
-        p.write_text(json.dumps(sites, indent=2), encoding="utf-8")
+        import os as _os
+        tmp = p.with_suffix(p.suffix + ".tmp")
+        tmp.write_text(json.dumps(sites, indent=2), encoding="utf-8")
+        _os.replace(tmp, p)
     except OSError:
         pass
 

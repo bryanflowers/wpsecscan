@@ -18,8 +18,15 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from pathlib import Path
 from typing import Iterable
+
+# v2.8.5 H12 — serialise fallback vault RMW + non-keyring _save_index
+# RMWs. Without this, two threads doing creds set/delete can race
+# between `_fallback_load()` and `_fallback_save(d)`, dropping one
+# of the writes.
+_VAULT_LOCK = threading.Lock()
 
 
 _SERVICE = "wpsecscan"
@@ -259,9 +266,10 @@ def _fallback_save(data: dict[str, str]) -> None:
 
 
 def _fallback_set(ident: str, value: str) -> None:
-    d = _fallback_load()
-    d[ident] = value
-    _fallback_save(d)
+    with _VAULT_LOCK:
+        d = _fallback_load()
+        d[ident] = value
+        _fallback_save(d)
 
 
 def _fallback_get(ident: str) -> str | None:
@@ -269,9 +277,10 @@ def _fallback_get(ident: str) -> str | None:
 
 
 def _fallback_delete(ident: str) -> bool:
-    d = _fallback_load()
-    if ident not in d:
-        return False
-    del d[ident]
-    _fallback_save(d)
-    return True
+    with _VAULT_LOCK:
+        d = _fallback_load()
+        if ident not in d:
+            return False
+        del d[ident]
+        _fallback_save(d)
+        return True

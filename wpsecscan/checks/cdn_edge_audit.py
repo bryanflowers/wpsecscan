@@ -75,9 +75,14 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
             if r is None or r.status_code != 200 or not r.text:
                 continue
             # If response is short JSON / has Worker-style headers, flag
+            # v2.8.5 H8 — operator-precedence fix: pre-fix `and` bound
+            # tighter than `or`, so `"cf-worker" in hdr` alone fired the
+            # marker for every Cloudflare-fronted site, regardless of
+            # length or `cf-ray`. Parenthesised explicitly.
+            _hdr_lower = str(r.headers).lower()
             worker_marker = (
-                "cf-worker" in str(r.headers).lower() or
-                "cf-ray" in str(r.headers).lower() and len(r.text) < 5000
+                ("cf-worker" in _hdr_lower)
+                or ("cf-ray" in _hdr_lower and len(r.text) < 5000)
             )
             if worker_marker:
                 findings.append(Finding(

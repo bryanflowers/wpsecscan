@@ -66,7 +66,13 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
 
     # ---- #58 test-key leak in production HTML ----
     home = await client.get("/")
-    checkout = await client.get("/checkout/") or await client.get("/cart/")
+    # v2.8.5 H9 — pre-fix `await c.get(A) or await c.get(B)` never
+    # probed `/cart/`: httpx.Response is always truthy (even on 404),
+    # so `or` short-circuits the second await. Split explicitly so a
+    # non-OK /checkout/ falls through to /cart/.
+    checkout = await client.get("/checkout/")
+    if checkout is None or checkout.status_code >= 400:
+        checkout = await client.get("/cart/")
     bodies = [(home.text or "") if home else "", (checkout.text or "") if checkout else ""]
     for body in bodies:
         for r in TEST_KEY_RES:
