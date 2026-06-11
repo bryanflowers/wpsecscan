@@ -7,15 +7,156 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Rolled to v2.9.0 via the v2.8.4 stuck-rule:
+Rolled to v2.9.0 via the v2.8.5 stuck-rule:
 - **GUI M10/M11/L1/L4/L5/L9** — Tk-interactive polish items (mkdir
   blocking, mark_wizard_seen ordering, Windows ACL via icacls, trend
   rename fallback, proxy lock during scan, background report writes).
 - **Branch protection on `main`** — needs admin click in repo settings.
-- **9 Dependabot PRs** (#10–#18) — pre-existing CI failures on Python
-  3.10/3.11 need triage independent of release flow.
+- **Full `rich` 13 → 15 upgrade** — deserves its own evaluation cycle.
+- **pytest-cov install + coverage census** — defer with a proper
+  coverage-target ramp plan.
+- **Mobile API docs on wpsecscan.com** — defer to website batch.
+- **8 CodeQL lower-severity items** — 5 unused module-level globals
+  + 3 multiple-definition dead-assignments. Touch when those modules
+  are otherwise revisited.
 
 Plus the v2.8.3 / v2.8.2 carry-overs.
+
+## [v2.8.5] — 2026-06-11
+
+Bug-fix + CI repair + ops-cleanup release. Post-v2.8.4 3-agent
+audit found **3 Critical**, **10 High**, **7 Medium** bugs, a
+Python 3.10/3.11 CI break that was blocking 9 Dependabot PRs, and
+a small ops backlog (CHANGELOG dup headers, README/FEATURES drift).
+All addressed. Pure quality release — no new feature surface.
+
+### Critical (3)
+
+- **C1** `gui._save_pref` lazy lock had a TOCTOU race: two threads
+  could both observe `getattr(self, "_pref_save_lock", None)` as
+  None, each create a different lock, and the serialisation
+  guarantee evaporated → prefs.json corruption on concurrent
+  writes. Hoisted to module-level `_PREF_SAVE_LOCK`.
+- **C2** `scanner.scan` `parallel_groups` mode never applied the
+  `waf_block_streak` update inside the parallel `asyncio.gather`
+  batch — B4 WAF auto-skip was silently broken for every
+  parallel-mode run. Now applied per-result inside the parallel
+  loop with the same logic as the sequential branch.
+- **C3** `history.save_report_snapshot` wrote canonical `.json`
+  THEN `.json.sig` as two bare `write_text` calls; SIGTERM between
+  them left a snapshot without a sig, and `verify_snapshot`
+  reported it as tampered. Reordered to write `.sig` first
+  (atomically), then `.json` (atomically), so a partial state
+  fails-closed without false-tamper.
+
+### High (10)
+
+- **H4 mobile_api** — per-finding endpoint `/api/report/<host>/
+  findings/<idx>` was unreachable dead code. The parent
+  `/api/report/<host>` branch caught everything matching the
+  prefix and returned first. Reordered.
+- **H5 mobile_api** — `do_OPTIONS` returned 204 + CORS headers for
+  ALL paths (even `/`). Now scoped to `/api/*` only; `/` and other
+  paths get 404 with no CORS noise.
+- **H6 mobile_api** — `POST /api/scan` spawned an unbounded
+  `threading.Thread` per valid request, a self-DoS vector for any
+  token-holder. Added `_SCAN_SEMAPHORE = threading.Semaphore(3)`
+  + non-blocking acquire → 429 on exhaustion + release in
+  `_bg_scan` finally.
+- **H7 mobile_api** — per-finding endpoint's path-traversal guard
+  was strictly weaker than the parent endpoint's (no null-byte
+  check, no `Path(raw).name != raw` round-trip). Aligned to the
+  full guard set.
+- **H8 cdn_edge_audit** — operator precedence bug. The pre-fix
+  `"cf-worker" in hdr or "cf-ray" in hdr and len < 5000` parsed
+  as `"cf-worker" in hdr or ("cf-ray" in hdr and len < 5000)`, so
+  every Cloudflare-fronted site tripped the marker on `cf-worker`
+  alone. Parenthesised explicitly.
+- **H9 payment_commerce_deep** — `await c.get("/checkout/") or
+  await c.get("/cart/")` never probed `/cart/` because
+  `httpx.Response` is always truthy (even on 404). Split into
+  explicit if-fallthrough on `status_code >= 400`.
+- **H10 a11y_deep** — walrus comprehension re-ran `ALT_RE.search`
+  twice per `<img>` and leaked `m` into the outer scope. Single
+  walrus + rename to `_m_alt`.
+- **H11 sites.py** — `_save` was a bare `p.write_text(...)`,
+  truncating sites.json to 0 bytes on power loss between truncate
+  and write. Atomic temp+rename via `os.replace`.
+- **H12 creds_vault** — `_fallback_set`/`_fallback_delete` did
+  read→modify→save without locking, racing concurrent vault
+  writes. Added module-level `_VAULT_LOCK`.
+- **H-gui-PhotoImage + H-gui-QRtoken** (GUI) — Tk's
+  `PhotoImage(data=...)` requires base64-encoded data not raw PNG
+  bytes; QR rendered blank. AND the QR URL embedded
+  `?token=...`, putting the shared secret in browser history +
+  any upstream proxy logs. Fixed both: QR encodes URL only, token
+  shown separately with its own "Copy Token" button, image data
+  is base64.
+
+### Medium (7)
+
+- **M1 scanner** — caller-supplied `is_paused()` was not
+  exception-guarded (unlike `on_progress`); a raise inside the
+  callback aborted the entire scan. Wrapped with `_paused_safe`.
+- **M2 graphql_dos** — `body.count('"a')` matched any JSON key
+  starting with "a" (`"address"`, `"available"`, …), inflating
+  alias_hits. Replaced with `re.findall(r'"a\d+"\s*:', body)`.
+- **M3 saml_xsw** — status filter accepted 405 as evidence of a
+  SAML endpoint; generic 405 routers can carry default bodies
+  that mention "saml". Restricted to `(200, 302)`.
+- **M4 org_dashboard** — `_latest_per_url` globbed `*.json`,
+  pulling in canonical aliases like `latest.json`. Restricted to
+  `*-*.json` (the `<host>-<timestamp>.json` shape).
+- **M5 dns_security** — `_txt` had no concurrency cap; a wide
+  subdomain sweep span'd 100+ nslookup/dig subprocesses. Added
+  `_TXT_SEMAPHORE = asyncio.Semaphore(4)`.
+- **M6 subdomains** — takeover-probe `gather(..., return_
+  exceptions=False)` propagated the first transient DNS failure
+  and dropped all 24 partial results. Switched to `True` + filter.
+- **M7 exec_pdf / auditor_pdf / attestation** — `_html.escape(
+  report.scanned_at)` crashes with TypeError when `scanned_at`
+  is None. Wrapped with `or ""` at all 6 sites.
+
+### Python 3.10/3.11 CI repair
+
+`reporters/gdpr_dsr_report.py:74` had `f"{title.replace('|',
+'\\|')} |"` — a backslash inside an f-string expression. PEP 701
+lifted the restriction in 3.12, but on 3.10/3.11 this is a
+SyntaxError at import time, crashing the entire matrix leg and
+blocking 9 Dependabot PRs. Hoisted the pipe-escape into a local
+before the f-string.
+
+### Test cleanup
+
+- **9 py/call-to-non-callable CodeQL alerts** in
+  `tests/test_round_64.py` resolved by switching `import
+  X.Y.Z as m` → `from X.Y import Z as m` (the runtime function
+  attribute shadow is now visible to static analysis too).
+- **pytest-asyncio deprecation** silenced via
+  `asyncio_default_fixture_loop_scope = "function"` in pyproject.
+- **+17 regression tests** in `tests/test_v285_phase1_regressions.py`
+  covering every Phase 1-5 fix.
+
+### Phase 7 — Ops cleanup
+
+- CHANGELOG.md: two pairs of duplicate `## [v2.8.X]` headers
+  (v2.8.1 + v2.8.2) demoted to `### Deferred from v2.8.X to v2.9.0`
+  subsections of the preceding actual-release block. No content
+  lost.
+- README.md + FEATURES.md: added v2.8.4 mobile-API / GUI Phase 4 /
+  CodeQL highlights, plus v2.8.5 bug-fix summary.
+- Local dev venv pip 26.1.1 → 26.1.2 (PYSEC-2026-196 advisory; not
+  user-facing).
+
+### Phase 8 — CodeQL polish (minimal)
+
+- `tailwind_css_comment_leak.py` regex had a duplicate
+  backslash in a character class — collapsed to one
+  (`py/regex/duplicate-in-character-class`).
+- `ai_triage._clamp01` NaN check `f != f` → `math.isnan(f)`
+  (`py/comparison-of-identical-expressions`).
+
+1114 tests pass (+17). 2 skipped (POSIX-only symlink tests).
 
 ## [v2.8.4] — 2026-06-10
 
