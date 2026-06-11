@@ -517,11 +517,14 @@ def _clamp_unit(value, *, default: float = 0.0) -> float:
     site that ingests a probability/score from the LLM so a
     jailbroken response can't push fp_prob=1.0 (auto-hide ALL
     findings) or a negative score (sort everything to the front)."""
+    import math as _math
     try:
         f = float(value)
     except (TypeError, ValueError):
         return default
-    if f != f:  # NaN
+    # v2.8.5 Phase 8 — math.isnan(f) is the canonical NaN check;
+    # `f != f` worked but tripped CodeQL py/comparison-of-identical-expressions.
+    if _math.isnan(f):
         return default
     return max(0.0, min(1.0, f))
 

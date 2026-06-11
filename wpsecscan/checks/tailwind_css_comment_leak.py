@@ -15,7 +15,9 @@ from ..models import Finding
 
 # Patterns we want to find INSIDE CSS comments
 _LEAK_PATTERNS = (
-    (re.compile(r"[A-Z]:\\\\[Uu]sers\\\\[A-Za-z0-9._\\\\-]+"), "Windows user-path"),
+    # v2.8.5 Phase 8 — character class had `\\\\` (two backslashes) which
+    # de-duped silently; CodeQL py/regex/duplicate-in-character-class.
+    (re.compile(r"[A-Z]:\\\\[Uu]sers\\\\[A-Za-z0-9._\\-]+"), "Windows user-path"),
     (re.compile(r"/home/[a-z][a-z0-9_-]+/[^\s\"]*"), "Linux home-path"),
     (re.compile(r"/Users/[A-Za-z][A-Za-z0-9._-]+/[^\s\"]*"), "macOS home-path"),
     (re.compile(r"localhost:\d{4,5}"), "localhost dev port"),
