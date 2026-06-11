@@ -61,7 +61,13 @@ def _ctx(**kw):
 
 
 def test_ai_prompt_injection_passive_fires_on_known_plugin():
-    import wpsecscan.checks.ai_prompt_injection_passive as m
+    # v2.8.5 Phase 6.1 — `from .. import X as m` resolves to the
+    # check-function attribute that wpsecscan.checks.__init__ rebinds,
+    # which CodeQL sees as callable. The pre-fix
+    # `import wpsecscan.checks.X as m` form is statically a module
+    # import; the runtime shadow is invisible to CodeQL and gets
+    # flagged py/call-to-non-callable. Same fix applied to the rest.
+    from wpsecscan.checks import ai_prompt_injection_passive as m
     responses = {
         ("GET", "/wp-content/plugins/ai-engine/readme.txt"): _FakeResponse(200, "=== AI Engine ===\n" + "x" * 100),
         ("POST", "/wp-json/ai-engine/v1/chat"): _FakeResponse(200, "Hello world reply over twenty characters long for the heuristic to fire"),
@@ -72,7 +78,7 @@ def test_ai_prompt_injection_passive_fires_on_known_plugin():
 
 
 def test_env_file_enum_fires_on_aws_key():
-    import wpsecscan.checks.env_file_enum as m
+    from wpsecscan.checks import env_file_enum as m
     body = "AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\nDB_PASSWORD=supersecret\nFOO=bar\n"
     responses = {("GET", "/.env"): _FakeResponse(200, body)}
     findings = _run(m(_FakeClient(responses, default=_FakeResponse(404)), _ctx()))
@@ -80,7 +86,7 @@ def test_env_file_enum_fires_on_aws_key():
 
 
 def test_cryptominer_detects_coinhive_pattern():
-    import wpsecscan.checks.cryptominer_js_injection as m
+    from wpsecscan.checks import cryptominer_js_injection as m
     body = '<script src="https://coinhive.min.js"></script>'
     responses = {("GET", "/"): _FakeResponse(200, body)}
     findings = _run(m(_FakeClient(responses, default=_FakeResponse(404)), _ctx()))
@@ -88,7 +94,7 @@ def test_cryptominer_detects_coinhive_pattern():
 
 
 def test_composer_lock_audit_detects_known_vuln_guzzle():
-    import wpsecscan.checks.composer_lock_audit as m
+    from wpsecscan.checks import composer_lock_audit as m
     lock = json.dumps({
         "_format": "composer-lock-test",
         "content-hash": "abc",
@@ -103,14 +109,14 @@ def test_composer_lock_audit_detects_known_vuln_guzzle():
 
 
 def test_plugin_typosquat_detection_fires_on_close_match():
-    import wpsecscan.checks.plugin_typosquat_detection as m
+    from wpsecscan.checks import plugin_typosquat_detection as m
     # 'yost-seo' is Levenshtein 1 from 'yoast-seo'
     findings = _run(m(_FakeClient(), _ctx(shared={"plugins": ["yost-seo"]})))
     assert any("typosquat" in f.title.lower() for f in findings)
 
 
 def test_webhook_url_fingerprint_flags_discord():
-    import wpsecscan.checks.webhook_url_fingerprint as m
+    from wpsecscan.checks import webhook_url_fingerprint as m
     body = json.dumps({"webhooks": [{"option_key": "my_setting", "url": "https://discord.com/api/webhooks/123/abc"}]})
     responses = {("GET", "/wp-json/wpsecscan-companion/v1/webhooks"): _FakeResponse(200, body)}
     findings = _run(m(_FakeClient(responses, default=_FakeResponse(404)), _ctx()))
@@ -118,7 +124,7 @@ def test_webhook_url_fingerprint_flags_discord():
 
 
 def test_git_dir_deep_scan_fires_on_head():
-    import wpsecscan.checks.git_dir_deep_scan as m
+    from wpsecscan.checks import git_dir_deep_scan as m
     responses = {("GET", "/.git/HEAD"): _FakeResponse(200, "ref: refs/heads/main\n")}
     findings = _run(m(_FakeClient(responses, default=_FakeResponse(404)), _ctx()))
     assert any(".git" in f.title for f in findings)
@@ -129,7 +135,7 @@ def test_git_dir_deep_scan_fires_on_head():
 # ============================================================
 
 def test_payment_gateway_test_keys_detects_stripe_secret():
-    import wpsecscan.checks.payment_gateway_test_keys as m
+    from wpsecscan.checks import payment_gateway_test_keys as m
     # Synthetic key that matches the sk_test_<24+ alnum> pattern but is not
     # a real Stripe key (GH secret scanning blocks committed real test keys).
     # Build the key at runtime so the literal doesn't appear in this file.
@@ -141,7 +147,7 @@ def test_payment_gateway_test_keys_detects_stripe_secret():
 
 
 def test_wallet_seed_phrase_leak_detects_bip39():
-    import wpsecscan.checks.wallet_seed_phrase_leak as m
+    from wpsecscan.checks import wallet_seed_phrase_leak as m
     seed = "abandon ability able about above absent absorb abstract absurd abuse access accident"
     body = f"# .env backup\nSEED={seed}\n"
     responses = {("GET", "/.env"): _FakeResponse(200, body)}

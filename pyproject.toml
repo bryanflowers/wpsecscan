@@ -135,6 +135,12 @@ wpsecscan = ["data/*.json", "data/*.j2", "data/*.txt"]
 minversion = "7.0"
 testpaths = ["tests"]
 addopts = "-ra"
+# v2.8.5 Phase 6.2 — silence pytest-asyncio's "unset
+# asyncio_default_fixture_loop_scope" DeprecationWarning that has
+# been spamming every test run since pytest-asyncio 0.23. The
+# scope only matters for shared async fixtures (which we don't
+# have); "function" is the historical default and the safest pick.
+asyncio_default_fixture_loop_scope = "function"
 filterwarnings = [
     "ignore::DeprecationWarning:ssl",
     "ignore::DeprecationWarning:wpsecscan.checks.tls_protocol_audit",
