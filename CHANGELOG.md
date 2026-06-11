@@ -253,7 +253,8 @@ AI helper (F71, surfaced via `wpsecscan ai waf-rule`):
 
 1066 tests pass.
 
-## [v2.8.2] — 2026-05-31
+### Deferred from v2.8.3 to v2.9.0
+
 - **GUI U#11** (tree empty-state callout) — Treeview empty-state
   painting is non-trivial in Tk; deferred.
 - **GUI U#13** (open prior HTML report from scan-history rows) —
@@ -262,7 +263,7 @@ AI helper (F71, surfaced via `wpsecscan ai waf-rule`):
   callers (cli_extras.py, mobile_v27.py) — existing callers use
   `load_home_json` with a different shape; full refactor scoped to v2.9.0.
 
-Plus the v2.8.1 carryovers (still applicable):
+Plus the v2.8.1 carryovers (still applicable; see v2.8.1's tail).
 
 ## [v2.8.2] — 2026-05-31
 
@@ -361,7 +362,7 @@ context-menu equivalent), U#11 (empty-state Treeview painting), U#13
 
 1005 tests pass.
 
-## [v2.8.1] — 2026-05-31
+### Deferred from v2.8.2 to v2.9.0
 See `.claude/plans/v2.9.0.md` for the full queue.
 
 - **GUI U27** — toolbar tab-order audit

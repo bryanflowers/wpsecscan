@@ -212,6 +212,19 @@ wpsecscan check disable wpgraphql        # skip a check on future scans
 wpsecscan benchmark https://example.com  # time each check individually
 wpsecscan export-config                  # show effective merged config
 wpsecscan compare-pypi-version           # is the installed version current?
+
+# v2.8.4 — mobile API + GUI Phase 4
+wpsecscan-mobile-api                     # PWA backend + GUI launcher with QR enrol
+# In the GUI: File menu → Push to… / Export As… / AI (16 push, 14 export, 6 AI subs)
+# Right-click a finding for "Push to…" / "AI explain" / "Export As…" context items.
+# +31 tests, CodeQL Python SAST workflow added.
+
+# v2.8.5 — bug-fix + CI repair release
+# 3 Critical (gui _save_pref lock TOCTOU race, scanner parallel-groups WAF streak,
+# history .json/.sig atomic ordering), 10 High (mobile_api dead /findings/ branch,
+# do_OPTIONS scope, POST /api/scan rate-limit, QR-URL token leak, PhotoImage base64,
+# cdn_edge_audit precedence, payment_commerce or-await, a11y walrus, sites atomic,
+# creds_vault RMW), 7 Medium, 1 syntax-fix (3.10/3.11 CI green), +17 regression tests.
 ```
 
 ---

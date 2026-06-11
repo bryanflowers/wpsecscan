@@ -6,6 +6,29 @@ For install instructions, see [README.md](README.md).
 
 ---
 
+## v2.8.4 + v2.8.5 highlights
+
+- **Mobile API** (v2.8.4): `wpsecscan-mobile-api` exposes a PWA
+  backend with token-authenticated REST endpoints — `POST /api/scan`
+  to trigger scans from a phone, per-finding detail endpoint, GUI
+  launcher with QR-code enrollment.
+- **GUI Phase 4** (v2.8.4): File → Push to… (16 destinations) and
+  File → Export As… (14 formats) submenus enumerate the CLI dispatch
+  tables; AI menu surfaces 6 helpers; right-click a finding for
+  per-finding push / AI explain / export.
+- **CodeQL Python SAST** (v2.8.4): added to CI; +31 tests.
+- **v2.8.5 quality release**: 3 Critical bugs (gui `_save_pref`
+  lock TOCTOU race, scanner parallel-groups WAF streak, history
+  `.json`/`.sig` atomic ordering), 10 High (mobile_api `/findings/`
+  dead-code branch, `do_OPTIONS` scope, `POST /api/scan` rate-limit,
+  QR-URL token leak, `PhotoImage` base64 encoding, cdn_edge_audit
+  operator precedence, payment_commerce `or await`, a11y_deep walrus
+  double-call, sites.json atomic write, creds_vault RMW lock),
+  7 Medium, 1 syntax fix (3.10/3.11 CI green again), +17 regression
+  tests.
+
+---
+
 ## Round-66 — second forward-audit (66 items) + deferred GUI items → v2.4.0
 
 Tests: **665 → 667 passing**. Checks: **216 → 226**. First PyPI release:
