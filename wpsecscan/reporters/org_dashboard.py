@@ -35,7 +35,10 @@ def _latest_per_url() -> dict[str, dict]:
     by_url: dict[str, dict] = {}
     if not reports_dir.exists():
         return {}
-    for p in sorted(reports_dir.glob("*.json")):
+    # v2.8.5 M4 — pre-fix glob("*.json") included canonical aliases
+    # like `latest.json` and any malformed sidecar. Restrict to the
+    # `<host>-<timestamp>.json` shape used by history snapshots.
+    for p in sorted(reports_dir.glob("*-*.json")):
         try:
             d = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, ValueError):

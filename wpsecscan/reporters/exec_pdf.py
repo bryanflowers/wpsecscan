@@ -69,7 +69,7 @@ def _render_pdf_reportlab(report: ScanReport, path: Path) -> None:
     flow: list = []
     flow.append(Paragraph("WPSecScan Executive Summary", title))
     flow.append(Paragraph(f"<b>Target:</b> {_html.escape(report.target)}", body))
-    flow.append(Paragraph(f"<b>Scanned:</b> {_html.escape(report.scanned_at)}", body))
+    flow.append(Paragraph(f"<b>Scanned:</b> {_html.escape(report.scanned_at or "")}", body))
     flow.append(Spacer(1, 0.15 * inch))
 
     flow.append(Paragraph(f"{score}/100", score_para))
@@ -304,7 +304,7 @@ def _render_pdf_html_fallback(report: ScanReport, path: Path) -> None:
 For a true PDF export, install reportlab (<code>pip install reportlab</code>) and re-run.</div>
 <h1>WPSecScan Executive Summary</h1>
 <div class="meta"><b>Target:</b> {_html.escape(report.target)} &nbsp;·&nbsp;
-<b>Scanned:</b> {_html.escape(report.scanned_at)}</div>
+<b>Scanned:</b> {_html.escape(report.scanned_at or "")}</div>
 
 <div class="score">{score}/100</div>
 <div class="grade">Grade {risk_grade(score)} — {risk_label(score)}</div>

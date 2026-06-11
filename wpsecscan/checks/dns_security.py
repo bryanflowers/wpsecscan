@@ -154,8 +154,15 @@ def _resolve_txt(name: str) -> list[str]:
     return []
 
 
+# v2.8.5 M5 — pre-fix every TXT lookup span'd an unbounded subprocess
+# (nslookup/dig) via to_thread; a wide subdomain sweep could spawn 100+
+# concurrently and exhaust file handles + thread-pool slots.
+_TXT_SEMAPHORE = asyncio.Semaphore(4)
+
+
 async def _txt(name: str) -> list[str]:
-    return await asyncio.to_thread(_resolve_txt, name)
+    async with _TXT_SEMAPHORE:
+        return await asyncio.to_thread(_resolve_txt, name)
 
 
 async def check(client: Client, ctx: dict) -> list[Finding]:

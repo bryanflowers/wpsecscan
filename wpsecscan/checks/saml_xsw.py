@@ -31,7 +31,11 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         r = await client.get(path)
         if r is None:
             continue
-        if r.status_code in (200, 302, 405) and r.content:
+        # v2.8.5 M3 — pre-fix accepted 405 as evidence of a SAML endpoint,
+        # but a generic 405 from any router can carry a default body that
+        # happens to mention "saml" (e.g. a help page). Restrict to the
+        # two status codes a real SAML ACS legitimately serves.
+        if r.status_code in (200, 302) and r.content:
             body_lc = (r.text or "")[:5000].lower()
             if any(m in body_lc for m in ("saml", "shibboleth", "assertionconsumer", "audience restriction")):
                 reachable.append((path, r.status_code))

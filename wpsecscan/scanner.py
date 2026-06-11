@@ -332,7 +332,17 @@ async def scan(
                     if is_cancelled and is_cancelled():
                         break
                     # #51: block here when paused.
-                    while is_paused and is_paused():
+                    # v2.8.5 M1 — pre-fix a raise inside the caller-supplied
+                    # is_paused() aborted the entire scan. Guard with the
+                    # same try/except discipline as on_progress.
+                    def _paused_safe():
+                        if not is_paused:
+                            return False
+                        try:
+                            return bool(is_paused())
+                        except Exception:
+                            return False
+                    while _paused_safe():
                         if is_cancelled and is_cancelled():
                             break
                         await asyncio.sleep(0.5)
@@ -364,7 +374,15 @@ async def scan(
                     if is_cancelled and is_cancelled():
                         break
                     # #51: block here when paused (mirrors the parallel-group site above).
-                    while is_paused and is_paused():
+                    # v2.8.5 M1 — same try/except guard.
+                    def _paused_safe_seq():
+                        if not is_paused:
+                            return False
+                        try:
+                            return bool(is_paused())
+                        except Exception:
+                            return False
+                    while _paused_safe_seq():
                         if is_cancelled and is_cancelled():
                             break
                         await asyncio.sleep(0.5)

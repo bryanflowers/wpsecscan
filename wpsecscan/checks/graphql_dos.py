@@ -11,7 +11,13 @@ Only runs when /graphql or /index.php?graphql exists.
 """
 from __future__ import annotations
 
+import re
 import time
+
+# v2.8.5 M2 — `body.count('"a')` matched any JSON key starting with
+# the letter 'a' (e.g. "address", "available"), inflating alias_hits.
+# Tight regex matches only the actual aN alias pattern emitted above.
+_ALIAS_KEY_RE = re.compile(r'"a\d+"\s*:')
 
 from ..http import Client
 from ..models import Finding
@@ -70,7 +76,7 @@ async def _alias_probe(client: Client, ctx: dict, gql_path: str, step) -> list[F
         return findings
 
     body = r2.text or ""
-    alias_hits = body.count('"a')  # crude but reliable for `"a0":, "a1":` etc.
+    alias_hits = len(_ALIAS_KEY_RE.findall(body))
     cost_ratio = aliased_ms / max(baseline_ms, 1.0)
 
     if alias_hits >= ALIAS_COUNT // 2 and cost_ratio > 2.0:

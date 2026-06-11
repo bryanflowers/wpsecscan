@@ -116,7 +116,7 @@ def _render_pdf_reportlab(report: ScanReport, path: Path) -> None:
     flow: list = []
     flow.append(Paragraph("WPSecScan Auditor Report", title_s))
     flow.append(Paragraph(f"<b>Target:</b> {_html.escape(report.target)}", body_s))
-    flow.append(Paragraph(f"<b>Scanned:</b> {_html.escape(report.scanned_at)}", body_s))
+    flow.append(Paragraph(f"<b>Scanned:</b> {_html.escape(report.scanned_at or "")}", body_s))
     flow.append(Paragraph(
         f"<b>Risk score:</b> {report.risk_score}/100 · "
         f"<b>Total findings:</b> {len(report.all_findings)}",
@@ -285,7 +285,7 @@ def _render_html_fallback(report: ScanReport, path: Path) -> None:
 <div class="noprint">Tip: open in browser and <b>Print → Save as PDF</b>. For a true PDF, install reportlab (<code>pip install wpsecscan[pdf]</code>).</div>
 <h1>WPSecScan Auditor Report</h1>
 <p><b>Target:</b> {_html.escape(report.target)}<br>
-<b>Scanned:</b> {_html.escape(report.scanned_at)}<br>
+<b>Scanned:</b> {_html.escape(report.scanned_at or "")}<br>
 <b>Risk score:</b> {report.risk_score}/100 · <b>Findings:</b> {len(report.all_findings)}</p>
 <h2>Severity counts</h2>
 <div class="summary">

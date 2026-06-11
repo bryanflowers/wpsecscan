@@ -74,7 +74,7 @@ the full report is retained internally by <b>{_html.escape(vendor)}</b>.
 
 <h2>Scope</h2>
 <div class="body">Target: <code>{_html.escape(report.target)}</code><br>
-Scan timestamp (UTC): <code>{_html.escape(report.scanned_at)}</code><br>
+Scan timestamp (UTC): <code>{_html.escape(report.scanned_at or "")}</code><br>
 Scan duration: {report.duration_ms} ms</div>
 
 <h2>Summary</h2>
@@ -131,7 +131,7 @@ def _reportlab_pdf(report: ScanReport, path: Path, *, vendor: str, customer: str
             f"by <b>{_html.escape(vendor)}</b>.", body),
         Paragraph("Scope", h2),
         Paragraph(f"Target: <code>{_html.escape(report.target)}</code><br/>"
-                  f"Scan timestamp (UTC): <code>{_html.escape(report.scanned_at)}</code><br/>"
+                  f"Scan timestamp (UTC): <code>{_html.escape(report.scanned_at or "")}</code><br/>"
                   f"Scan duration: {report.duration_ms} ms", body),
         Paragraph("Summary", h2),
     ]

@@ -229,8 +229,15 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         # Parallel probes — bounded to 25 by the slice. asyncio.gather lets the
         # event loop overlap DNS + HTTP across hosts instead of serializing.
         probes = [_probe(sub, probe_client) for sub in subs[:25]]
-        results = await asyncio.gather(*probes, return_exceptions=False)
-        takeover_candidates = [r for r in results if r is not None]
+        # v2.8.5 M6 — pre-fix return_exceptions=False propagated the
+        # first failed probe and dropped all 24 partial results; one
+        # transient DNS error killed the whole takeover sweep. Now
+        # exceptions become per-probe `None`s and we filter them out.
+        results = await asyncio.gather(*probes, return_exceptions=True)
+        takeover_candidates = [
+            r for r in results
+            if r is not None and not isinstance(r, BaseException)
+        ]
 
     # B7: cookie-tossing chain — if the main site sets cookies on `.target.com`
     # (apex domain) AND we have a takeover candidate, an attacker can register
