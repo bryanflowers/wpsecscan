@@ -167,13 +167,20 @@ def save_report_snapshot(url: str, report_json_text: str) -> None:
         # the process was killed between the two writes, making
         # `wpsecscan compare` inconsistent.
         snap_path = d / f"{safe}-{ts}.json"
-        snap_path.write_text(report_json_text, encoding="utf-8")
-        # #62 — sign the snapshot.
+        # v2.8.5 C3 — write the .sig FIRST + then atomically promote
+        # the .json snapshot. Pre-fix both writes were bare write_text
+        # calls in sequence; SIGTERM between them left a `.json` with
+        # no `.sig`, which downstream `verify_snapshot` mistakenly
+        # reported as "no signature file" (looking like tampering).
+        # Order: pre-compute sig, write sig first, then atomic-rename
+        # the canonical .json so the snapshot only "exists" after both
+        # files are on disk.
         secret = _snapshot_signing_secret()
         sig = _hmac.new(secret.encode("utf-8"),
                           report_json_text.encode("utf-8"), _h.sha256).hexdigest()
-        snap_path.with_suffix(".json.sig").write_text(f"sha256={sig}\n",
-                                                          encoding="utf-8")
+        sig_path = snap_path.with_suffix(".json.sig")
+        _atomic_write_text(sig_path, f"sha256={sig}\n")
+        _atomic_write_text(snap_path, report_json_text)
         # Atomic latest-pointer promotion.
         import os as _os
         latest = d / f"{safe}.json"

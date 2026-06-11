@@ -66,15 +66,27 @@ def test_hardware_keys_no_bare_primary_ctx_string():
 # ---------------------------------------------------------------------------
 
 def test_history_save_report_atomically_promotes_latest():
+    """v2.8.5 C3 — the snapshot ordering changed: `.sig` is written FIRST
+    via _atomic_write_text, then the canonical `.json` snapshot, then the
+    `latest` pointer is promoted via os.replace. Pre-v2.8.5 (and pre-C3)
+    both .json and .sig were bare write_text calls in sequence; SIGTERM
+    between them left a snapshot without a sig (verify_snapshot reported
+    as tampered). The assertion now verifies:
+      1. sig is written before the canonical .json snapshot
+      2. canonical .json is written before the latest pointer is promoted
+    """
     from wpsecscan import history
     src = inspect.getsource(history.save_report_snapshot)
-    # The new ordering: snap_path.write_text appears BEFORE the os.replace
-    # call that promotes "latest".
-    snap_pos = src.find("snap_path.write_text")
+    sig_write_pos = src.find("_atomic_write_text(sig_path")
+    snap_write_pos = src.find("_atomic_write_text(snap_path")
     latest_pos = src.find("_os.replace(latest_tmp, latest)")
-    assert snap_pos >= 0, "snap_path.write_text not found"
+    assert sig_write_pos >= 0, "sig atomic write not found"
+    assert snap_write_pos >= 0, "snap atomic write not found"
     assert latest_pos >= 0, "_os.replace(latest_tmp, latest) not found"
-    assert snap_pos < latest_pos, "snapshot must be written BEFORE latest is promoted"
+    assert sig_write_pos < snap_write_pos, \
+        "v2.8.5 C3 — .sig must be written BEFORE the canonical .json snapshot"
+    assert snap_write_pos < latest_pos, \
+        "snapshot .json must be written BEFORE latest pointer is promoted"
 
 
 # ---------------------------------------------------------------------------

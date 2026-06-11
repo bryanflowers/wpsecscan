@@ -345,6 +345,17 @@ async def scan(
                                                             error=f"{type(r).__name__}: {r}"))
                             else:
                                 results.append(r)
+                                # v2.8.5 C2 — apply the WAF-streak update
+                                # for parallel batches too. Pre-fix B4
+                                # auto-skip never fired in parallel_groups
+                                # mode because the streak was only updated
+                                # in the sequential per-check loop below.
+                                if (cid in AGGRESSIVE_IDS
+                                        and (ctx.get("shared", {}).get("waf") or [])):
+                                    if _looks_like_waf_block(r):
+                                        waf_block_streak += 1
+                                    else:
+                                        waf_block_streak = 0
                         _save_checkpoint(results)
                     continue
 

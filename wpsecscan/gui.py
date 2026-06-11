@@ -26,6 +26,12 @@ from .scanner import scan
 
 APP_NAME = "WPSecScan"
 
+# v2.8.5 C1 — module-level lock for _save_pref serialisation. Pre-fix
+# the lock was lazy-initialised on the instance via getattr/setattr,
+# allowing a TOCTOU race where two threads each created a different
+# Lock object and proceeded to write prefs.json without coordination.
+_PREF_SAVE_LOCK = threading.Lock()
+
 SEVERITY_ORDER = ("critical", "high", "medium", "low", "info")
 SEVERITY_COLOR = {
     "critical": "#ff5252",
@@ -3381,17 +3387,17 @@ class App:
     def _save_pref(self, key: str, value) -> None:
         """v2.8.4 H1 — atomic temp+rename write + threading.Lock so the
         800ms debounced geometry handler racing a theme save can't
-        corrupt prefs.json mid-write."""
+        corrupt prefs.json mid-write.
+
+        v2.8.5 C1 — lock hoisted to module-level (_PREF_SAVE_LOCK). The
+        prior instance-lazy init pattern was racy: two threads could
+        both observe `self._pref_save_lock` as None and each create a
+        different Lock instance, defeating serialisation.
+        """
         try:
             from . import history as _h
             import json as _j
-            # Lazy-create the serialisation lock on the instance.
-            lock = getattr(self, "_pref_save_lock", None)
-            if lock is None:
-                import threading as _th
-                lock = _th.Lock()
-                self._pref_save_lock = lock
-            with lock:
+            with _PREF_SAVE_LOCK:
                 p = Path(_h._home()) / "prefs.json"
                 blob = {}
                 if p.exists():
