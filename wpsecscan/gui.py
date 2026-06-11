@@ -2297,9 +2297,16 @@ class App:
         ttk.Label(frame, text=token, font=("Consolas", 10),
                    foreground=ACCENT, wraplength=480, justify="left").pack(anchor="w")
         # QR code if available.
+        # v2.8.5 H-gui-QRtoken — QR encodes only the BASE URL. The
+        # token is shown separately above as a copy-paste string and
+        # must be typed/pasted by the user into the PWA's auth box.
+        # Pre-fix `qr_url = f"{url}?token={token}"` put the shared
+        # secret in the browser address bar + history + any upstream
+        # proxy logs that intercepted the navigation.
         try:
+            import base64 as _b64
             import qrcode as _qr  # type: ignore[import-not-found]
-            qr_url = f"{url}?token={token}"
+            qr_url = url  # base URL only; user enters token in the PWA
             qr = _qr.QRCode(version=1, box_size=4, border=2)
             qr.add_data(qr_url)
             qr.make(fit=True)
@@ -2308,11 +2315,15 @@ class App:
             buf = _Bio()
             img.save(buf, format="PNG")
             buf.seek(0)
-            ph = _tk_mod.PhotoImage(data=buf.read())
+            # v2.8.5 H-gui-PhotoImage — Tk's PhotoImage(data=…) requires
+            # base64-encoded bytes (or a Tk format string), not raw PNG
+            # bytes. Pre-fix the QR code rendered blank or raised TclError.
+            ph = _tk_mod.PhotoImage(
+                data=_b64.b64encode(buf.read()).decode(), format="png")
             ph_label = _tk_mod.Label(frame, image=ph, bg=BG)
             ph_label.image = ph  # keep reference
             ph_label.pack(pady=(8, 8))
-            ttk.Label(frame, text="Scan this QR with your phone's camera.",
+            ttk.Label(frame, text="Scan QR with your phone, then enter the token above in the PWA.",
                        foreground=MUTED).pack(anchor="w")
         except ImportError:
             ttk.Label(frame, text="(Install `qrcode` for a scannable QR code.)",
@@ -2321,9 +2332,15 @@ class App:
         btns.pack(fill="x", pady=(8, 0))
         def _copy_url():
             self.root.clipboard_clear()
-            self.root.clipboard_append(f"{url}?token={token}")
-            self._toast("✓ URL+token copied to clipboard", duration_ms=4000)
+            self.root.clipboard_append(url)
+            self._toast("✓ URL copied (enter token separately in the PWA)",
+                          duration_ms=5000)
+        def _copy_token():
+            self.root.clipboard_clear()
+            self.root.clipboard_append(token)
+            self._toast("✓ Token copied to clipboard", duration_ms=4000)
         ttk.Button(btns, text="Copy URL", command=_copy_url).pack(side="left")
+        ttk.Button(btns, text="Copy Token", command=_copy_token).pack(side="left", padx=(6, 0))
         ttk.Button(btns, text="Close", command=win.destroy).pack(side="right")
 
     # ==========================================================================

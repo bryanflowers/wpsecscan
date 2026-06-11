@@ -31,10 +31,16 @@ from __future__ import annotations
 import json
 import os
 import sys
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
+
+# v2.8.5 H6 — bound concurrent POST /api/scan thread spawns. Pre-fix
+# every valid POST spawned an unbounded daemon thread; a flood of
+# authenticated POSTs could DoS the machine.
+_SCAN_SEMAPHORE = threading.Semaphore(3)
 
 
 def _home() -> Path:
@@ -295,6 +301,40 @@ class _Handler(BaseHTTPRequestHandler):
             if not self._check_auth():
                 self.send_response(401); self.end_headers(); return
             return self._send_json(_list_recent_reports())
+        # v2.8.5 H4 — per-finding detail endpoint MUST come BEFORE the
+        # plain /api/report/<host> branch. Pre-fix the /findings/ branch
+        # was unreachable dead code: every request matching the parent
+        # prefix was handled + returned by the parent branch first.
+        if "/findings/" in path and path.startswith("/api/report/"):
+            if not self._check_auth():
+                self.send_response(401); self.end_headers(); return
+            try:
+                rest = path.removeprefix("/api/report/")
+                host_part_raw, _, fid = rest.partition("/findings/")
+                host_part = unquote(host_part_raw)
+                idx = int(fid)
+            except (ValueError, AttributeError):
+                self._send_404(); return
+            # v2.8.5 H7 — full guard set (null-byte + Path.name round-trip)
+            # matching the /api/report/<host> branch below.
+            if (not host_part or "\\" in host_part or "/" in host_part
+                    or "\x00" in host_part or ".." in host_part):
+                self._send_404(); return
+            safe_host = Path(host_part).name
+            if not safe_host or safe_host.startswith(".") or safe_host != host_part:
+                self._send_404(); return
+            data = _read_one_report(safe_host)
+            if data is None:
+                self._send_404(); return
+            # Flatten findings; idx is across the report.
+            all_findings: list = []
+            for r in (data.get("results") or []):
+                for f in (r.get("findings") or []):
+                    all_findings.append({**f, "check_id": r.get("check_id"),
+                                          "check_name": r.get("check_name")})
+            if idx < 0 or idx >= len(all_findings):
+                self._send_404(); return
+            return self._send_json(all_findings[idx])
         if path.startswith("/api/report/"):
             if not self._check_auth():
                 self.send_response(401); self.end_headers(); return
@@ -317,38 +357,20 @@ class _Handler(BaseHTTPRequestHandler):
             if data is None:
                 self._send_404(); return
             return self._send_json(data)
-        # v2.8.4 P2 — per-finding detail endpoint.
-        # GET /api/report/<host>/findings/<idx> returns one finding's
-        # evidence + remediation extracted from the saved report.
-        if "/findings/" in path and path.startswith("/api/report/"):
-            if not self._check_auth():
-                self.send_response(401); self.end_headers(); return
-            try:
-                rest = path.removeprefix("/api/report/")
-                host_part, _, fid = rest.partition("/findings/")
-                idx = int(fid)
-            except (ValueError, AttributeError):
-                self._send_404(); return
-            if not host_part or "\\" in host_part or "/" in host_part or ".." in host_part:
-                self._send_404(); return
-            data = _read_one_report(host_part)
-            if data is None:
-                self._send_404(); return
-            # Flatten findings; idx is across the report.
-            all_findings: list = []
-            for r in (data.get("results") or []):
-                for f in (r.get("findings") or []):
-                    all_findings.append({**f, "check_id": r.get("check_id"),
-                                          "check_name": r.get("check_name")})
-            if idx < 0 or idx >= len(all_findings):
-                self._send_404(); return
-            return self._send_json(all_findings[idx])
         self._send_404()
 
     def do_OPTIONS(self):  # noqa: N802 — CORS preflight
         """v2.8.4 P4 — handle CORS preflight requests so the PWA can
         be embedded in a different-origin shell or accessed via a
-        reverse proxy."""
+        reverse proxy.
+
+        v2.8.5 H5 — only respond on `/api/*` paths. Pre-fix this
+        handler returned 204 + CORS headers for any URL, undermining
+        the CORS policy intent and confirming server presence to
+        unauth attackers.
+        """
+        if not self.path.startswith("/api/"):
+            self._send_404(); return
         self.send_response(204)
         self.send_header("Content-Length", "0")
         self.send_header("Access-Control-Allow-Origin", self._cors_origin())
@@ -384,6 +406,15 @@ class _Handler(BaseHTTPRequestHandler):
         if not target.startswith(("http://", "https://")):
             self._send_json(
                 {"error": "target must be a full http(s):// URL"}, code=400); return
+        # v2.8.5 H6 — bound concurrent scans with a module-level semaphore.
+        # Pre-fix every valid POST spawned a new daemon thread with no
+        # limit; an authenticated client (or attacker with the token)
+        # sending 100 rapid POSTs would spawn 100 concurrent scans,
+        # consuming memory + network bandwidth.
+        if not _SCAN_SEMAPHORE.acquire(blocking=False):
+            self._send_json(
+                {"error": "scan queue full; try again shortly"}, code=429)
+            return
         # Enqueue a scan via the existing scanner module. Run in a
         # daemon thread so the HTTP response isn't blocked.
         def _bg_scan():
@@ -400,6 +431,10 @@ class _Handler(BaseHTTPRequestHandler):
                 # Failures are best-effort visible only via the next
                 # /api/reports GET (which won't show the new report).
                 pass
+            finally:
+                # v2.8.5 H6 — always release the semaphore so a failed
+                # scan doesn't permanently consume a slot.
+                _SCAN_SEMAPHORE.release()
         import threading as _th
         _th.Thread(target=_bg_scan, daemon=True).start()
         return self._send_json({"queued": True, "target": target})
