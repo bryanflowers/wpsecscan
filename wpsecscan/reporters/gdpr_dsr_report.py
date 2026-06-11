@@ -69,9 +69,13 @@ def render(report: ScanReport) -> str:
     else:
         lines.append("| Check | Severity | PII categories | Title |")
         lines.append("|---|---|---|---|")
+        # v2.8.5 Phase 5 — Python 3.10/3.11 don't allow backslashes
+        # inside f-string expressions (PEP 701 lifted that in 3.12).
+        # Hoist the pipe-escape into a local before formatting.
         for cid, sev, title, cats in rows:
+            safe_title = title.replace("|", "\\|")
             lines.append(f"| `{cid}` | {sev} | {', '.join(cats)} | "
-                          f"{title.replace('|', '\\|')} |")
+                          f"{safe_title} |")
         lines.append("")
         lines.append("## Notes for SAR / DSR response")
         lines.append("")
