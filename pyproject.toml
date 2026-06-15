@@ -65,7 +65,7 @@ browser = ["playwright>=1.40,<2"]
 # Daemon mode YAML config
 yaml = ["pyyaml>=6.0,<7"]
 # Distributed CVE-DB cache + RBAC bcrypt hashing
-ops = ["redis>=5.0,<7", "bcrypt>=4.0,<5"]
+ops = ["redis>=5.0,<9", "bcrypt>=4.0,<6"]
 # Optional Pillow for GUI image rendering + pystray for minimize-to-tray (#56).
 # (keyring moved to default `dependencies` in v2.5.1 because the `wpsecscan
 # creds` CLI surface is no longer GUI-only.)
@@ -87,8 +87,8 @@ all = [
     "reportlab>=4.0,<5",
     "playwright>=1.40,<2",
     "pyyaml>=6.0,<7",
-    "redis>=5.0,<7",
-    "bcrypt>=4.0,<5",
+    "redis>=5.0,<9",
+    "bcrypt>=4.0,<6",
     "Pillow>=10,<12",
     "pystray>=0.19,<0.20",
     "keyring>=24,<26",
