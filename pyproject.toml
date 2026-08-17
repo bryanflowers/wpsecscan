@@ -3,7 +3,7 @@
 # Agent F F6 finding. A compromised `setuptools>=N` major release on
 # PyPI would run arbitrary code at build time in every `pip install`
 # from source; pinning bounds the supply-chain blast radius.
-requires = ["setuptools>=68,<82", "wheel<1"]
+requires = ["setuptools>=68,<85", "wheel<1"]
 build-backend = "setuptools.build_meta"
 
 [project]
