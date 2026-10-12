@@ -11,10 +11,17 @@ targets:
   - url: https://shop.example.com
     schedule: "0 */6 * * *"      # every 6 hours
     aggressive: true
+    owned: true                  # v2.9.0 W0b — you own / are authorised to test this host
     fail_on: critical
 out_dir: /var/log/wpsecscan
 webhook_url: https://hooks.slack.com/...
 ```
+
+`aggressive: true` only runs aggressive checks for a target when ownership
+consent resolves (v2.9.0 W0b): either `owned: true` on that target entry, the
+`WPSECSCAN_OWNED_TARGETS` env var, or the owned-targets file (`wpsecscan owned
+add <host>`). Without consent the scan is downgraded to passive, and the
+daemon logs one warning per such target at startup.
 
 Light implementation — no system service install, just `python -m wpsecscan
 --daemon config.yml &` and it loops. Cron parsed by a built-in mini-parser
@@ -102,6 +109,43 @@ def _load_config(path: Path) -> dict:
     )
 
 
+def _consent_for(t: dict) -> bool | None:
+    """v2.9.0 W0b — map a target's `owned:` key to scan()'s `consent` argument.
+
+    Only a literal `owned: true` grants consent; anything else returns None so
+    `scan()` falls back to the env / owned-targets-file resolution.
+    """
+    return True if t.get("owned") is True else None
+
+
+def _warn_unconsented_aggressive(targets: list, log=None) -> int:
+    """v2.9.0 W0b — one startup warning per target that asks for aggressive
+    mode without `owned: true` and without env / owned-file consent, so the
+    downgrade to passive is visible in the daemon log (not only in reports).
+
+    Returns the number of warnings emitted.
+    """
+    from wpsecscan.consent import has_consent, host_of
+    if log is None:
+        import sys as _sys
+
+        def log(msg: str) -> None:
+            print(msg, file=_sys.stderr)
+    n = 0
+    for t in targets:
+        if not isinstance(t, dict) or not t.get("aggressive"):
+            continue
+        if _consent_for(t) is True:
+            continue
+        url = t.get("url") or ""
+        if has_consent(url):
+            continue
+        log(f"[daemon] WARNING: target {host_of(url) or url}: aggressive requested "
+            f"without owned:true — will run passive")
+        n += 1
+    return n
+
+
 def _acquire_pid_file() -> Path | None:
     """v2.8.1 B35 — write a PID file at ~/.wpsecscan/daemon.pid with
     atomic O_CREAT|O_EXCL semantics. If the file already exists, probe
@@ -170,13 +214,16 @@ async def run_daemon(config_path: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     webhook_url = config.get("webhook_url") or ""
 
-    from .scanner import scan
-    from .reporters import json_out, html as html_reporter
+    # `from .scanner` resolved to wpsecscan.daemon.scanner (nonexistent) once
+    # this module moved into the daemon/ package — use absolute imports.
+    from wpsecscan.scanner import scan
+    from wpsecscan.reporters import json_out, html as html_reporter
     from wpsecscan import notify as _n
     from wpsecscan.history import _atomic_write_text as _atomic
 
     print(f"[daemon] loaded {len(targets)} target(s) from {config_path}")
     print(f"[daemon] output dir: {out_dir.resolve()}")
+    _warn_unconsented_aggressive(targets)
     print("[daemon] sleeping until next cron match...")
 
     # B5 (v2.8.0) — install SIGTERM/SIGHUP handlers so docker stop /
@@ -228,6 +275,7 @@ async def run_daemon(config_path: Path) -> None:
                     report = await scan(
                         url,
                         aggressive=bool(t.get("aggressive")),
+                        consent=_consent_for(t),
                         timeout=float(t.get("timeout") or 15.0),
                         concurrency=int(t.get("concurrency") or 10),
                     )

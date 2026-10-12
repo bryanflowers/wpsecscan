@@ -21,6 +21,7 @@ for _stream in (sys.stdout, sys.stderr):
 from rich.console import Console
 
 from . import __version__
+from . import consent as consent_mod
 from . import db as vulndb
 from . import diff as diff_mod
 from . import log as logmod
@@ -108,10 +109,52 @@ def _parse_since(s: str):
         return None
 
 
+def _resolve_scan_consent(target: str, args) -> bool | None:
+    """v2.9.0 W0b — consent value to hand to `scan()` for one target.
+
+    `True` when --owned was given or the operator types YES at the TTY prompt;
+    `None` otherwise (scan() then resolves env / owned-targets file and, with
+    no consent, downgrades aggressive to passive and records a `consent_gate`
+    finding). The prompt is shown only on an interactive terminal and never
+    under CI or when --yes is set.
+    """
+    if getattr(args, "owned", False):
+        return True
+    if not getattr(args, "aggressive", False):
+        return None
+    if consent_mod.has_consent(target):
+        return None
+    host = consent_mod.host_of(target) or target
+    interactive = (
+        sys.stdin.isatty() and sys.stdout.isatty()
+        and not getattr(args, "yes", False)
+        and not os.environ.get("CI")
+    )
+    if not interactive:
+        print(f"notice: --aggressive downgraded to passive for {host} — no ownership "
+              "consent recorded (use --owned, WPSECSCAN_OWNED_TARGETS, or "
+              f"`wpsecscan owned add {host}`).", file=sys.stderr)
+        return None
+    try:
+        answer = input(f"Aggressive checks will run against {host}. "
+                       "Type YES to confirm you own or are authorised to test it: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        answer = ""
+    if answer == "YES":
+        return True
+    print(f"notice: not confirmed — --aggressive downgraded to passive for {host}.",
+          file=sys.stderr)
+    return None
+
+
 async def _scan_one(target: str, args, console: Console):
     # Item #72 — hwkey gate. Runs first so we never start an aggressive
     # check before authorisation is confirmed; passthrough for passive scans.
     _check_aggressive_hwkey_gate(args)
+    # v2.9.0 W0b — ownership consent. --owned maps to consent=True; None keeps
+    # env / owned-targets-file resolution inside scan(). On an interactive
+    # terminal an aggressive run without recorded consent asks once.
+    scan_consent = _resolve_scan_consent(target, args)
     # Item #81 (v2.6.0) — --tldr suppresses console + reporters; the final
     # one-line tldr is printed at the end of _amain. Force the suppressing
     # flags here so downstream reporter selection doesn't fight us.
@@ -164,6 +207,7 @@ async def _scan_one(target: str, args, console: Console):
             wpscan_token=args.wpscan_token,
             hibp_token=args.hibp_token,
             aggressive=args.aggressive,
+            consent=scan_consent,
             prove=args.prove,
             deep_throttle=args.deep_throttle,
             deep_throttle_attempts=args.deep_throttle_attempts,
@@ -1159,7 +1203,7 @@ def main() -> None:
     # the user can immediately see what the dispatch key is.
     # v2.8.1 U1 — paginated/grouped --help. Subcommands are categorised by
     # the function they serve (scanning vs reporting vs integrations vs auth)
-    # so newcomers can find what they need without scanning all 60 entries.
+    # so newcomers can find what they need without scanning the whole list.
     _CATEGORY_FOR_NAME: dict[str, str] = {
         # Scanning
         "sites": "Scanning & scheduling", "schedule": "Scanning & scheduling",
@@ -1196,6 +1240,7 @@ def main() -> None:
         # Auth / credentials
         "creds": "Auth & credentials", "sso": "Auth & credentials",
         "hwkey": "Auth & credentials", "attest": "Auth & credentials",
+        "owned": "Auth & credentials",
         "verify-release": "Auth & credentials",
         # Compliance
         "compliance": "Compliance",
@@ -1280,6 +1325,10 @@ def main() -> None:
     p.add_argument("--deep-throttle-attempts", type=int, default=120, metavar="N", help="How many wrong-login attempts the deep throttle test sends (10-500, default 120). Multiply by --deep-throttle-pacing for total runtime.")
     p.add_argument("--deep-throttle-pacing", type=float, default=10.0, metavar="SECONDS", help="Seconds between deep-throttle attempts (5-60, default 10). Below 5s tends to trip network-layer fail2ban before HTTP-layer throttling shows.")
     p.add_argument("--aggressive", "-A", action="store_true", help="Enable active checks: SQLi, XSS, SSRF, path traversal, open redirect, upload probes, default-credentials probe (≤10 attempts).")
+    p.add_argument("--owned", action="store_true", help=(
+        "Confirm you own or are authorised to test the target. Without it, "
+        "--aggressive runs passive checks only (also: WPSECSCAN_OWNED_TARGETS=1 "
+        "or `wpsecscan owned add <host>`)"))
     p.add_argument("--prove", "-P", action="store_true", help=(
         "v2.8.2 U#8 — For each confirmed aggressive finding, run a "
         "READ-ONLY proof helper that extracts an evidence artifact "
@@ -1489,9 +1538,9 @@ def main() -> None:
                         "raw evidence + remediation + extra fields. Useful as legal/contractual "
                         "evidence. Uses reportlab when installed; HTML fallback otherwise.")
     p.add_argument("--soc2-attestation", action="store_true",
-                   help="#51: write a printable compliance-attestation matrix mapping every "
-                        "check that ran to its controls across 8 frameworks (PCI/NIST/ISO/NIST-CSF/"
-                        "CIS/HITRUST/CMMC).")
+                   help="#51: write a printable compliance-attestation matrix mapping each "
+                        "check that ran to its controls in the compliance frameworks mapped in "
+                        "the data files.")
     p.add_argument("--board-1pager", action="store_true",
                    help="#52: write a single-landscape-page board-room risk dashboard "
                         "(three big numbers, three sentences, three actions to ratify).")
@@ -1846,7 +1895,6 @@ def main() -> None:
     # Round-56 --demo short-circuit: synthetic scan, no HTTP, all artifacts.
     if getattr(args, "demo", False):
         from . import demo as _demo
-        from .reporters import console as console_reporter
         console = Console(no_color=args.no_color, legacy_windows=False)
         use_live = (not args.no_console
                     and not getattr(args, "no_live", False)
@@ -1983,6 +2031,7 @@ SUBCOMMAND_HELP: tuple[tuple[str, str], ...] = (
     ("creds",                "credential vault CRUD (add|get|list|rm|rotate|use, items #68/69/71)"),
     ("sso",                  "SAML / OIDC SSO configure for the daemon (item #70)"),
     ("hwkey",                "hwkey gate enable/disable/grant for --aggressive (item #72)"),
+    ("owned",                "owned add|remove|list — hosts you may run --aggressive against (v2.9.0)"),
     ("cron-schedule",        "POSIX-cron scheduled scans (add|list|rm|run, item #73)"),
     ("sla report URL",       "finding-level SLA tracker (item #74)"),
     ("import-pentest FILE",  "import Burp/ZAP project XML (item #76)"),
@@ -2028,8 +2077,30 @@ SUBCOMMAND_NAMES: tuple[str, ...] = tuple(
 )
 
 
+# v2.9.0 W2h — subcommands whose handlers have no -h/--help branch and treat it
+# as a positional (exit 64 + usage line). The router answers for them; every
+# other subcommand keeps printing its own help.
+_HELP_FALLBACK_CMDS: frozenset[str] = frozenset({
+    "ai-agent", "attest", "audio-summary", "badge", "changelog", "compare",
+    "compare-portfolios", "compliance", "diff-agency", "freeze", "learn",
+    "pr-status", "replay", "replay-prompt", "rotation", "submit-cve",
+    "tournament", "triage",
+})
+
+
+def _print_subcommand_help(cmd: str) -> None:
+    for usage, desc in SUBCOMMAND_HELP:
+        if usage.split()[0] == cmd:
+            print(f"Usage: wpsecscan {usage}\n  {desc}")
+            return
+    print(f"Usage: wpsecscan {cmd}")
+
+
 def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
     """Subcommand router (round-60 + round-61)."""
+    if cmd in _HELP_FALLBACK_CMDS and args and args[0] in ("-h", "--help"):
+        _print_subcommand_help(cmd)
+        return
     if cmd == "sites":
         _cmd_sites(args)
     elif cmd == "schedule":
@@ -2094,6 +2165,8 @@ def _dispatch_subcommand(cmd: str, args: list[str]) -> None:
         _cmd_sso(args)
     elif cmd == "hwkey":
         _cmd_hwkey(args)
+    elif cmd == "owned":
+        _cmd_owned(args)
     elif cmd == "cron-schedule":
         _cmd_cron_schedule(args)
     elif cmd == "sla":
@@ -2234,6 +2307,9 @@ def _cmd_kev(args: list[str]) -> None:
                          duration_ms=int(data.get("duration_ms", 0)), results=results)
     from . import kev as _kev
     kept = _kev.filter_findings_to_kev(report)
+    if kept is None:
+        print("[kev] KEV feed unavailable — no filtering applied", file=sys.stderr)
+        sys.exit(2)
     print(f"[kev] {kept} finding(s) match the current CISA KEV catalogue.")
     for r in report.results:
         for f in r.findings:
@@ -2557,7 +2633,7 @@ def _cmd_check(args: list[str]) -> None:
         return
     print(f"{len(rows)} check(s)" + (f" (filtered: {cat_filter})" if cat_filter else ""))
     print()
-    for cid, cname, owasp, _owasp_label, mode, _tags in rows:
+    for cid, cname, owasp, _owasp_label, mode, _row_tags in rows:
         print(f"  [{owasp:8s}]  {cid:35s}  ({mode:11s})  {cname}")
 
 
@@ -2984,14 +3060,14 @@ def _cmd_refix(args: list[str]) -> None:
 
 
 def _cmd_only(args: list[str]) -> None:
-    """`wpsecscan only CHECK_ID URL [--aggressive] [--auth-user U] [...]`
+    """`wpsecscan only CHECK_ID URL [--aggressive] [--owned] [--auth-user U] [...]`
 
     Run ONE named check against URL and print the findings. Faster than
     `refix` (which writes a fix-attested receipt to disk); intended for
     ad-hoc testing of a single check during development or debugging.
     """
     if len(args) < 2 or args[0] in ("-h", "--help"):
-        print("usage: wpsecscan only CHECK_ID URL [--aggressive] [--auth-user U] [...]\n"
+        print("usage: wpsecscan only CHECK_ID URL [--aggressive] [--owned] [--auth-user U] [...]\n"
               "  CHECK_ID: see `wpsecscan check list` for valid IDs.\n"
               "  URL:      target site, e.g. https://example.com")
         sys.exit(0 if args and args[0] in ("-h", "--help") else 2)
@@ -3000,6 +3076,11 @@ def _cmd_only(args: list[str]) -> None:
         target = "https://" + target
 
     aggressive = "--aggressive" in args
+    if aggressive and not consent_mod.has_consent(
+            target, explicit=True if "--owned" in args else None):
+        print("consent_gate: aggressive mode downgraded to passive — "
+              f"no ownership consent for {consent_mod.host_of(target) or target}")
+        aggressive = False
     auth_user = None
     auth_pass = None
     for i, a in enumerate(args):
@@ -3614,6 +3695,45 @@ def _cmd_hwkey(args: list[str]) -> None:
         print(f"# valid for {ttl}s (until epoch {expires_at})", file=sys.stderr)
         return
     print(f"unknown hwkey subcommand: {sub}", file=sys.stderr); sys.exit(64)
+
+
+def _cmd_owned(args: list[str]) -> None:
+    """v2.9.0 W0b — `wpsecscan owned add|remove|list`.
+
+      wpsecscan owned add <host-or-url>   # allow --aggressive against this host
+      wpsecscan owned remove <host>       # revoke it
+      wpsecscan owned list                # show recorded hosts + the file path
+
+    Hosts are stored in <home>/owned_targets.json (`*.example.com` wildcards
+    are accepted). Without a recorded host, --owned, or WPSECSCAN_OWNED_TARGETS,
+    --aggressive scans run passive checks only.
+    """
+    if not args or args[0] in ("-h", "--help"):
+        print(_cmd_owned.__doc__.strip())
+        sys.exit(0 if args else 64)
+    sub = args[0]
+    if sub == "list":
+        for h in sorted(consent_mod.load_owned()):
+            print(h)
+        print(f"file: {consent_mod.owned_path()}")
+        return
+    if sub in ("add", "remove") and len(args) >= 2:
+        try:
+            if sub == "add":
+                consent_mod.add_owned(args[1])
+            else:
+                consent_mod.remove_owned(args[1])
+        except ValueError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            sys.exit(64)
+        except OSError as e:
+            print(f"ERROR: could not write {consent_mod.owned_path()}: {e}", file=sys.stderr)
+            sys.exit(1)
+        entry = args[1].strip().lower() if args[1].strip().startswith("*.") else consent_mod.host_of(args[1])
+        print(("added: " if sub == "add" else "removed: ") + entry)
+        return
+    print("usage: wpsecscan owned {add <host-or-url>|remove <host>|list}", file=sys.stderr)
+    sys.exit(64)
 
 
 def _check_aggressive_hwkey_gate(args) -> None:
@@ -4762,10 +4882,15 @@ def _cmd_benchmark(args: list[str]) -> None:
     diagnostics.
     """
     if not args or args[0] in ("-h", "--help"):
-        print("usage: wpsecscan benchmark <URL> [--aggressive]\nRuns each check individually + emits a timing table.")
+        print("usage: wpsecscan benchmark <URL> [--aggressive] [--owned]\nRuns each check individually + emits a timing table.")
         return
     url = args[0]
     aggressive = "--aggressive" in args[1:]
+    if aggressive and not consent_mod.has_consent(
+            url, explicit=True if "--owned" in args[1:] else None):
+        print("consent_gate: aggressive mode downgraded to passive — "
+              f"no ownership consent for {consent_mod.host_of(url) or url}")
+        aggressive = False
     import asyncio as _asyncio
     import time as _time
     from .http import Client

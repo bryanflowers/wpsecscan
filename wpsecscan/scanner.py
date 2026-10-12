@@ -8,9 +8,11 @@ from pathlib import Path
 from typing import Callable
 
 from . import __version__
+from . import consent as consent_mod
 from .checks import select_checks
 from .http import Client
 from .models import CheckResult, ScanReport
+from .models import CheckResult as _GateCheckResult  # `CheckResult` is rebound locally inside scan()
 from .prove import PROVERS
 
 DEFAULT_USER_AGENT = f"WPSecScan/{__version__} (+defensive-recon)"
@@ -107,11 +109,20 @@ async def scan(
     on_progress: ProgressCallback | None = None,
     is_cancelled: Callable[[], bool] | None = None,
     is_paused: Callable[[], bool] | None = None,
+    consent: bool | None = None,    # v2.9.0 W0b: ownership consent for aggressive mode
 ) -> ScanReport:
     """Run every check against `target` and return a ScanReport.
 
     aggressive=True enables active payload checks (SQLi probes, reflected XSS,
     open-redirect tests, plugin-CVE matching). Only use on sites you own.
+
+    Consent gate (v2.9.0 W0b): aggressive mode runs only when ownership consent
+    is recorded for the target. `consent=True` grants it for this call,
+    `consent=False` refuses it; with `consent=None` it is read from the
+    WPSECSCAN_OWNED_TARGETS env var or ~/.wpsecscan/owned_targets.json (see
+    `wpsecscan.consent`). Without consent the scan is downgraded to passive
+    (prove is also turned off) and an info finding with check id
+    `consent_gate` is added to the report. The gate never raises.
 
     sequential=True (default) runs checks one at a time so dependent checks
     (e.g. plugin_cves needs plugins to have populated ctx['shared']['plugins'])
@@ -121,6 +132,13 @@ async def scan(
     """
     if not target.startswith(("http://", "https://")):
         target = "https://" + target
+
+    # v2.9.0 W0b: consent gate — before any client or check exists.
+    downgraded = False
+    if aggressive and not consent_mod.has_consent(target, explicit=consent):
+        aggressive = False
+        prove = False
+        downgraded = True
 
     started_wall = datetime.now(timezone.utc).isoformat()
     started = time.perf_counter()
@@ -181,6 +199,9 @@ async def scan(
         # blocks on a short async sleep until it returns False.
         "is_paused": is_paused or (lambda: False),
     }
+    if downgraded:
+        _emit_step("Aggressive mode downgraded to passive: no ownership consent recorded "
+                   "(use --owned, WPSECSCAN_OWNED_TARGETS, or `wpsecscan owned add <host>`).")
     auth_enabled = bool(
         companion_token or
         (auth_user and (auth_pass or auth_app_password))
@@ -497,9 +518,18 @@ async def scan(
         except OSError:
             pass
 
+    final_results = list(results)
+    if downgraded:
+        # v2.9.0 W0b: surface the downgrade in every reporter via a normal CheckResult.
+        final_results.insert(0, _GateCheckResult(
+            check_id=consent_mod.CONSENT_CHECK_ID,
+            check_name="Consent gate",
+            findings=[consent_mod.consent_downgrade_finding(target)],
+        ))
+
     return ScanReport(
         target=target,
         scanned_at=started_wall,
         duration_ms=int((time.perf_counter() - started) * 1000),
-        results=list(results),
+        results=final_results,
     )

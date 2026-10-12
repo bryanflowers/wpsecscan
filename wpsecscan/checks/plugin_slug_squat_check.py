@@ -24,6 +24,10 @@ from ..http import Client
 from ..models import Finding
 
 
+MAX_PLUGINS_PER_SCAN = 20
+CACHE_TTL_SECONDS = 24 * 3600
+
+
 def _cache_dir() -> Path:
     home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
     d = home / "cache" / "wporg-authors"
@@ -47,7 +51,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     findings: list[Finding] = []
     checked = 0
     cache_dir = _cache_dir()
-    for entry in detected[:50]:  # cap to avoid wp.org rate-limits
+    for entry in detected[:MAX_PLUGINS_PER_SCAN]:  # cap to avoid wp.org rate-limits
         # Each entry is a dict with at least a 'slug' or 'name' field
         slug = ""
         if isinstance(entry, dict):
@@ -56,6 +60,18 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
             slug = entry.strip().lower()
         if not slug or "/" in slug:
             continue
+        # Honour the cached `checked_at`: a fresh entry (< CACHE_TTL_SECONDS old)
+        # is not re-fetched from api.wordpress.org.
+        fresh_path = cache_dir / f"{slug}.json"
+        if fresh_path.exists():
+            try:
+                cached = json.loads(fresh_path.read_text(encoding="utf-8"))
+                checked_at = float(cached.get("checked_at") or 0)
+                if (cached.get("author") or "").strip() and 0 <= time.time() - checked_at < CACHE_TTL_SECONDS:
+                    checked += 1
+                    continue
+            except (OSError, ValueError, TypeError, AttributeError):
+                pass
         # Fetch current author from wp.org
         try:
             r = await client.get(f"https://api.wordpress.org/plugins/info/1.0/{slug}.json")
