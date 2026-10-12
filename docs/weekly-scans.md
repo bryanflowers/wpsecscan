@@ -22,13 +22,13 @@ live in `~/.wpsecscan/sites.json`.
 
 ## Schedule
 
-The installer offers to register the scheduler. To do it manually:
+To register the scheduler:
 
 **Windows**:
 ```
 wpsecscan schedule install --weekly --time 03:00
 ```
-Registers a Windows Task Scheduler entry. Removes with:
+Registers a Windows Task Scheduler entry. Remove with:
 ```
 wpsecscan schedule uninstall
 ```

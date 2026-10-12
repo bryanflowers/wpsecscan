@@ -206,18 +206,12 @@ def test_installer_nsi_version_matches_pyproject():
     assert py_ver == nsi_ver, f"installer {nsi_ver} != pyproject {py_ver}"
 
 
-def test_distribution_manifests_exist():
+def test_unpublished_distribution_manifests_are_gone():
+    # v2.9.0 W4a: the winget / chocolatey / homebrew / snap / aur / flatpak /
+    # distribution/ / packaging/ / pulumi manifests described channels that were
+    # never published anywhere. They were deleted rather than maintained; the
+    # supported channels are PyPI, the GitHub release assets and source.
     root = Path(__file__).resolve().parents[1]
-    expected = [
-        "distribution/README.md",
-        "distribution/chocolatey/wpsecscan.nuspec",
-        "distribution/chocolatey/tools/chocolateyinstall.ps1",
-        "distribution/chocolatey/tools/chocolateyuninstall.ps1",
-        "distribution/winget/WPSecScan.Bryan.yaml",
-        "distribution/homebrew/wpsecscan.rb",
-        "distribution/snap/snapcraft.yaml",
-        "distribution/flatpak/com.github.bryanflowers.wpsecscan.yml",
-        "distribution/appimage/AppImageBuilder.yml",
-    ]
-    for p in expected:
-        assert (root / p).exists(), f"missing {p}"
+    for d in ("distribution", "packaging", "winget", "chocolatey", "homebrew",
+              "snap", "aur", "flatpak", "pulumi"):
+        assert not (root / d).exists(), f"unpublished channel dir resurrected: {d}"

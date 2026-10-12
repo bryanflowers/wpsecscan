@@ -1,4 +1,4 @@
-# Round-64 #38 — RFC 9116 security.txt for wpsecscan.org / GitHub Pages.
+# Round-64 #38 — RFC 9116 security.txt for wpsecscan.com / GitHub Pages.
 # Drop this file at /.well-known/security.txt on any domain hosting
 # WPSecScan documentation or downloads.
 

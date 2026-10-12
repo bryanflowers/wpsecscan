@@ -275,7 +275,6 @@ def test_bug3_api_server_path_traversal_blocks_backslash():
     """B3: the /reports/ guard rejects \\ in addition to / and ..."""
     # The guard is inline in do_GET — we re-derive its logic in the test to
     # avoid needing a live HTTP harness.
-    from pathlib import Path
     for bad in ("..\\evil", "report\\..\\evil", "rep/x.json", "\x00", "../etc/passwd"):
         rejected = (".." in bad or "/" in bad or "\\" in bad or "\x00" in bad
                     or bad != Path(bad).name)

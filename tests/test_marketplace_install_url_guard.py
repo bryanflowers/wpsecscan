@@ -54,9 +54,9 @@ def test_safe_source_url_rejects_foreign_host():
 
 
 def test_safe_source_url_accepts_marketplace_origin():
-    # Default origin is bryanflowers.github.io
+    # Default index lives on raw.githubusercontent.com (bryanflowers/wpsecscan)
     ok, reason = marketplace_v27._safe_source_url(
-        "https://bryanflowers.github.io/wpsecscan/checks/foo.py"
+        "https://raw.githubusercontent.com/bryanflowers/wpsecscan/main/checks/foo.py"
     )
     assert ok is True, reason
 

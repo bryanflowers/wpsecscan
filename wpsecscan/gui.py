@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import queue
 import re
@@ -15,6 +16,7 @@ from tkinter import ttk
 from urllib.parse import urlparse
 
 from . import __version__
+from . import consent as _consent
 from . import db as vulndb
 from .checks import ALL_CHECKS
 from .models import CheckResult, ScanReport
@@ -25,6 +27,10 @@ from .reporters import sarif as sarif_reporter
 from .scanner import scan
 
 APP_NAME = "WPSecScan"
+
+# v2.9.0 — F1 deep-link base for per-check docs (repo markdown; wpsecscan.com
+# has no per-check pages yet).
+_CHECK_DOCS_URL_BASE = "https://github.com/bryanflowers/wpsecscan/blob/main/docs/checks/"
 
 # v2.8.5 C1 — module-level lock for _save_pref serialisation. Pre-fix
 # the lock was lazy-initialised on the instance via getattr/setattr,
@@ -207,6 +213,14 @@ class App:
         self.search_var = StringVar(value="")
         self.save_reports_var = BooleanVar(value=True)
         self.aggressive_var = BooleanVar(value=False)
+        # v2.9.0 W0b — True once the user said Yes to the aggressive-mode
+        # dialog; passed to scan() as consent=True. _owned_prompted holds
+        # hosts we already asked "remember as owned?" about this session.
+        # The confirmation is bound to the host that was in the URL box when
+        # it was given (None = no host yet); scanning another host re-prompts.
+        self._aggressive_confirmed = False
+        self._aggressive_confirmed_host: str | None = None
+        self._owned_prompted: set[str] = set()
         self.prove_var = BooleanVar(value=False)
         self.deep_throttle_var = BooleanVar(value=False)
         from .checks.login_throttle_deep import (
@@ -644,7 +658,10 @@ class App:
         _Tooltip(_agg_chk,
                   "When ON, sends payload-based probes that REAL\n"
                   "attackers would send. Use only on sites you own.\n"
-                  "Set WPSECSCAN_OWNED_TARGETS=1 to confirm.")
+                  "Ownership is confirmed by this app's dialog, the CLI\n"
+                  "--owned flag, the WPSECSCAN_OWNED_TARGETS env var, or\n"
+                  "'wpsecscan owned add <host>'. Without it, aggressive\n"
+                  "checks are skipped.")
 
         _prove_chk = ttk.Checkbutton(
             top,
@@ -1076,7 +1093,9 @@ class App:
         self.detail.insert(END, "\n", "muted")
         self.detail.insert(END,
             "Only scan sites you own or have written permission to test. "
-            "No bulk online brute force, no auto-exploitation.\n",
+            "Login probing is capped (6 attempts) unless the deep throttle mapper "
+            "is explicitly enabled; aggressive checks run only against targets "
+            "you have marked as owned.\n",
             "muted")
 
     def _normalize_url(self, raw: str) -> str:
@@ -1183,6 +1202,14 @@ class App:
             self.url_entry.configure(foreground=FG)
             self.url_entry._placeholder_active = False  # type: ignore[attr-defined]
         self.url_var.set(target)
+        # v2.9.0 W0b — aggressive can be switched on without the toggle dialog
+        # (profile load); make sure the user has confirmed before we send
+        # consent=True. Declining runs the scan passive.
+        # The confirmation only covers the host it was given for: a different
+        # host in the URL box re-prompts instead of inheriting consent.
+        scan_consent = self._aggressive_scan_consent(_consent.host_of(target))
+        if scan_consent:
+            self._maybe_remember_owned(target)
         self._cancel_requested = False
         self.cancel_btn.configure(state=NORMAL)
         # #51: reset pause state + enable the button at scan start.
@@ -1234,11 +1261,32 @@ class App:
             self._check_rows[cid] = iid
 
         self._scan_thread = threading.Thread(
-            target=self._run_scan, args=(target, aggressive), daemon=True
+            target=self._run_scan, args=(target, aggressive, scan_consent), daemon=True
         )
         self._scan_thread.start()
 
-    def _run_scan(self, target: str, aggressive: bool) -> None:
+    def _maybe_remember_owned(self, target: str) -> None:
+        """v2.9.0 W0b — after an aggressive confirmation, offer to record the
+        host in the owned-targets file (once per host per session)."""
+        host = _consent.host_of(target)
+        if not host or host in self._owned_prompted:
+            return
+        self._owned_prompted.add(host)
+        try:
+            if _consent.has_consent(target):
+                return
+            if messagebox.askyesno(
+                "Remember this host as owned?",
+                f"Remember {host} as a site you own?\n\n"
+                "Future aggressive scans of this host (GUI or CLI) will then "
+                "run without asking again. You can remove it from "
+                "owned_targets.json in your WPSecScan folder.",
+            ):
+                _consent.add_owned(host)
+        except Exception as e:  # noqa: BLE001
+            self.status_var.set(f"Could not record {host} as owned: {e}")
+
+    def _run_scan(self, target: str, aggressive: bool, consent: bool | None = None) -> None:
         def progress_cb(event: str, check_id: str, check_name: str, result: CheckResult | None) -> None:
             self._queue.put(("progress", event, check_id, check_name, result))
 
@@ -1271,6 +1319,9 @@ class App:
                     target,
                     timeout=http_timeout,
                     aggressive=aggressive,
+                    # v2.9.0 W0b — True only after the user confirmed the
+                    # aggressive dialog; None lets env/owned-file decide.
+                    consent=True if (aggressive and consent) else None,
                     prove=prove,
                     sequential=True,   # GUI: run one at a time so you can watch
                     auth_user=auth_user,
@@ -1807,12 +1858,61 @@ class App:
         )
         if not ok:
             self.prove_var.set(False)
+        else:
+            # v2.9.0 W0b — a Yes here is also explicit ownership consent.
+            self._aggressive_confirmed = True
+            self._aggressive_confirmed_host = self._entry_host()
+
+    def _aggressive_scan_consent(self, scan_host: str) -> bool | None:
+        """Consent value for a scan of `scan_host`: True only when the aggressive
+        confirmation on record is for that exact host, else re-prompt (a No turns
+        aggressive off and the scan runs passive)."""
+        if self.aggressive_var.get() and not (
+                self._aggressive_confirmed and self._aggressive_confirmed_host == scan_host):
+            if self._ask_aggressive_confirm(scan_host):
+                self._aggressive_confirmed = True
+                self._aggressive_confirmed_host = scan_host
+            else:
+                self._aggressive_confirmed = False
+                self._aggressive_confirmed_host = None
+                self.aggressive_var.set(False)
+        return True if (
+            self.aggressive_var.get() and self._aggressive_confirmed
+            and self._aggressive_confirmed_host == scan_host) else None
+
+    def _entry_host(self) -> str | None:
+        """Host currently in the URL box, or None when it is empty / a placeholder."""
+        try:
+            if getattr(self.url_entry, "_placeholder_active", False):
+                return None
+            raw = (self.url_var.get() or "").strip()
+            if raw.startswith("[") and "] " in raw:
+                raw = raw.split("] ", 1)[1]
+            return _consent.host_of(self._normalize_url(raw)) or None
+        except Exception:  # noqa: BLE001 — a missing widget just means "no host yet"
+            return None
 
     def _on_aggressive_toggle(self) -> None:
         if not self.aggressive_var.get():
+            self._aggressive_confirmed = False
+            self._aggressive_confirmed_host = None
             return
-        proceed = messagebox.askyesno(
+        host = self._entry_host()
+        if self._ask_aggressive_confirm(host):
+            self._aggressive_confirmed = True
+            self._aggressive_confirmed_host = host
+        else:
+            self._aggressive_confirmed = False
+            self._aggressive_confirmed_host = None
+            self.aggressive_var.set(False)
+
+    def _ask_aggressive_confirm(self, host: str | None = None) -> bool:
+        """v2.9.0 W0b — the aggressive-mode confirmation dialog. A Yes is the
+        user's ownership consent for `host`, passed to scan() as consent=True."""
+        target_line = f"Target: {host}\n\n" if host else ""
+        return bool(messagebox.askyesno(
             "Aggressive mode — sites you own only",
+            target_line +
             "Aggressive mode will send active payloads to the target:\n\n"
             "  • SQL injection probes (read-only, includes time-based SLEEP(3) tests)\n"
             "  • Reflected XSS probes (benign marker payloads)\n"
@@ -1825,9 +1925,7 @@ class App:
             "Only run on sites you own or have written permission to test.\n\n"
             "Proceed?",
             icon="warning",
-        )
-        if not proceed:
-            self.aggressive_var.set(False)
+        ))
 
     def _worst(self, result: CheckResult) -> str | None:
         # SEVERITY_ORDER is descending: lower index = more severe.
@@ -2490,8 +2588,11 @@ class App:
                 self.root.after(0, lambda: self._toast(
                     f"✓ Wrote {fmt} → {Path(path).name}", duration_ms=6000))
             except Exception as e:  # noqa: BLE001
+                # v2.9.0 W1c — `e` is deleted when this except block ends, so
+                # bind the text now; the after() callback runs later.
+                msg = str(e)
                 self.root.after(0, lambda: self._toast(
-                    f"✗ Export failed: {e}", duration_ms=8000))
+                    f"✗ Export failed: {msg}", duration_ms=8000))
         import threading
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -2534,8 +2635,10 @@ class App:
                 self.root.after(0, lambda: self._toast(
                     f"{icon} {provider}: {msg}", duration_ms=duration))
             except Exception as e:  # noqa: BLE001
+                # v2.9.0 W1c — bind before the except block deletes `e`.
+                msg = str(e)
                 self.root.after(0, lambda: self._toast(
-                    f"✗ Push failed: {e}", duration_ms=8000))
+                    f"✗ Push failed: {msg}", duration_ms=8000))
         import threading
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -2585,7 +2688,9 @@ class App:
         try:
             cid = self._selected_finding_check_id()
             if cid:
-                url = f"https://wpsecscan.com/docs/checks/{cid}/"
+                # v2.9.0 — per-check pages on wpsecscan.com don't exist yet;
+                # link the markdown in the repo until they do.
+                url = f"{_CHECK_DOCS_URL_BASE}{cid}.md"
         except (AttributeError, _tk_mod.TclError):
             pass
         try:
@@ -4020,7 +4125,8 @@ class App:
         ), foreground=FG, justify="left").pack(anchor="w")
         ttk.Label(body, text="", font=("Segoe UI", 4)).pack()
         ttk.Label(body, text=(
-            "No bulk online brute force, no auto-exploitation, no write payloads.\n"
+            "Login probing is capped (6 attempts) unless the deep throttle mapper is "
+            "explicitly enabled.\nNo auto-exploitation, no write payloads.\n"
             "For real password testing: hashcat against your own DB hash dump.\n"
             "For real exploit testing: sqlmap / Metasploit, per-target."
         ), foreground=MUTED, justify="left").pack(anchor="w")

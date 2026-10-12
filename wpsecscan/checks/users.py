@@ -1,3 +1,14 @@
+"""User enumeration check.
+
+Tries four unauthenticated routes and reports each that discloses usernames
+(medium): /?author=1 to 5, where a redirect to /author/<slug>/ reveals the
+login slug; /wp-json/wp/v2/users; /wp-json/wp/v2/posts?_embed=1, which can
+leak the author object even when the users endpoint is closed; and
+/?rest_route=/wp/v2/users. Discovered names are stored in
+ctx['shared']['users'] for downstream checks. If no route leaks, one info
+finding is emitted. Fix: remove the users endpoint with the rest_endpoints
+filter, redirect author archives, or use a security plugin setting.
+"""
 from __future__ import annotations
 
 import re

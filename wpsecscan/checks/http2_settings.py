@@ -9,10 +9,15 @@ backend that's known to be EOL or has unpatched H/2 CVEs.
 """
 from __future__ import annotations
 
+import re
+
 from ..http import Client
 from ..models import Finding
 
-# (server-banner substring, EOL/CVE notes)
+# (product/version-prefix, EOL/CVE notes). The key is "<product>/<version prefix>":
+# a banner is EOL when its parsed version is <= the key's version, compared as
+# integer tuples over the key's component count (so "apache/2.2" covers every
+# 2.2.x and anything older, "apache/2.4.6" covers 2.4.6 and older but NOT 2.4.62).
 KNOWN_EOL_BANNERS = {
     "apache/2.2": "Apache 2.2 series is EOL since July 2017 — many HTTP/2 CVEs unpatched.",
     "apache/2.4.6": "Apache 2.4.6 (default on RHEL 7) is missing 8 years of mod_http2 fixes.",
@@ -26,6 +31,42 @@ KNOWN_EOL_BANNERS = {
     "openresty/1.13": "OpenResty 1.13 is based on nginx 1.13 (EOL).",
     "openresty/1.15": "OpenResty 1.15 is EOL.",
 }
+
+_BANNER_TOKEN = re.compile(r"(?<![a-z0-9_-])([a-z][a-z0-9_-]*)/(\d+(?:\.\d+)*)")
+_PRODUCT_ALIASES = {"microsoft-iis": "iis"}
+
+
+def _parse_banner(server_lc: str) -> list[tuple[str, tuple[int, ...]]]:
+    """Return every (product, version-tuple) token in a Server header.
+
+    Tokens without a numeric version (`cloudflare`, bare `LiteSpeed`) yield nothing.
+    """
+    out: list[tuple[str, tuple[int, ...]]] = []
+    for product, ver in _BANNER_TOKEN.findall(server_lc):
+        product = _PRODUCT_ALIASES.get(product, product)
+        out.append((product, tuple(int(p) for p in ver.split("."))))
+    return out
+
+
+def _eol_matches(server_lc: str) -> list[tuple[str, str]]:
+    """Banner keys (with notes) whose EOL entry covers the parsed Server version.
+
+    At most one entry per detected product token: the lowest (closest) EOL
+    entry that covers the version.
+    """
+    matches: list[tuple[str, str]] = []
+    for product, ver in _parse_banner(server_lc):
+        entries = []
+        for banner, note in KNOWN_EOL_BANNERS.items():
+            eol_product, _, eol_ver = banner.partition("/")
+            if eol_product != product:
+                continue
+            entries.append((tuple(int(p) for p in eol_ver.split(".")), banner, note))
+        for eol_tuple, banner, note in sorted(entries):
+            if ver[: len(eol_tuple)] <= eol_tuple:
+                matches.append((banner, note))
+                break
+    return matches
 
 
 async def check(client: Client, ctx: dict) -> list[Finding]:
@@ -51,7 +92,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     http_version = getattr(r, "http_version", "unknown")
     server_lc = server.lower()
 
-    eol_matches = [(banner, note) for banner, note in KNOWN_EOL_BANNERS.items() if banner in server_lc]
+    eol_matches = _eol_matches(server_lc)
 
     if not eol_matches:
         findings.append(

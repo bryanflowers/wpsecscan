@@ -1,7 +1,19 @@
+---
+id: compliance_frameworks
+title: "Compliance framework mapping — HITRUST/CMMC/NIST CSF/CIS/ISO (#63-67)"
+severity_max: info
+severity_dynamic: false
+aggressive: false
+category: "Privacy, compliance & accessibility"
+words: 143
+---
+
 # Compliance framework mapping — HITRUST/CMMC/NIST CSF/CIS/ISO (#63-67)
 
 **check_id**: `compliance_frameworks`
 **aggressive**: no
+**category**: Privacy, compliance & accessibility
+**max severity**: info
 **OWASP**: A05:2021 — Security Misconfiguration
 **MITRE ATT&CK**: T1499 — Endpoint DoS
 **CWE**: CWE-693
@@ -27,6 +39,22 @@ data/compliance_v2.json (this round). The check itself only triggers
 when the user passes `--compliance-framework=hitrust` (or similar) via
 ctx; otherwise it is a no-op.
 
+## Request footprint
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| info | Compliance framework: ⟨value⟩ mapping loaded | This framework's evidence is folded into the JSON report under `compliance_⟨fw⟩`. Use the executive_pack reporter for a stakeholder-friendly summary. |
+| info | Compliance-framework audit — pass --compliance-framework=NAME to enable | Run again with e.g. --compliance-framework=hitrust to map findings against HITRUST CSF v11.4 controls. |
+
+## Evidence the check records
+
+- Compliance framework: ⟨value⟩ mapping loaded: ⟨count⟩ check_ids mapped. Review the JSON report `compliance_⟨fw⟩` section for per-control evidence.
+- Compliance-framework audit — pass --compliance-framework=NAME to enable: Valid frameworks: ⟨value⟩
+
 ## Compliance mapping
 
 - **compliance_map / pci_dss**: 12.1
@@ -40,5 +68,7 @@ ctx; otherwise it is a no-op.
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only compliance_frameworks
+wpsecscan only compliance_frameworks https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

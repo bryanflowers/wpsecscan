@@ -17,7 +17,7 @@ from typing import Any
 import httpx
 
 
-__version__ = "2.2.0"
+__version__ = "2.9.0"
 
 
 class WPSecScanClient:

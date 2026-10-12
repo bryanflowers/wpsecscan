@@ -3,6 +3,43 @@
 Round-64 #147 — narrative reference for the REST API. Pairs with the
 formal OpenAPI spec at [openapi/wpsecscan-api.yaml](../openapi/wpsecscan-api.yaml).
 
+## Embedded API server (`wpsecscan --api-server HOST:PORT`)
+
+The stdlib HTTP server started with `--api-server` (token via `--api-token`
+or `WPSECSCAN_API_TOKEN`; it refuses to start without one) exposes:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /healthz` | `{"ok": true}` |
+| `GET /history?url=<url>` | Past scans for a URL |
+| `POST /scan` | Start a scan in the background |
+| `GET /scan/<task_id>` | Status and, when done, the report |
+| `GET /reports/<filename>` | A saved JSON snapshot |
+| `GET /openapi.json` | Minimal OpenAPI 3 document |
+
+`POST /scan` request body:
+
+```json
+{ "target": "https://example.com", "aggressive": false, "owned": false }
+```
+
+- `owned` (boolean): `true` marks the target as owned for this request.
+  Aggressive checks run only when consent resolves, from `owned: true`, the
+  `WPSECSCAN_OWNED_TARGETS` environment variable, or the owned-targets file
+  (`wpsecscan owned add <host>`). Otherwise the scan is downgraded to passive.
+- The `202` response is `{"task_id": "...", "status": "running", "consent": "..."}`
+  where `consent` is `granted`, `downgraded` (aggressive was requested but
+  no consent resolved, so the scan runs passive) or `n/a` (not aggressive).
+- Target allowlist: when `WPSECSCAN_API_ALLOWED_TARGETS` is set (comma-separated
+  hosts; `example.com` exact, `*.example.com` for subdomains, `*` for all),
+  `POST /scan` for any other host returns `403` before a scan starts. When it
+  is unset, any target is accepted.
+- `429` when the concurrent-scan cap is reached.
+
+The sections below describe the planned daemon / multi-tenant API (JWT
+login, `/scans`, `/sites`, tenants). The embedded server above implements
+only the endpoints in the table.
+
 ## Auth
 
 All endpoints require a Bearer JWT in `Authorization: Bearer <token>`.

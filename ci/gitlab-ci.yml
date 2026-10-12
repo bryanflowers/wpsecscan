@@ -1,13 +1,13 @@
-# Drop into .gitlab-ci.yml. Set WPSEC_TARGET as a CI/CD variable.
+# Drop into .gitlab-ci.yml. WPSEC_TARGET is REQUIRED: set it as a CI/CD variable
+# (a site you own or are authorised to test). There is deliberately no default.
 # Optional vars: WPSCAN_TOKEN, PATCHSTACK_TOKEN, HIBP_TOKEN
 wpsecscan:
   stage: test
   image: python:3.11-slim
-  variables:
-    WPSEC_TARGET: "https://your-wp-site.com"
   before_script:
+    - if [ -z "$WPSEC_TARGET" ]; then echo "WPSEC_TARGET is not set - define it as a CI/CD variable" >&2; exit 1; fi
     - pip install --quiet httpx[http2] jinja2 rich openpyxl
-    - git clone --depth 1 https://github.com/bryan/wpsecscan.git _wpsecscan
+    - git clone --depth 1 https://github.com/bryanflowers/wpsecscan.git _wpsecscan
     - pip install --quiet -e ./_wpsecscan
   script:
     - python -m wpsecscan "$WPSEC_TARGET"

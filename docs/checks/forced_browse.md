@@ -1,7 +1,19 @@
+---
+id: forced_browse
+title: "Forced-browse hidden-path discovery (#21)"
+severity_max: critical
+severity_dynamic: false
+aggressive: false
+category: "Discovery & enumeration"
+words: 92
+---
+
 # Forced-browse hidden-path discovery (#21)
 
 **check_id**: `forced_browse`
 **aggressive**: no
+**category**: Discovery & enumeration
+**max severity**: critical
 **OWASP**: A05:2021 — Security Misconfiguration
 **MITRE ATT&CK**: T1083 — File and Directory Discovery
 **CWE**: CWE-538
@@ -17,6 +29,27 @@ body is reported as a discovered path the homepage didn't link to.
 
 User can extend the wordlist by dropping additional lines into
 ~/.wpsecscan/extra_paths.txt — those are merged at load time.
+
+## Request footprint
+
+The module contains 1 request call(s) to the target (HEAD x1). Calls inside loops send more than one request, so treat this as a minimum.
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| critical | Forced-browse: ⟨count⟩ CRITICAL hidden path(s) reachable | Block these paths immediately. Nginx pattern: location ~ /(wp-config\|\.env\|\.git\|phpinfo\|adminer\|phpmyadmin) { deny all; } |
+| medium/low | Forced-browse: ⟨count⟩ other discovered path(s) | Review each — paths that should be public (like /robots.txt) are fine to leave; private ones (admin panels, backup dirs) should be blocked or require auth. |
+| info | Forced-browse: clean (⟨count⟩ paths probed) | No action. |
+| info | Forced-browse: empty wordlist | No action. |
+
+## Evidence the check records
+
+- Forced-browse: empty wordlist: data/common_paths.txt not readable.
+- Forced-browse: clean (⟨count⟩ paths probed): No hidden paths returned 200/301/302/401/403.
+- Forced-browse: ⟨count⟩ other discovered path(s): ⟨value⟩ ... and ⟨value⟩ more
 
 ## Compliance mapping
 
@@ -36,5 +69,7 @@ User can extend the wordlist by dropping additional lines into
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only forced_browse
+wpsecscan only forced_browse https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

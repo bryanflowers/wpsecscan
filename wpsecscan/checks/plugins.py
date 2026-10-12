@@ -1,3 +1,14 @@
+"""Plugin enumeration.
+
+GETs /, /?p=1, /wp-login.php, /feed/, /sample-page/ and /?page_id=2, and
+extracts plugin slugs from /wp-content/plugins/<slug>/ asset URLs, taking the
+?ver= value as the version when present. For up to 30 slugs it requests
+readme.txt and reads the Stable tag. Reports an info finding listing all
+plugins, or an info finding if none appear, plus a medium finding when any
+readme.txt is public. The slug-to-version map is stored in
+ctx['shared']['plugins'] for the CVE checks. Fix: keep plugins updated,
+remove unused ones and block /wp-content/plugins/*/readme.txt.
+"""
 from __future__ import annotations
 
 import re
@@ -53,13 +64,15 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
 
     ctx["shared"]["plugins"] = slugs
 
-    exposed_readmes: list[tuple[str, str]] = []
+    exposed_readmes: list[tuple[str, str | None]] = []
     for slug, _ in list(slugs.items())[:30]:  # cap to first 30 to be polite
         step(f"fetching readme.txt for {slug}...")
         r = await client.get(f"/wp-content/plugins/{slug}/readme.txt")
         if r is not None and r.status_code == 200 and "Stable tag" in (r.text or ""):
             sm = README_STABLE_RE.search(r.text)
-            ver = sm.group(1) if sm else "unknown"
+            # None (not the string "unknown") when the readme has no numeric
+            # stable tag: a non-version must never reach CVE range matching.
+            ver = sm.group(1) if sm else None
             exposed_readmes.append((slug, ver))
             if slugs[slug] is None:
                 slugs[slug] = ver
@@ -78,7 +91,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     )
 
     if exposed_readmes:
-        readme_lines = "\n".join(f"  - {s}: version {v}" for s, v in exposed_readmes)
+        readme_lines = "\n".join(f"  - {s}: version {v or 'unknown'}" for s, v in exposed_readmes)
         findings.append(
             Finding(
                 severity="medium",

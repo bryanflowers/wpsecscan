@@ -1,7 +1,19 @@
+---
+id: dns_templates
+title: "DNS templates (#13)"
+severity_max: info
+severity_dynamic: true
+aggressive: false
+category: "DNS, email & infra"
+words: 147
+---
+
 # DNS templates (#13)
 
 **check_id**: `dns_templates`
 **aggressive**: no
+**category**: DNS, email & infra
+**max severity**: info (some findings take their severity at run time)
 **OWASP**: A05:2021 — Security Misconfiguration
 **MITRE ATT&CK**: T1071.004 — DNS Application Layer
 **CWE**: CWE-693
@@ -31,6 +43,24 @@ Uses Python stdlib's socket + a manual DNS-query implementation for TXT/MX
 to avoid taking on dnspython as a hard dep. For A / AAAA we use
 socket.getaddrinfo. CNAME / NS / TXT / MX use a tiny built-in resolver.
 
+## Request footprint
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| info | DNS templates skipped (PyYAML not installed) | No action. |
+| info | DNS templates — none in ~/.wpsecscan/templates/ | No action. |
+| varies | [DNS template] ⟨name⟩ | — |
+
+## Evidence the check records
+
+- DNS templates skipped (PyYAML not installed): Install pyyaml to enable.
+- DNS templates — none in ~/.wpsecscan/templates/: No template included a `dns:` block.
+- [DNS template] ⟨name⟩: Query ⟨qtype⟩ ⟨qname⟩ matched template '⟨value⟩'. Records: ⟨value⟩
+
 ## Compliance mapping
 
 - **compliance_map / pci_dss**: 1.4
@@ -45,5 +75,7 @@ socket.getaddrinfo. CNAME / NS / TXT / MX use a tiny built-in resolver.
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only dns_templates
+wpsecscan only dns_templates https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

@@ -149,16 +149,19 @@ def epss_score(cve_id: str) -> dict:
     """Returns {epss, percentile, date} from FIRST.org EPSS API. Free."""
     if not cve_id:
         return {}
+    # `if cached:` (not `is not None`): an empty {} left by older versions,
+    # which cached failed fetches as hits, must be treated as a miss.
     cached = _cached(f"epss:{cve_id}", ttl=86400)
-    if cached is not None:
+    if cached:
         return cached
     d = _http_get_json(f"{EPSS_URL}?cve={urllib.parse.quote(cve_id)}", timeout=15.0)
     if not d or "data" not in d or not d["data"]:
-        _cache_put(f"epss:{cve_id}", {})
-        return {}
+        # Failed/empty fetch: never write it to the cache (a cached {} was
+        # served as a 24 h hit). Serve the previous value even if stale.
+        return _cached(f"epss:{cve_id}", ttl=10 ** 12) or {}
     entry = d["data"][0]
     if not isinstance(entry, dict):
-        return {}
+        return _cached(f"epss:{cve_id}", ttl=10 ** 12) or {}
     result = {
         "epss":       float(entry.get("epss") or 0),
         "percentile": float(entry.get("percentile") or 0),

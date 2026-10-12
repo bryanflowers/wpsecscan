@@ -1,7 +1,9 @@
 # Where WPSecScan's vulnerability data comes from
 
-WPSecScan aggregates **8 free CVE sources** every night, merges them into
-a single deduped feed, and ships it to users. No paid API required.
+WPSecScan aggregates up to **8 public CVE sources** every night, merges them into
+a single deduped feed, and ships it to users. No paid API is required. Per-source
+counts are in the feed header; several sources currently return nothing (see
+[Current status](#current-status)).
 
 ## How it works
 
@@ -22,7 +24,7 @@ a single deduped feed, and ships it to users. No paid API required.
 │  └────────────────────┬────────────────────────┘    │
 │                       │ merge + dedupe              │
 │                       ▼                             │
-│  data-feed branch → vuln-db.json (~30k+ entries)    │
+│  data-feed branch → vuln-db.json                    │
 └────────────────────────┬────────────────────────────┘
                          │ raw.githubusercontent.com
                          ▼
@@ -48,10 +50,29 @@ a single deduped feed, and ships it to users. No paid API required.
 | Patchstack public RSS | Their public RSS at /database/feed was discontinued (returns HTML); we keep the fetcher in case they restore it | discontinued | — | 0 entries currently | https://patchstack.com/database/feed |
 | **CIRCL CVE-Search** | EU public service, free | ✓ fully free | Soft rate-limit (per IP, varies) | Recent CVEs filtered for WP relevance | https://cve.circl.lu/api/last/100 |
 
-**Net: 6 of 8 sources are fully free with no key required**; Wordfence v3 needs
-their free account (signing up is enough; no payment); Patchstack RSS is
-currently down (HTML, not RSS). The aggregator runs all 8 every night —
-sources that fail return 0 entries gracefully and the run continues.
+The aggregator attempts all 8 every night; sources that fail return 0
+entries gracefully and the run continues.
+
+## Current status
+
+Measured against the live feed on 2026-10-12 (710 entries after merge):
+
+| Source | Entries | Note |
+|--------|--------:|------|
+| NVD | 500 | working |
+| Mitre CVE List V5 | 185 | working |
+| GitHub Security Advisories | 23 | working |
+| OSV.dev | 10 | working |
+| Wordfence | 0 | API withdrawn |
+| WPVulnerability.com | 0 | fetch fails |
+| Patchstack public RSS | 0 | feed discontinued |
+| CIRCL CVE-Search | 0 | no WordPress-relevant entries in `last/100` |
+
+The per-source columns in the table above ("Free?", "Coverage") describe each
+upstream in principle, not what it returns today. To see the current numbers,
+read the header of the live feed
+(`https://raw.githubusercontent.com/bryanflowers/wpsecscan/data-feed/vuln-db.json`)
+or run `wpsecscan db source-stats`.
 
 ## Run the aggregator yourself
 
@@ -80,8 +101,8 @@ Optional environment variables:
 By default `wpsecscan db update` does this:
 
 1. Tries the aggregated feed first (single round-trip)
-2. Falls back to Wordfence direct if our feed is unreachable
-3. Falls back to OSV.dev if Wordfence is also down
+2. Falls back to Wordfence direct if our feed returned nothing (the Wordfence API has been withdrawn, so this step currently yields nothing)
+3. Falls back to OSV.dev if both of the above came back empty
 4. Final fallback: embedded `wpsecscan/data/plugin_cves.json`
 
 The schedule for automatic updates is set when the user runs
@@ -91,24 +112,12 @@ The schedule for automatic updates is set when the user runs
 ## Inspect the breakdown
 
 ```bash
-$ wpsecscan db source-stats
-
-  source                  count   share
-  ---------------------- ---------  ------
-  wordfence              14,823   52.1%
-  wpvulnerability         9,342   32.9%
-  ghsa                    1,847    6.5%
-  mitre                     522    1.8%
-  osv                       312    1.1%
-  nvd                       215    0.8%
-  circl                      96    0.3%
-  patchstack_rss             87    0.3%
-  ---------------------- ---------
-  TOTAL (after dedup)    28,422
-
-  cache age:    0 days  (fresh)
-  cache path:   /home/bryan/.wpsecscan/vuln-db.json
+wpsecscan db source-stats
 ```
+
+prints the per-source contribution to your local cache, the total after
+dedup, and the cache age and path. The numbers depend on the day's feed;
+see [Current status](#current-status) for a dated snapshot.
 
 ## Privacy + governance
 
@@ -140,7 +149,9 @@ PRs adding any of these are welcome.
 
 ## Last verified
 
-All source endpoints + auth requirements verified May 2026.
+Per-source status was last measured on 2026-10-12 (see Current status). The
+license, rate-limit and auth details in the table above were last verified
+May 2026 and may have changed.
 Source-list URLs may shift over time; the aggregator script
 fails-soft (one source error doesn't abort the run) so a temporary
 outage of any single source degrades but doesn't break the feed.

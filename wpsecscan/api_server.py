@@ -7,13 +7,28 @@ there's no FastAPI/uvicorn dependency.
 Endpoints:
   GET  /healthz                                  -> {"ok": true}
   GET  /history?url=<url>                        -> list of {scanned_at, risk_score, snapshot}
-  POST /scan {"target":"...", "aggressive":bool} -> kicks off a scan in the background
+  POST /scan {"target":"...", "aggressive":bool, "owned":bool}
+                                                 -> kicks off a scan in the background;
+                                                    response carries "consent":
+                                                    granted|downgraded|n/a (v2.9.0 W0b)
   GET  /scan/<task_id>                           -> {"status":"running|done", "report":{...}}
   GET  /reports/<filename>                       -> serves a saved JSON snapshot
   GET  /openapi.json                             -> minimal OpenAPI 3 doc
 
 Auth: bearer token from --api-token (or env WPSECSCAN_API_TOKEN). If unset,
 the server refuses to start (no anonymous remote scans).
+
+Target allowlist (v2.9.0 W0b): env WPSECSCAN_API_ALLOWED_TARGETS, a
+comma-separated host list (`example.com` exact, `*.example.com` subdomains,
+`*` everything). When set and non-empty, POST /scan for any other host is
+refused with HTTP 403 before a scan starts. When unset any target is accepted.
+
+Aggressive consent (v2.9.0 W0b): `"aggressive": true` only runs aggressive
+checks when ownership consent resolves (body `"owned": true`, or the
+WPSECSCAN_OWNED_TARGETS env / owned-targets file, see `consent.py`);
+otherwise `scanner.scan` downgrades the scan to passive. `"owned": true` is
+client self-attestation and is honoured only while WPSECSCAN_API_ALLOWED_TARGETS
+is set; with no allowlist it is ignored and only the env / file consent counts.
 """
 from __future__ import annotations
 
@@ -107,12 +122,40 @@ def _history_for(url: str) -> list[dict]:
     return out
 
 
-def _run_scan_in_background(task_id: str, target: str, aggressive: bool) -> None:
+ENV_ALLOWED_TARGETS = "WPSECSCAN_API_ALLOWED_TARGETS"
+
+
+def _allowed_targets() -> list[str] | None:
+    """Normalised allowlist entries from $WPSECSCAN_API_ALLOWED_TARGETS.
+
+    None = not configured (env unset/blank -> any target is accepted).
+    A configured value with no usable entry yields [] (nothing is allowed).
+    """
+    raw = (os.environ.get(ENV_ALLOWED_TARGETS) or "").strip()
+    if not raw:
+        return None
+    from . import consent as _consent
+    entries = (_consent._norm_entry(t) for t in raw.split(","))
+    return [e for e in entries if e]
+
+
+def _target_allowed(target: str) -> bool:
+    """True when `target` passes the server-side allowlist (or none is set)."""
+    entries = _allowed_targets()
+    if entries is None:
+        return True
+    from . import consent as _consent
+    host = _consent.host_of(target)
+    return any(e == "*" or _consent._entry_matches(e, host) for e in entries)
+
+
+def _run_scan_in_background(task_id: str, target: str, aggressive: bool,
+                            consent: bool | None = None) -> None:
     """Run the scan in a fresh asyncio loop on a worker thread."""
     from . import scanner
 
     async def _go():
-        return await scanner.scan(target=target, aggressive=aggressive)
+        return await scanner.scan(target=target, aggressive=aggressive, consent=consent)
 
     try:
         report = asyncio.run(_go())
@@ -253,10 +296,32 @@ def _make_handler(token: str):
                     self._send_json(400, {"error": "invalid json body"})
                     return
                 target = body.get("target", "")
-                if not target:
+                if not target or not isinstance(target, str):
                     self._send_json(400, {"error": "missing target"})
                     return
+                # v2.9.0 W0b — server-side target allowlist, checked before a
+                # scan slot is taken or any scan starts.
+                if not _target_allowed(target):
+                    self._send_json(403, {
+                        "error": "target not in WPSECSCAN_API_ALLOWED_TARGETS"})
+                    return
                 aggressive = bool(body.get("aggressive"))
+                # v2.9.0 W0b — ownership consent. Only a literal JSON `true`
+                # in "owned" grants consent explicitly; otherwise None lets
+                # the env / owned-targets file decide inside scanner.scan().
+                # `owned` is client self-attestation, so it is honoured only
+                # when the operator configured an allowlist; with none set it
+                # is ignored and only server-side consent (WPSECSCAN_OWNED_TARGETS
+                # / owned-targets file) can unlock aggressive mode.
+                from . import consent as _consent
+                consent = (True if body.get("owned") is True
+                           and _allowed_targets() is not None else None)
+                if not aggressive:
+                    consent_state = "n/a"
+                elif _consent.has_consent(target, explicit=consent):
+                    consent_state = "granted"
+                else:
+                    consent_state = "downgraded"
                 # B20 (v2.8.0) — concurrent-scan cap. Without this an
                 # attacker (or naive load-test) POSTing 1000 /scan
                 # requests spawned 1000 threads each with its own
@@ -276,12 +341,13 @@ def _make_handler(token: str):
 
                 def _scan_wrapper():
                     try:
-                        _run_scan_in_background(task_id, target, aggressive)
+                        _run_scan_in_background(task_id, target, aggressive, consent)
                     finally:
                         _release_scan_slot()
                 t = threading.Thread(target=_scan_wrapper, daemon=True)
                 t.start()
-                self._send_json(202, {"task_id": task_id, "status": "running"})
+                self._send_json(202, {"task_id": task_id, "status": "running",
+                                      "consent": consent_state})
                 return
             self._send_json(404, {"error": "not found"})
 
@@ -303,7 +369,7 @@ def _openapi_doc() -> dict:
                                               "responses": {"200": {"description": "history list"}}}},
             "/scan":               {"post": {"summary": "Trigger a scan (returns task_id)",
                                               "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object",
-                                                "properties": {"target": {"type": "string"}, "aggressive": {"type": "boolean"}}, "required": ["target"]}}}}}},
+                                                "properties": {"target": {"type": "string"}, "aggressive": {"type": "boolean"}, "owned": {"type": "boolean"}}, "required": ["target"]}}}}}},
             "/scan/{task_id}":     {"get":  {"summary": "Fetch scan status / result"}},
             "/reports/{filename}": {"get":  {"summary": "Fetch a saved snapshot"}},
         },
@@ -328,6 +394,12 @@ def serve(host: str = "127.0.0.1", port: int = 8765, *, token: str | None = None
         print(f"⚠  WPSecScan API on {host}:{port} — listening on EVERY interface. "
               "The token is the only thing between attackers and your scan history. "
               "Prefer 127.0.0.1 + an SSH tunnel.")
+    if _allowed_targets() is None:
+        print(f"⚠  no target allowlist configured ({ENV_ALLOWED_TARGETS} unset) — "
+              "any authenticated client can scan any host, and a request's "
+              "\"owned\": true is ignored, so aggressive requests run passive unless "
+              "WPSECSCAN_OWNED_TARGETS / `wpsecscan owned add` grants consent. Set it "
+              "to a comma-separated host list (e.g. example.com,*.example.org).")
     print(f"WPSecScan API listening on http://{host}:{port}")
     # C11 (v2.7.2) — was `{token[:6]}***`, which echoed 37.5% of a
     # 16-char token to stdout (often logged or screen-captured).

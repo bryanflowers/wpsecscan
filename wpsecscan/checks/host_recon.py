@@ -92,7 +92,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         findings.append(Finding(
             severity=sev_level,
             title=f"Host recon — {len(in_level)} {sev_level}-risk service(s) reachable on {host}",
-            evidence="\n".join(f"  - tcp/{p}  {label}" for p, l in in_level) + (
+            evidence="\n".join(f"  - tcp/{p}  {label}" for p, label in in_level) + (
                 "\n\nThese services live on the same IP as the WP site. Exposing them publicly "
                 "is rarely intentional; in cloud setups they're meant to be locked behind a VPN "
                 "or security group."),

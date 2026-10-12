@@ -1,7 +1,19 @@
+---
+id: privacy_inventory
+title: "Privacy/GDPR data + tracker inventory (#16-23)"
+severity_max: high
+severity_dynamic: false
+aggressive: false
+category: "Privacy, compliance & accessibility"
+words: 253
+---
+
 # Privacy/GDPR data + tracker inventory (#16-23)
 
 **check_id**: `privacy_inventory`
 **aggressive**: no
+**category**: Privacy, compliance & accessibility
+**max severity**: high
 **OWASP**: A09:2021 — Security Logging & Monitoring Failures
 **MITRE ATT&CK**: T1593 — Search Open Websites
 **CWE**: CWE-359
@@ -30,6 +42,36 @@ Round-59 #16-23 — Privacy / GDPR data inventory + tracker audit.
    guess the jurisdiction (US/EU/UK) so transfer-impact assessment is
    one click.
 
+## Request footprint
+
+The module contains 2 request call(s) to the target (GET x2). Calls inside loops send more than one request, so treat this as a minimum.
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| high/low | PII patterns visible on home page (⟨value⟩ match(es)) | Customer-facing pages should not echo raw PII. If the matches are legitimate (contact email in footer), this is informational. CC/SSN matches on a public page are critical. |
+| medium | Google Analytics detected without anonymize_ip | Add `gtag('config', 'GA_ID', {anonymize_ip: true});` OR migrate to GA4 (anonymisation is default). For EU compliance, also consider consent-mode v2 + a non-tracking analytics like Plausible/Fathom/Matomo. |
+| medium | Google Fonts loaded directly from googleapis (CJEU 2022) | Self-host fonts (per German CJEU ruling, loading Google Fonts directly transfers IPs to the US without consent). Plugins: 'Local Google Fonts', 'OMGF' (Optimize My Google Fonts). |
+| medium | No recognised cookie-consent banner detected | If you serve EU/UK visitors, ePrivacy + GDPR require informed consent BEFORE setting non-essential cookies. Install Cookiebot/Iubenda/Complianz or comparable. |
+| medium | Right-to-be-erased admin page reachable unauthenticated | WordPress core gates this with `manage_options`. If you see the form anonymously, your `is_super_admin()` plugin or proxy strips auth — investigate. |
+| low | Third-party JS processors detected: ⟨count⟩ | Each third party is a data processor. Issue a DPA with each one. For US-jurisdiction processors, document your Transfer Impact Assessment (TIA) per GDPR Art. 46. |
+| info | Cookie-consent banner present | Confirm the banner blocks scripts BEFORE consent (most cosmetic banners don't). |
+| info | Privacy inventory complete — no issues | No action. |
+| info | Privacy inventory — could not fetch home page | Check connectivity. |
+
+## Evidence the check records
+
+- Privacy inventory — could not fetch home page: GET / returned no content.
+- No recognised cookie-consent banner detected: None of: ⟨value⟩
+- Cookie-consent banner present: Detected: ⟨value⟩
+- Google Fonts loaded directly from googleapis (CJEU 2022): Detected fonts.googleapis.com or fonts.gstatic.com in HTML.
+- Right-to-be-erased admin page reachable unauthenticated: GET /wp-admin/erase-personal-data.php -&gt; 200 (looks like the form rendered).
+- Privacy inventory complete — no issues: No PII leaks, banner present, no tracker concerns.
+- Google Analytics detected without anonymize_ip: Found GA/GTM script tag but no inline `anonymize_ip: true`.
+
 ## Compliance mapping
 
 - **compliance_map / pci_dss**: 3.4.1
@@ -48,5 +90,7 @@ Round-59 #16-23 — Privacy / GDPR data inventory + tracker audit.
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only privacy_inventory
+wpsecscan only privacy_inventory https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

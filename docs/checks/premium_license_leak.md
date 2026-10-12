@@ -1,7 +1,19 @@
+---
+id: premium_license_leak
+title: "Premium plugin license-key leak scan (#7)"
+severity_max: critical
+severity_dynamic: false
+aggressive: false
+category: "File & directory exposure"
+words: 192
+---
+
 # Premium plugin license-key leak scan (#7)
 
 **check_id**: `premium_license_leak`
 **aggressive**: no
+**category**: File & directory exposure
+**max severity**: critical
 **OWASP**: A02:2021 — Cryptographic Failures
 **MITRE ATT&CK**: T1552.001 — Credentials in Files
 **CWE**: CWE-798
@@ -21,6 +33,24 @@ their own install to get free updates / pirate the plugin.
 We probe the homepage HTML + common admin-ajax enqueue paths for license-key
 patterns (`license_key=`, `pro_license=`, `_license_status`, etc.).
 
+## Request footprint
+
+The module contains 1 request call(s) to the target (GET x1). Calls inside loops send more than one request, so treat this as a minimum.
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| critical | Premium plugin license key leaked in page HTML (⟨count⟩ key(s)) | 1. Rotate the affected license keys in the plugin vendor's account dashboard. 2. Find the offending setting in wp-admin and remove it from any front-end enqueued scripts (search the codebase for `wp_localize_script` calls that pass the license value). 3. The plugin author should never have echoed the license to the public side — if it's a plugin you control, fix the leak upstream; if it's a third-party plugin, file a security report with the vendor. |
+| info | Premium plugin license-key scan — clean | No action. |
+
+## Evidence the check records
+
+- Premium plugin license key leaked in page HTML (⟨count⟩ key(s)): ⟨value⟩ A leaked license key allows pirates to activate the plugin on their own install + receive automatic updates as if they had paid. The plugin vendor's license-server will eventually block the key, but until then the leaker pays for someone else's installs. Some vendors also use the license key as an auth token for support tickets — leaks can let third parties open tickets in your name.
+- Premium plugin license-key scan — clean: Scanned ⟨count⟩ URL(s) against ⟨count⟩ known premium-plugin license patterns. No leakage.
+
 ## Compliance mapping
 
 - **compliance_map / pci_dss**: 3.4.1
@@ -39,5 +69,7 @@ patterns (`license_key=`, `pro_license=`, `_license_status`, etc.).
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only premium_license_leak
+wpsecscan only premium_license_leak https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

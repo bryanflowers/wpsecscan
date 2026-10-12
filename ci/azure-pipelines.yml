@@ -10,20 +10,27 @@ schedules:
       include: [main]
     always: true
 
-variables:
-  WPSEC_TARGET: "https://your-wp-site.com"  # override via pipeline variable
+# WPSEC_TARGET is REQUIRED: define it as a pipeline variable (a site you own or
+# are authorised to test). There is deliberately no default.
 
 pool:
   vmImage: ubuntu-latest
 
 steps:
+  - bash: |
+      if [ -z "$WPSEC_TARGET" ]; then
+        echo "WPSEC_TARGET is not set - define it as a pipeline variable" >&2
+        exit 1
+      fi
+    displayName: Require target
+
   - task: UsePythonVersion@0
     inputs:
       versionSpec: "3.11"
 
   - bash: |
       pip install --quiet httpx[http2] jinja2 rich openpyxl
-      git clone --depth 1 https://github.com/bryan/wpsecscan.git _wpsecscan
+      git clone --depth 1 https://github.com/bryanflowers/wpsecscan.git _wpsecscan
       pip install --quiet -e ./_wpsecscan
     displayName: Install WPSecScan
 

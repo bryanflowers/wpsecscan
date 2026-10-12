@@ -41,6 +41,43 @@ def _load_json(name: str) -> dict:
         return {}
 
 
+# Display names for the framework keys found in the check-level mapping files.
+_FRAMEWORK_LABELS = {
+    "pci_dss": "PCI DSS 4.0",
+    "nist_800_53": "NIST 800-53 r5",
+    "iso_27001": "ISO 27001",
+    "iso_27001_2022": "ISO 27001:2022 Annex A",
+    "nist_csf": "NIST CSF 2.0",
+    "cis_v8": "CIS Controls v8",
+    "hitrust": "HITRUST CSF v11.4",
+    "cmmc": "CMMC 2.0",
+    "hipaa": "HIPAA",
+    "soc2": "SOC 2",
+    "fedramp": "FedRAMP",
+    "gdpr": "GDPR",
+}
+
+# Frameworks that get a column in the table below (the header row is static).
+_TABLE_FRAMEWORK_KEYS = (
+    "pci_dss", "nist_800_53", "iso_27001", "iso_27001_2022",
+    "nist_csf", "cis_v8", "hitrust", "cmmc",
+)
+
+_MAPPING_FILES = ("compliance_map.json", "compliance_v2.json", "compliance_extra.json")
+
+
+def framework_keys() -> list[str]:
+    """Framework keys that have check-level mappings, read from the data files
+    at call time (inner keys of each per-check entry; `_`-prefixed keys skipped)."""
+    keys: set[str] = set()
+    for name in _MAPPING_FILES:
+        for cid, entry in _load_json(name).items():
+            if cid.startswith("_") or not isinstance(entry, dict):
+                continue
+            keys.update(k for k in entry if not k.startswith("_"))
+    return sorted(keys)
+
+
 _SEV_RANK = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 
 
@@ -65,6 +102,8 @@ def render(report: ScanReport) -> str:
     worst = _worst_severity_per_check(report)
     target_url = escape(report.target)
     scanned = escape(report.scanned_at)
+    fw_keys = framework_keys()
+    fw_names = ", ".join(escape(_FRAMEWORK_LABELS.get(k, k)) for k in fw_keys)
 
     # Build the unified rows table
     all_check_ids = sorted(set(pci_nist_iso) | set(extended) - {"_meta", "_schema"})
@@ -144,7 +183,7 @@ def render(report: ScanReport) -> str:
     <b>Scanned:</b> {scanned}<br>
     <b>Risk score:</b> {report.risk_score}/100 ·
     <b>Checks exercised:</b> {len(rows)} ·
-    <b>Frameworks mapped:</b> 8
+    <b>Frameworks shown:</b> {len(_TABLE_FRAMEWORK_KEYS)}
 </div>
 <table>
     <thead><tr>
@@ -165,12 +204,15 @@ def render(report: ScanReport) -> str:
 </table>
 <p class="footnote">
     This attestation lists every WPSecScan check that ran against the target,
-    mapped to the controls it exercises across eight major compliance frameworks.
+    mapped to the controls it exercises in the {len(_TABLE_FRAMEWORK_KEYS)} frameworks shown.
+    The mapping data holds check-level references for {len(fw_keys)} frameworks
+    ({fw_names}).
     The "worst severity" column reflects the highest-severity finding produced
     by that check on this scan. Mapping data is sourced from
     <code>wpsecscan/data/compliance_map.json</code> and
-    <code>wpsecscan/data/compliance_v2.json</code>; both files are open-source
-    and inspectable.
+    <code>wpsecscan/data/compliance_v2.json</code> (and, for the frameworks not
+    shown here, <code>wpsecscan/data/compliance_extra.json</code>); all are
+    open-source and inspectable.
 </p>
 <p>Auditor signature: ______________________________________________</p>
 <p>Date:               ______________________________________________</p>

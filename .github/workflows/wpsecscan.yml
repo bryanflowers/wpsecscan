@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       target_url:
-        description: "URL to scan"
+        description: "URL to scan (must be a site you own)"
         required: true
-        default: "https://your-wp-site.com"
+        default: ""
   schedule:
     # Nightly at 03:30 UTC
     - cron: "30 3 * * *"
@@ -25,12 +25,23 @@ permissions:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    # Skip on PRs (incl. Dependabot) when no real target is configured —
-    # otherwise the scan runs against the placeholder host and always fails.
-    if: github.event_name != 'pull_request' || vars.WPSEC_TARGET != ''
+    # W0a — never scan a host we don't own. There is no built-in default
+    # target: schedule / push / pull_request runs are skipped unless the
+    # WPSEC_TARGET repo variable is set, and manual runs are skipped unless
+    # the target_url input is non-empty.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target_url != '') ||
+      (github.event_name != 'workflow_dispatch' && vars.WPSEC_TARGET != '')
     env:
-      WPSEC_TARGET: ${{ github.event.inputs.target_url || vars.WPSEC_TARGET || 'https://your-wp-site.com' }}
+      WPSEC_TARGET: ${{ github.event.inputs.target_url || vars.WPSEC_TARGET }}
     steps:
+      - name: Require a scan target
+        run: |
+          if [ -z "${WPSEC_TARGET}" ]; then
+            echo "::error::WPSEC_TARGET is empty — set the repo variable to a site you own"
+            exit 1
+          fi
+
       # N16 (v2.7.3) — SHA-pin actions; Dependabot's github-actions
       # config keeps these current.
       - name: Check out repo
@@ -87,7 +98,7 @@ jobs:
 
       - name: Comment on PR with risk score
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71  # v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
         with:
           script: |
             const fs = require('fs');

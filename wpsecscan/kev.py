@@ -75,12 +75,14 @@ def _cves_from(data: dict) -> set[str]:
     return out
 
 
-def filter_findings_to_kev(report) -> int:
+def filter_findings_to_kev(report) -> int | None:
     """Mutate report.results in-place: drop findings whose extra.cve isn't
-    in the KEV catalogue. Returns the number kept."""
+    in the KEV catalogue. Returns the number kept, or None when the KEV set
+    is empty/unavailable (feed down, no cache) — in that case the findings
+    are left unfiltered. 0 means the feed was read and nothing matched."""
     kev = fetch_kev_cves()
     if not kev:
-        return 0
+        return None
     kept = 0
     for r in report.results:
         new_findings = []

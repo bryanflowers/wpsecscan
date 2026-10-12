@@ -9,7 +9,7 @@ verify provenance.
 Output shape (JSON-LD with WPSecScan-specific @context):
 
   {
-    "@context": "https://wpsecscan.dev/share/v1",
+    "@context": "https://wpsecscan.com/schema/share-v1.json",
     "@type": "Finding",
     "target": "https://example.com",
     "scanned_at": "...",
@@ -96,7 +96,7 @@ def build_share_payload(report: ScanReport, check_id: str, index: int,
     finding = target_check.findings[index]
     now = int(_time.time())
     payload = {
-        "@context": "https://wpsecscan.dev/share/v1",
+        "@context": "https://wpsecscan.com/schema/share-v1.json",
         "@type": "Finding",
         "target": report.target,
         "scanned_at": report.scanned_at,

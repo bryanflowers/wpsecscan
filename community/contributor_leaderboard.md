@@ -54,5 +54,5 @@ opens a PR with the diff.
 ## Out of scope
 
 - Real-time leaderboard (avoid leaderboard-driven gaming)
-- Cash bounties for top contributors (already in BUG-BOUNTY.md
-  separately)
+- Cash rewards for top contributors (the project has no bounty or
+  reward programme)

@@ -18,7 +18,7 @@ Site Health output — all in one round-trip.
 ## Scan with the companion
 
 ```
-wpsecscan --target https://yoursite.com \
+wpsecscan https://yoursite.com \
           --companion-token 'pasted-token-here'
 ```
 

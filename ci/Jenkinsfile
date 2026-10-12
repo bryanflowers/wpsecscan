@@ -3,8 +3,8 @@ pipeline {
     agent { docker { image 'python:3.11-slim' } }
 
     parameters {
-        string(name: 'TARGET_URL', defaultValue: 'https://your-wp-site.com',
-               description: 'WordPress URL to scan')
+        string(name: 'TARGET_URL', defaultValue: '',
+               description: 'WordPress URL to scan (required; scan only sites you own or are authorised to test)')
         choice(name: 'FAIL_ON', choices: ['critical', 'high', 'medium', 'low'],
                description: 'Fail the build if findings >= this severity exist')
     }
@@ -14,11 +14,20 @@ pipeline {
     }
 
     stages {
+        stage('Check target') {
+            steps {
+                script {
+                    if (!params.TARGET_URL?.trim()) {
+                        error('TARGET_URL is not set. Set it to a site you own or are authorised to test.')
+                    }
+                }
+            }
+        }
         stage('Install') {
             steps {
                 sh '''
                     pip install --quiet httpx[http2] jinja2 rich openpyxl
-                    git clone --depth 1 https://github.com/bryan/wpsecscan.git _wpsecscan
+                    git clone --depth 1 https://github.com/bryanflowers/wpsecscan.git _wpsecscan
                     pip install --quiet -e ./_wpsecscan
                 '''
             }

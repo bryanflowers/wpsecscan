@@ -73,7 +73,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
             # WP standard 404 page is usually >2000 bytes — if body looks like the 404
             # template (contains "Page not found"), skip
             body = (r.text or "")[:500].lower()
-            if "page not found" in body or "404" in body and len(r.content or b"") > 5000:
+            if ("page not found" in body) or ("404" in body and len(r.content or b"") > 5000):
                 continue
             hits.append((path, r.status_code, len(r.content or b"")))
 

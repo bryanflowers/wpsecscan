@@ -17,12 +17,12 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install wpsecscan
-      - run: wpsecscan --target ${{ vars.TARGET_URL }} --json report.json
-      - run: wpsecscan ci-gate report.json --max-critical 0 --max-high 2
+      - run: wpsecscan "${{ vars.TARGET_URL }}" --json-only --out reports --fail-on high
       - uses: actions/upload-artifact@v5
+        if: always()
         with:
           name: wpsecscan-report
-          path: report.json
+          path: reports/
 ```
 
 ## GitLab CI
@@ -32,12 +32,10 @@ wpsecscan:
   image: python:3.12-slim
   script:
     - pip install wpsecscan
-    - wpsecscan --target $TARGET_URL --json report.json
-    - wpsecscan ci-gate report.json --max-critical 0 --max-high 2
+    - wpsecscan "$TARGET_URL" --json-only --out reports --fail-on high
   artifacts:
-    paths: [report.json]
-    reports:
-      sast: report.json
+    when: always
+    paths: [reports/]
 ```
 
 ## Jenkins
@@ -49,9 +47,8 @@ pipeline {
     stage('WPSecScan') {
       steps {
         sh 'pip install wpsecscan'
-        sh 'wpsecscan --target ${TARGET_URL} --json report.json'
-        sh 'wpsecscan ci-gate report.json --max-critical 0'
-        archiveArtifacts artifacts: 'report.json'
+        sh 'wpsecscan "${TARGET_URL}" --json-only --out reports --fail-on critical'
+        archiveArtifacts artifacts: 'reports/**'
       }
     }
   }
@@ -62,10 +59,13 @@ pipeline {
 
 | Code | Meaning |
 |------|---------|
-| `0` | Scan complete, gate satisfied |
-| `1` | Scan complete, gate failed (findings over threshold) |
-| `2` | Scan errored (network, target unreachable) |
-| `3` | Configuration error (bad flags, missing input) |
+| `0` | Scan complete, clean or info-only (or below the `--fail-on` threshold) |
+| `1` | Medium findings (default exit-code logic) |
+| `2` | Critical or high findings, or a finding at or above `--fail-on` |
+| `130` | Ctrl+C |
 
-`ci-gate` only checks thresholds; the scan itself uses `0` for "ran
-cleanly regardless of findings". Use `ci-gate` to fail the build.
+`--fail-on LEVEL` overrides the default exit-code logic: the scan exits
+`2` when any finding is at or above that severity. Ready-made templates
+for GitLab CI, Jenkins and Azure DevOps are in the repository's `ci/`
+directory; they require `WPSEC_TARGET` / `TARGET_URL` to be set and have
+no default target. Only point them at sites you own or are authorised to test.

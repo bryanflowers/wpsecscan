@@ -19,8 +19,9 @@ import urllib.request
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 
-DEFAULT_REMOTE_URL = "https://raw.githubusercontent.com/bryanflowers/wpsecscan-marketplace/main/marketplace.json"
+DEFAULT_REMOTE_URL = "https://raw.githubusercontent.com/bryanflowers/wpsecscan/main/docs/marketplace.json"
 CACHE_TTL_SECONDS = 24 * 3600
+NO_ENTRIES_MESSAGE = "No marketplace entries yet."
 
 
 def _catalogue_path() -> Path:
@@ -105,3 +106,10 @@ def entries_by_category(category: str | None = None) -> list[dict]:
     if not category:
         return list(cat.get("entries", []))
     return [e for e in cat.get("entries", []) if e.get("category") == category]
+
+
+def describe_catalogue(cat: dict) -> str:
+    """One-line status for a catalogue: entry count, or a clear empty-state
+    message when neither the built-in nor the remote index has entries."""
+    n = len(cat.get("entries") or [])
+    return f"{n} marketplace entr{'y' if n == 1 else 'ies'}" if n else NO_ENTRIES_MESSAGE

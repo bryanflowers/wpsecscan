@@ -1,3 +1,14 @@
+"""Debug and information-leak check.
+
+Requests /wp-content/debug.log and reports it (high) when it is readable and
+contains PHP or WordPress log text. Requests /?p[]=1 and reports (medium) when
+the body carries PHP error markers: "Fatal error", "Stack trace:", "Uncaught
+Error/Exception", or a full "Warning: ... in /path/file.php on line N" line.
+Fetches / and reports (low) a wp-emoji-release.min.js?ver= URL, which reveals
+the WordPress version. If nothing matches it emits one info finding. Fix: keep
+WP_DEBUG_LOG outside the docroot, turn WP_DEBUG_DISPLAY and display_errors
+off, and optionally remove the emoji script. Three GET requests in total.
+"""
 from __future__ import annotations
 
 import re

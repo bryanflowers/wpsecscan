@@ -4,6 +4,8 @@ A complete index of what this tool checks, what it outputs, what knobs you can t
 
 For install instructions, see [README.md](README.md).
 
+Current inventory: 294 checks plus the `authenticated` check (31 aggressive), 66 CLI subcommands, 9 `--format` values, 14 `emit` export formats, 16 `push` providers, 7 `ai` helpers. The per-round sections below are historical release notes; counts inside them describe that release, not the current tree, and anything they say about packaging channels or hosted services that is not in the README was never published.
+
 ---
 
 ## v2.8.4 + v2.8.5 highlights
@@ -14,9 +16,9 @@ For install instructions, see [README.md](README.md).
   launcher with QR-code enrollment.
 - **GUI Phase 4** (v2.8.4): File → Push to… (16 destinations) and
   File → Export As… (14 formats) submenus enumerate the CLI dispatch
-  tables; AI menu surfaces 6 helpers; right-click a finding for
+  tables; AI menu surfaces the `ai` helpers; right-click a finding for
   per-finding push / AI explain / export.
-- **CodeQL Python SAST** (v2.8.4): added to CI; +31 tests.
+- **CodeQL Python SAST** (v2.8.4): added to CI.
 - **v2.8.5 quality release**: 3 Critical bugs (gui `_save_pref`
   lock TOCTOU race, scanner parallel-groups WAF streak, history
   `.json`/`.sig` atomic ordering), 10 High (mobile_api `/findings/`
@@ -24,14 +26,13 @@ For install instructions, see [README.md](README.md).
   QR-URL token leak, `PhotoImage` base64 encoding, cdn_edge_audit
   operator precedence, payment_commerce `or await`, a11y_deep walrus
   double-call, sites.json atomic write, creds_vault RMW lock),
-  7 Medium, 1 syntax fix (3.10/3.11 CI green again), +17 regression
-  tests.
+  7 Medium, 1 syntax fix (3.10/3.11 CI green again).
 
 ---
 
 ## Round-66 — second forward-audit (66 items) + deferred GUI items → v2.4.0
 
-Tests: **665 → 667 passing**. Checks: **216 → 226**. First PyPI release:
+Checks at that release: **216 → 226**. First PyPI release:
 `pip install wpsecscan`. See [CHANGELOG.md](CHANGELOG.md) for the
 per-item breakdown.
 
@@ -136,11 +137,12 @@ scan can pull every endpoint with one token.
 
 ### Distribution
 
-- **PyPI**: `pip install wpsecscan` (v2.4.0 live).
-- **Docker**: Dockerfile installs from `pyproject.toml`, runs as
-  non-root, uses tini as PID 1.
-- Homebrew formula + Scoop manifest + winget manifests templated
-  under `packaging/`.
+- **PyPI**: `pip install wpsecscan`.
+- **Dockerfile**: installs from `pyproject.toml`, runs as
+  non-root, uses tini as PID 1. Build it yourself with
+  `docker build -t wpsecscan .`; no image is published.
+- Package-manager manifests (Homebrew, Scoop, winget and similar) were
+  drafted and later removed from the tree; none were ever published.
 - VS Code extension under `vscode-extension/` (sidebar findings
   tree + native Diagnostics + workspace auto-discovery).
 
@@ -158,35 +160,36 @@ scan can pull every endpoint with one token.
 
 ## Round-64 — 165 features across 18 groups → v2.2.0
 
-Tests: **607 → 646 passing**. Checks: **161 → 189**.
+Checks at that release: **161 → 189**.
 
 **What it does:** Round-64 broadens WPSecScan from a passive
 WordPress scanner into a full defensive-security platform with
-active exploit verification (consent-gated), continuous monitoring,
-threat-intel federation to 10 upstream providers, SLSA Level 3
-signed releases, enterprise SSO + RBAC + audit-log + multi-tenant,
-26 new attack-surface checks, and distribution across 9 channels.
+read-only proof helpers, continuous monitoring, wrappers for 10
+threat-intel providers, Sigstore-signed releases, enterprise SSO +
+RBAC + audit-log + multi-tenant modules, 26 new attack-surface checks,
+and drafted packaging manifests (never published; PyPI, the GitHub release
+binaries and a source install are the real channels).
 
 **Group summary:**
 
 | Group | Items | What it adds |
 |-------|------:|-------------|
-| A — Active exploit verification | 10 | Strict consent-gated PoC verifiers (`exploit_verify.py`) |
-| B — Continuous monitoring | 10 | Always-on watchers (`continuous_monitor.py` + `daemon/`; legacy `monitors.py` removed in v2.8.1 T9) |
-| D — Trust signals | 10 | SLSA L3 + Sigstore + Scorecard + security.txt + bounty |
+| A — Active exploit verification | 10 | Planned as consent-gated PoC verifiers; no `exploit_verify.py` is in the tree. What exists: the read-only proof extractors in `prove.py` (`--prove`) and the ownership-consent gate for aggressive mode (`consent.py`) |
+| B — Continuous monitoring | 10 | One continuous file-change monitor (`continuous_monitor.py`) plus the watchers in `watchers.py` (legacy `monitors.py` removed in v2.8.1 T9) |
+| D — Trust signals | 10 | Sigstore signatures + GitHub build-provenance attestations + Scorecard workflow + security.txt |
 | E — Threat intel | 10 | CISA KEV / EPSS / Exploit-DB / Metasploit / MITRE ATT&CK / STIX / MISP / OpenCTI / OTX / GreyNoise |
 | F — Modern WP attack surface | 20 | AI/LLM, cryptominer, Magecart, lockfile, typosquat |
 | G — Web3/NFT/payment | 6 | Wallet, NFT, crypto callback, BIP-39 seed, test keys |
 | H — UX dashboard polish | 14 | Progress bar, snooze, themes, tray |
 | I — Reports & sharing | 7 | SVG badge, public scorecard, ELI5, trends |
 | J — Mobile + accessibility | 6 | RN/Capacitor + WCAG AAA + screen-reader CLI |
-| K — Distribution | 10 | Docker + 8 package managers + install matrix |
+| K — Distribution | 10 | Drafted manifests for several package managers; none published and the manifests have been removed. Real channels: PyPI, GitHub release binaries, source |
 | L — Enterprise | 9 | OIDC/SAML/RBAC/audit/approval/multi-tenant/quota/billing |
-| M — Community | 10 | Public DB, marketplace, bot, leaderboard, CTF |
-| N — IaC | 8 | Terraform/Ansible/Pulumi/Sentinel/ServiceNow/Datadog/Grafana/Prom |
+| M — Community | 10 | Design docs and scaffolds (public DB, marketplace, bot, leaderboard, CTF); no hosted service is running |
+| N — IaC | 8 | Ansible / Sentinel / ServiceNow / Datadog / Grafana / Prometheus assets in-tree (Terraform and Pulumi assets are not shipped) |
 | O — SDKs + API | 7 | Python/JS/Go SDKs + OpenAPI + Postman + webhook v2 |
 | P — Check authoring | 5 | Scaffolder + linter + framework + tutorial |
-| Q — Education | 7 | CTF, MOOC, cert program, webinar, runbook |
+| Q — Education | 7 | Outlines in `education/` (CTF, MOOC, cert program, webinar, runbook); no live CTF target or certificate programme |
 | R — Performance | 6 | Distributed coord, ARM64, diff/smart-skip, conn pool |
 | Wild cards | 10 | Browser ext, Slack/Teams bots, bingo, brand monitor |
 | **Total** | **165** | |
@@ -200,29 +203,26 @@ For per-feature detail see [CHANGELOG.md](CHANGELOG.md#added-round-64).
 
 ## Round-63 — Multi-source CVE aggregator → v2.1.0
 
-Tests: **590 → 607 passing**.
-
 **What it does:** WPSecScan now runs a nightly aggregator that pulls
-from **8 free vulnerability sources**, merges + dedupes the results,
-and serves a single feed users hit with `wpsecscan db update`. No
-single source — paid or free — covers everything; running our own
-union gives users a strictly fresher and more complete database than
-any one upstream.
+from up to **8 public vulnerability sources**, merges + dedupes the results,
+and serves a single feed users hit with `wpsecscan db update`. Per-source
+counts are in the feed header; not every source returns data on a given
+night (see `docs/data-sources.md` for current status).
 
-**The 8 sources** (license + free/paid in `docs/data-sources.md`):
+**The 8 sources** (license and current status in `docs/data-sources.md`):
 
 | # | Source | License | Free? |
 |---|--------|---------|-------|
-| 1 | Wordfence Intelligence v3 | proprietary; v2 free tier sunsetted | partial |
+| 1 | Wordfence Intelligence | proprietary; API withdrawn | no data |
 | 2 | **OSV.dev** (Packagist) | CC-BY-4.0 | ✓ free |
 | 3 | **GitHub Security Advisories** | CC0 | ✓ free |
 | 4 | **Mitre CVE List V5** | CC0 (canonical) | ✓ free |
 | 5 | **NVD National Vulnerability DB** | CC0 (US gov) | ✓ free |
-| 6 | **WPVulnerability.com** | CC-BY-SA | ✓ free |
+| 6 | **WPVulnerability.com** | CC-BY-SA | fetch failing (2026-10-12) |
 | 7 | Patchstack public RSS | vendor-discontinued; fail-soft | n/a |
-| 8 | **CIRCL CVE-Search** | EU public service | ✓ free |
+| 8 | **CIRCL CVE-Search** | EU public service | no WordPress-relevant entries (2026-10-12) |
 
-**6 of 8 are fully free with no key required.**
+Of the eight, only NVD (500 entries), Mitre (185), GHSA (23) and OSV (10) returned data in October 2026 (710 entries in the merged feed); the other four returned none.
 
 **Infrastructure:**
 - `scripts/aggregate-cve-feed.py` — 700-line aggregator with per-source
@@ -246,7 +246,7 @@ set `WPSECSCAN_AGGREGATED_FEED_URL` to your fork's feed.
 
 ## Round-62 — 89-feature mega-round → v2.0.0
 
-Biggest round yet. Inventory **154 → 161 checks**. Tests **542 → 585 passing**.
+Biggest round yet. Registry size after this round: **161** (was 154).
 Version bumped to v2.0.0 to mark cumulative scope.
 
 - **Scanner depth (B21-B38):** server-stack EOL detect, 11-vendor WAF
@@ -255,7 +255,7 @@ Version bumped to v2.0.0 to mark cumulative scope.
   12-framework SPA detect (React/Vue/Angular/Next/Nuxt/Gatsby/Remix/Astro/...),
   WebDAV LOCK / SameSite-strict / PWA / HTTP/3 / contrast bundle,
   WP-CLI artefact + shell-exec hunt.
-- **12 report formats (C39-C50):** PowerPoint .pptx, Word .docx,
+- **Report and export additions (C39-C50):** PowerPoint .pptx, Word .docx,
   JIRA bulk-create, Confluence markdown, Streamlit dashboard, Grafana
   JSON, Splunk HEC / Elastic / Loki NDJSON, Datadog JSON, CSV pivot,
   CycloneDX SBOM diff + VEX annotation, quarterly trend PDF.
@@ -269,8 +269,10 @@ Version bumped to v2.0.0 to mark cumulative scope.
   bookmarklet, zsh completion, man page, auto-resume marker, **SIEM live
   forwarder** (Splunk/Elastic/Loki), honeypot deploy guide, **egress
   recorder** (every outbound IP logged, 50 MB cap with rollover).
-- **Distribution manifests:** Chocolatey · Winget · Homebrew tap ·
-  Snap · Flatpak · AppImage. Per-platform docs in `distribution/`.
+- **Distribution manifests:** drafted for several package managers
+  (Chocolatey, winget, Homebrew, Snap, Flatpak, AppImage) and later removed from the
+  tree; none were published. Real channels: PyPI, the GitHub release
+  binaries, and a source install.
 - **Network fingerprint:** JA3/JA4-lite TLS fingerprint of any HTTPS
   target (`network_fingerprint.fingerprint_url`).
 - **6 new GUI Tools-menu entries:** DB status, Sites dashboard, CVE
@@ -280,7 +282,7 @@ Version bumped to v2.0.0 to mark cumulative scope.
 
 ## Round-61 — plugin polish, auto-vuln-update, UI overhaul, proxy
 
-v1.10.0. Tests: **513 → 542 passing**.
+v1.10.0.
 
 - **WP companion plugin → wp.org submission-ready**: all blockers fixed
   (Domain Path header, `load_plugin_textdomain`, header-only token,
@@ -312,7 +314,7 @@ v1.10.0. Tests: **513 → 542 passing**.
 
 ## Round-60 — 28 features + WP companion plugin + AGPLv3 relicense
 
-v1.9.0. Inventory: **150 → 154 checks**. Tests: **485 → 513 passing**.
+v1.9.0. Registry size after this round: **154** (was 150).
 
 - **License switch**: MIT → AGPLv3+ (v1.9.0 onward). v1.0–v1.8 stay MIT.
   Adds network clause — SaaS deployments must publish their source.
@@ -327,8 +329,8 @@ v1.9.0. Inventory: **150 → 154 checks**. Tests: **485 → 513 passing**.
 - **Weekly auto-scan + dashboard**: `wpsecscan sites/schedule/digest`
   subcommands. Windows Task Scheduler / launchd / systemd integration.
   Email + Slack/Discord/Teams digest.
-- **Windows installers**: NSIS wizard (with autostart + scheduler +
-  Defender-exclusion options) + WiX MSI for enterprise group policy.
+- **Windows installers**: NSIS wizard and WiX MSI build files under
+  `installer/`; the installers are not published as release assets.
 - **Bug-report system**: GUI "Report Bug" → pre-filled GH issue with
   redacted log + system info. Opt-in GlitchTip/Sentry POST. Prior-crash
   list with status.
@@ -345,7 +347,7 @@ v1.9.0. Inventory: **150 → 154 checks**. Tests: **485 → 513 passing**.
     DNS change watcher, subdomain takeover monitor, auto-remediation
 - **Docs site**: `docs/` is GitHub-Pages ready. Auto-generated per-check
   pages (150+). Hand-written guides for install, auth, weekly scans,
-  AI, CI, bounty, GUI, plugin authoring.
+  AI, CI, GUI, plugin authoring.
 - **Repo cleanup**: 20 stale `test-*` directories removed; `.editorconfig`,
   `py.typed` added.
 - **License-key system + optional PyArmor obfuscation** (operator-only).
@@ -355,7 +357,7 @@ v1.9.0. Inventory: **150 → 154 checks**. Tests: **485 → 513 passing**.
 ## Round-59 — 111-feature mega-round (the best WordPress scanner)
 
 The biggest single round yet — 111 features across 18 waves (A-R).
-Inventory: **136 → 150 checks**. Tests: **427 → 485 passing**.
+Registry size after this round: **150** (was 136).
 
 Highlights (full list per category below; see CHANGELOG.md for every item):
 
@@ -383,7 +385,7 @@ Highlights (full list per category below; see CHANGELOG.md for every item):
   test-key leak in production HTML, PCI-DSS 4.0 checklist, PCI evidence
   JSON pack, 3DS2 hint, WooCommerce order-IDOR.
 - **Wave I — Compliance frameworks (#63-67):** HITRUST CSF v11.4, CMMC 2.0,
-  NIST CSF 2.0, CIS Critical Controls v8, ISO 27001:2022 Annex A — 106-check
+  NIST CSF 2.0, CIS Critical Controls v8, ISO 27001:2022 Annex A — a 106-entry
   mapping in `compliance_v2.json`.
 - **Wave J — AI/ML output safety (#68-72):** hallucination-verification re-prompt,
   per-backend cost tracking, llama.cpp local backend, prompt-injection
@@ -424,13 +426,13 @@ Skipped from brainstorm: #110 audio briefing TTS (user opt-out).
 
 ## Round-58 — 117-feature mega-round (best WordPress security scanner)
 
-A sweeping round across 14 categories (P-CC). Inventory: **120 → 136 checks**.
-Tests: **392 → 427 passing**. See CHANGELOG.md for the full list. Headlines:
+A sweeping round across 14 categories (P-CC). Registry size after this round: **136** (was 120).
+See CHANGELOG.md for the full list. Headlines:
 
 - 16 new WordPress / cloud / exploit-primitive checks (waves P-R)
-- OSINT enrichment (ASN, geo, bug-bounty, cert-tx) — wave S
-- Compliance: HIPAA / FERPA / SOC 2 / FedRAMP / GDPR mappings, risk-aging,
-  bug-bounty submission templates, trust-center page generator — wave T
+- OSINT enrichment (ASN, geo, cert-tx, disclosure-program lookup) — wave S
+- Compliance: HIPAA / SOC 2 / FedRAMP / GDPR mappings, risk-aging,
+  report-submission templates, trust-center page generator — wave T
 - Continuous mode, CIDR-discovery (capped /24), per-site profiles,
   scan-windowing — wave U
 - Executive pack: $-cost-of-remediation + breach-exposure estimates,
@@ -438,7 +440,7 @@ Tests: **392 → 427 passing**. See CHANGELOG.md for the full list. Headlines:
 - AI / LLM assist (OpenAI / Anthropic / Ollama — BYO key, `WPSECSCAN_NO_AI=1`
   hard-disable, data warnings in docstrings) — wave W
 - VS Code extension scaffold + pre-commit hook + cross-platform build
-  recipes (Mac .app, Linux .deb/.rpm, Homebrew/Scoop/winget) — wave X
+  recipes (Mac .app, Linux .deb/.rpm) — wave X
 - BloomFilter, worker-pool, per-check memoization — wave Y
 - CyberChef/Shodan link builders, system tray, desktop notifications
   (shell-escaped), 6 color themes, achievements, custom-CSS reports — wave Z
@@ -450,8 +452,8 @@ Tests: **392 → 427 passing**. See CHANGELOG.md for the full list. Headlines:
 
 ### Round-58 QA pass (7 issues fixed before push)
 - `shred_older_than` symlink guard, CIDR /24 hard cap, `desktop_notify`
-  XML/AppleScript escape, `bounty_format` str.format injection guard,
-  OSINT 24h bounty cache + pacing, `WPSECSCAN_NO_AI` env, data warnings
+  XML/AppleScript escape, submission-template str.format injection guard,
+  OSINT 24h lookup cache + pacing, `WPSECSCAN_NO_AI` env, data warnings
   on AI docstrings.
 
 ---
@@ -459,15 +461,14 @@ Tests: **392 → 427 passing**. See CHANGELOG.md for the full list. Headlines:
 ## Round-57 — competitor-parity (wpscan / nuclei / OWASP ZAP / turbo-intruder)
 
 A 40-feature parity round that brings WPSecScan close to feature-coverage of
-the established big-name security tools. Inventory grew from **104 → 120 checks**.
-Tests: **392 pass** (was 358).
+the established big-name security tools. Registry size after this round: **120** (was 104).
 
 ### Wave A — wpscan parity (8 items)
 | ID | What |
 |---|---|
 | `timthumb` | Probes 8 timthumb.php paths + parses version banner; flags `<=2.8.13` as CVE-2011-4106/4663 RCE |
 | `plugin_hash_fingerprint` | Hashes plugin static assets and matches against a shipped version map — works even when readme.txt is stripped |
-| `users_deep` | 10-source username enumeration: oEmbed, RSS, comments feed, WP-core + Yoast author sitemaps, post HTML |
+| `users_deep` | ten-source username enumeration: oEmbed, RSS, comments feed, WP-core + Yoast author sitemaps, post HTML |
 | `plugin_archive_fuzz` | For every detected plugin slug, probes `slug.{zip,tar,gz,rar,7z,sql.gz,bak,old}` — backup-source leak detection |
 | `premium_license_leak` | Scans HTML/JS for leaked Elementor Pro / WP Rocket / Gravity Forms / WPMU DEV license keys |
 | `xmlrpc_method_brute` | Brute-forces ~30 hidden XML-RPC method names (Jetpack, WC, plugin-internal) — finds methods that `system.listMethods` hides |
@@ -569,13 +570,11 @@ incremental skips — all silent. Round-56 surfaces them.
   full timeline from the bus, so a replayed report in the two-report diff
   viewer can show what fired during the original scan.
 
-Tests: **358 pass** (was 340).
-
 ---
 
 ## Round-55 (H-O) — what landed
 
-The 47-item round-55 expansion brought the inventory from 94 to **104 checks**
+The 47-item round-55 expansion brought the registry size from 94 to **104**
 plus a deep set of non-check modules (api server, sbom, attestation PDF,
 auto-PR, GraphQL-style query, OTel traces, RBAC, audit-log shipping, chat
 bots, region egress, hot-reload, plugin scaffold, color-blind palette).
@@ -662,14 +661,13 @@ bots, region egress, hot-reload, plugin scaffold, color-blind palette).
 | `--no-update-check` | Skip the GitHub-releases update probe at startup |
 
 ### Tests
-342 pass (was 281 after round-54). `tests/test_round_55.py` adds 36 new tests
-covering every wave A-H module plus inventory/tag/compliance wiring checks.
+`tests/test_round_55.py` covers every wave A-H module plus inventory/tag/compliance wiring checks.
 
 ---
 
 ## Round-54 (A1-G4) — what landed
 
-The 54-item A1-G4 round expanded WPSecScan from 80 → 94 checks and added the
+The 54-item A1-G4 round grew the registry from 80 to 94 and added the
 following non-check capabilities:
 
 **New active checks (Wave 2 + 5 + 9):** `ssti`, `nosql_injection`,
@@ -724,12 +722,14 @@ EPSS scoring (`integrations/epss.py`), VirusTotal URL/IP
 - Custom signature drop-in via `~/.wpsecscan/signatures/*.json` (F3)
 - Custom payload drop-in via `~/.wpsecscan/payloads/*.json` (F4)
 
-**Tests:** 281 pass (was 260) — `tests/test_round_54.py` adds happy-path
+**Tests:** `tests/test_round_54.py` adds happy-path
 tests per new module plus inventory + tag/compliance wiring verification.
 
 ---
 
-## 1. Checks (94 total)
+## 1. Checks (core catalogue)
+
+The tables below describe the original core checks. The full list of 294 (plus `authenticated`) is in [docs/checks/](docs/checks/) and `wpsecscan check list`.
 
 Each check returns zero or more **findings**. Every finding carries a `severity` (info / low / medium / high / critical), a **confidence** indicator (low / medium / high), a per-check **OWASP Top 10** tag, a **MITRE ATT&CK** technique ID, and a per-check **PCI-DSS / NIST 800-53 / ISO 27001** compliance mapping.
 
@@ -880,7 +880,7 @@ Output:
   --no-color                   Force plain text (or Rich is missing — auto-fallback)
 
 Modes:
-  --aggressive                 Enable active payload checks (14 of them)
+  --aggressive                 Enable active payload checks (31 checks; need a target marked as owned)
   --prove                      For each confirmed aggressive finding, run a read-only proof
                                extractor. Requires --aggressive. Read-only.
   --deep-throttle              Run the deep login-throttle mapper
@@ -900,7 +900,7 @@ Tuning:
   --hibp-token TOKEN           HaveIBeenPwned API key
 
 Maintenance:
-  --update-db                  Refresh the Wordfence vulnerability database
+  --update-db                  Refresh the local vulnerability database (aggregated feed)
   --diff OLD.json NEW.json     Diff two saved JSON reports
   --debug                      Verbose internal logging
   --version
@@ -1010,7 +1010,7 @@ URL allow-list enforces: **HTTPS only, port 443 only, exact-host match, no raw I
 
 ## 7. Compliance overlays
 
-Every check is mapped to **PCI-DSS 4.0**, **NIST 800-53 Rev. 5**, and **ISO/IEC 27001:2022** controls. Shown as small color-coded chips in the HTML report (`PCI 6.2.4`, `NIST SI-10`, `ISO A.8.28`) and included in the JSON output.
+Checks carry **PCI-DSS 4.0**, **NIST 800-53 Rev. 5**, and **ISO/IEC 27001** mappings, shown as small color-coded chips in the HTML report (`PCI 6.2.4`, `NIST SI-10`, `ISO A.8.28`) and included in the JSON output. In total 12 frameworks have check-level mappings in `wpsecscan/data/` (the three above plus HIPAA, SOC 2, FedRAMP, GDPR, HITRUST, CMMC, NIST CSF, CIS v8 and ISO 27001:2022). OWASP Top 10 and MITRE ATT&CK are tags on every check; CWE and D3FEND tags are present on most. Cyber Essentials Plus and Essential 8 exist only as scorecard helpers (`compliance_v28.py`).
 
 ---
 
@@ -1061,7 +1061,7 @@ Each finding carries a **HIGH-CONFIDENCE** / **MED-CONFIDENCE** / **LOW-CONFIDEN
 
 ## 11. Test coverage
 
-234 tests as of the last release:
+The suite covers:
 - Per-check smoke + safety
 - Engine: scanner, http cache, models, risk score, diff
 - Reporters: console, HTML, JSON, CSV, SARIF
@@ -1078,22 +1078,17 @@ Run `pytest` to verify your build.
 
 | Category | Count |
 |---|---|
-| Checks | **80** (65 passive · 15 aggressive) |
+| Checks | **294** (+ `authenticated`; 31 aggressive) |
 | Payloads | **224** (SQLi / XSS / SSRF / LFI / open-redirect / header-injection) |
-| Exploit signatures | **307** |
-| Wordfence CVEs (offline DB) | ~7,000 |
-| Optional CVE sources | Wordfence (always) · Patchstack (opt-in via `--patchstack-token`) · OSV.dev (auto, for JS libs) |
+| Exploit signatures | **311** |
+| CVE data | nightly aggregated feed from up to 8 public sources; Patchstack (opt-in via `--patchstack-token`); OSV.dev (auto, for JS libs) |
 | Exploit-playbook entries | **39** |
-| Tag entries | **80** (100% coverage) |
-| Compliance entries | **80** (PCI-DSS + NIST + ISO, 100% coverage) |
-| WAF rule templates | **10** (Cloudflare + ModSecurity + Nginx for top checks) |
-| Recommendation engine entries | **17** |
-| Tests | **251** |
+| Tag entries | **298** (OWASP and ATT&CK on every entry; CWE and D3FEND on most) |
 
 ## Round-Q feature additions (this release)
 
 **Detection (4 new checks)**: `well_known` · `login_timing` · `sitemap_cve_probe` · `xxe_upload` (aggressive)
-**Cross-cutting extensions**: CSS SRI added to `js_supply_chain`; active subdomain-takeover fingerprints (20 SaaS providers) extending `subdomains`; OSV.dev cross-reference in `js_libraries`; Patchstack DB merge in `db.update_db`.
+**Cross-cutting extensions**: CSS SRI added to `js_supply_chain`; active subdomain-takeover fingerprints (20 SaaS services) extending `subdomains`; OSV.dev cross-reference in `js_libraries`; Patchstack DB merge in `db.update_db`.
 
 **Engine**:
 - Adaptive throttle — `http.py` Client auto-reduces concurrency on 429/503, restores after a clean streak. Visible via `client.throttle_stats()`.

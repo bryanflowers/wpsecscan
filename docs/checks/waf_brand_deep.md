@@ -1,7 +1,19 @@
+---
+id: waf_brand_deep
+title: "WAF brand deep-detect — 11 vendors (#B23)"
+severity_max: info
+severity_dynamic: false
+aggressive: false
+category: "Discovery & enumeration"
+words: 51
+---
+
 # WAF brand deep-detect — 11 vendors (#B23)
 
 **check_id**: `waf_brand_deep`
 **aggressive**: no
+**category**: Discovery & enumeration
+**max severity**: info
 **OWASP**: A05:2021 — Security Misconfiguration
 **MITRE ATT&CK**: T1592.004 — Client Configurations
 **CWE**: CWE-200
@@ -13,6 +25,25 @@ Round-62 #B23 — WAF brand fingerprinting (deep — beyond round-Q's `waf`).
 
 Adds detection for Imperva (Incapsula), F5 BIG-IP / ASM, Barracuda, NSFOCUS,
 ModSecurity CRS version sniff, Citrix NetScaler, FortiWeb, Radware AppWall.
+
+## Request footprint
+
+The module contains 1 request call(s) to the target (GET x1). Calls inside loops send more than one request, so treat this as a minimum.
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| info | WAF brand audit — no commercial WAF detected | No action. |
+| info | WAF brand audit — no response | No action. |
+| info | WAF detected: ⟨value⟩ | Confirm the WAF is in BLOCK mode (not just detect/log). Aggressive scanner checks may be silently dropped — consider whitelisting the scanner source IP via `wpsecscan/waf_tuning.py`. |
+
+## Evidence the check records
+
+- WAF detected: ⟨value⟩: Detected via headers/body/cookies: ⟨value⟩
+- WAF brand audit — no commercial WAF detected: Probed ⟨count⟩ vendors.
 
 ## Compliance mapping
 
@@ -32,5 +63,7 @@ ModSecurity CRS version sniff, Citrix NetScaler, FortiWeb, Radware AppWall.
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only waf_brand_deep
+wpsecscan only waf_brand_deep https://example.com
 ```
+
+`only` runs this check alone and prints its findings. Results that other checks normally share with it (WAF detection, plugin list, discovered users) are not populated in that mode.

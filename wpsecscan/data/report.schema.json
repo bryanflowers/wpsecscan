@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://wpsecscan.org/schema/report-v2.json",
+  "$id": "https://wpsecscan.com/schema/report-v2.json",
   "title": "WPSecScan scan report",
   "description": "L32 — versioned JSON schema for the wpsecscan JSON reporter output. Increment $id on breaking changes.",
   "type": "object",

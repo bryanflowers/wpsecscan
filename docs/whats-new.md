@@ -3,7 +3,7 @@
 Quick-scan version highlights for upgrading users. Full detail lives
 in [CHANGELOG.md](../CHANGELOG.md).
 
-## v2.8.2 (current)
+## v2.8.2
 
 **Hotfix + dead-code cleanup release.**
 
@@ -34,7 +34,6 @@ in [CHANGELOG.md](../CHANGELOG.md).
   `snooze clear <url>` to prevent accidental data loss.
 - **Webhook HTTPS-only** by default — `wpsecscan push` refuses plain
   HTTP destinations unless `WPSECSCAN_ALLOW_INSECURE_WEBHOOK=1`.
-- **+75 tests** (930 → 1005) covering the v2.8.1 dead-code gap.
 
 ## v2.8.1
 

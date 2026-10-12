@@ -275,7 +275,7 @@ def cmd_attest(args: list[str]) -> None:
     from . import __version__
     payload = {
         "subject": url,
-        "predicateType": "https://wpsecscan.dev/attest/v1",
+        "predicateType": "https://wpsecscan.com/schema/attest-v1.json",
         "predicate": {
             "scanner": "wpsecscan",
             "scanner_version": __version__,

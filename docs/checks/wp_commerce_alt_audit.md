@@ -1,7 +1,19 @@
+---
+id: wp_commerce_alt_audit
+title: "Alt-commerce + booking-plugin audit (#6+8)"
+severity_max: high
+severity_dynamic: false
+aggressive: false
+category: "WordPress core, plugins & themes"
+words: 108
+---
+
 # Alt-commerce + booking-plugin audit (#6+8)
 
 **check_id**: `wp_commerce_alt_audit`
 **aggressive**: no
+**category**: WordPress core, plugins & themes
+**max severity**: high
 **OWASP**: A01:2021 — Broken Access Control
 **MITRE ATT&CK**: T1190 — Exploit Public-Facing Application
 **CWE**: CWE-639
@@ -16,6 +28,30 @@ Round-59 #6 + #8 — Alternative e-commerce + booking plugin audit.
 #8 Booking: Bookly, Amelia, BookingPress, MotoPress Booking, WP Simple Booking.
    IDOR on /bookings/{id} is the canonical bug; we detect the plugin then
    probe the listing endpoint anonymously.
+
+## Request footprint
+
+The module contains 4 request call(s) to the target (GET x4). Calls inside loops send more than one request, so treat this as a minimum.
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| high | ⟨name⟩: anonymous bookings listing reachable | Lock `⟨rest_path⟩` to `manage_options` or per-user ownership. Booking listings disclose customer PII (name/email/phone). |
+| medium | ⟨name⟩ REST endpoint readable unauthenticated | Restrict `⟨rest_path⟩` to logged-in customers (`is_user_logged_in()` + capability). |
+| info | Alt-commerce plugin: ⟨name⟩ ⟨value⟩ detected | Non-Woo carts often miss core hardening (nonces on `add_to_cart`, capability on `delete_order`). |
+| info | Alt-commerce/booking audit — no plugins detected | No action. |
+| info | Booking plugin: ⟨name⟩ ⟨value⟩ detected | Booking plugins frequently expose IDOR on `/bookings/{id}` and `/customers/{id}`. Audit each REST/AJAX action. |
+
+## Evidence the check records
+
+- Alt-commerce plugin: ⟨name⟩ ⟨value⟩ detected: ⟨plugin_path⟩ reachable.
+- Booking plugin: ⟨name⟩ ⟨value⟩ detected: ⟨plugin_path⟩ reachable.
+- Alt-commerce/booking audit — no plugins detected: Probed 5 commerce + 5 booking plugins.
+- ⟨name⟩ REST endpoint readable unauthenticated: GET ⟨rest_path⟩ -&gt; ⟨value⟩ (⟨count⟩ bytes).
+- ⟨name⟩: anonymous bookings listing reachable: GET ⟨rest_path⟩ -&gt; ⟨value⟩ (⟨count⟩ bytes).
 
 ## Compliance mapping
 
@@ -35,5 +71,7 @@ Round-59 #6 + #8 — Alternative e-commerce + booking plugin audit.
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only wp_commerce_alt_audit
+wpsecscan only wp_commerce_alt_audit https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

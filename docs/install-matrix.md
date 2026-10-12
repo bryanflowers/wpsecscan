@@ -1,92 +1,32 @@
 # WPSecScan installation matrix
 
-Round-64 #113 — every distribution channel we support. Pick the one
-that fits your platform.
+Three channels exist: PyPI, the GitHub release assets, and a source
+install. No other package-manager listing, container-registry image or
+installer is published. Pick the one that fits your platform.
 
-## Windows
+## pip (Windows, macOS, Linux)
 
-### winget (recommended, Windows 11)
-```powershell
-winget install Bryan.WPSecScan
+```bash
+pip install wpsecscan
+wpsecscan --version
 ```
 
-### Chocolatey
-```powershell
-choco install wpsecscan
-```
+PyPI: <https://pypi.org/project/wpsecscan/>. Needs Python 3.10+.
 
-### Direct .exe download
-1. Download `wpsecscan.exe` + `wpsecscan-gui.exe` from
+## Windows binaries (no Python needed)
+
+1. Download `wpsecscan.exe` and `wpsecscan-gui.exe` (each about 31 MB) from
    <https://github.com/bryanflowers/wpsecscan/releases/latest>
-2. Drop into `C:\Tools\` (or any folder on your PATH).
-3. Verify signature:
+2. Drop them into `C:\Tools\` (or any folder on your PATH).
+3. Verify them (the binaries are not code-signed, so SmartScreen will warn):
    ```powershell
-   cosign verify-blob wpsecscan.exe `
-     --signature wpsecscan.exe.sig `
-     --certificate wpsecscan.exe.pem `
-     --certificate-identity-regexp 'https://github.com/bryanflowers/wpsecscan' `
-     --certificate-oidc-issuer https://token.actions.githubusercontent.com
+   gh attestation verify wpsecscan.exe --owner bryanflowers
    ```
+   The `cosign verify-blob` and `SHA256SUMS.txt` checks are in
+   [verify-release.md](verify-release.md).
 
-### MSI installer
-NSIS installer at `installer/wpsecscan-setup.exe`.
-
-## macOS
-
-### Homebrew (recommended)
-```bash
-brew install bryanflowers/tap/wpsecscan
-```
-
-### pip
-```bash
-pip install wpsecscan
-```
-
-## Linux
-
-### Snap
-```bash
-sudo snap install wpsecscan
-```
-
-### Flatpak
-```bash
-flatpak install flathub com.wpsecscan.Scanner
-```
-
-### Arch (AUR)
-```bash
-yay -S wpsecscan
-```
-
-### Debian / Ubuntu
-```bash
-pip install wpsecscan
-# Or build a .deb yourself via stdeb.
-```
-
-### Fedora / RHEL
-```bash
-pip install wpsecscan
-```
-
-## Containers
-
-### Docker
-```bash
-docker run --rm ghcr.io/bryanflowers/wpsecscan:2.2.0 \
-  scan https://example.com
-```
-
-### Docker Compose
-```bash
-docker compose up -d
-docker compose exec wpsecscan wpsecscan scan https://example.com
-```
-
-### Kubernetes
-See `k8s/operator-scaffold.md`.
+The release also carries the wheel, the sdist, `SHA256SUMS.txt`, the
+`.sig`/`.pem` Sigstore files and `sbom.cyclonedx.json`.
 
 ## From source
 
@@ -98,21 +38,28 @@ pip install -e ".[all]"
 wpsecscan --demo
 ```
 
+## Containers (build it yourself)
+
+The repository has a `Dockerfile` and a `docker-compose.yml`. No image is
+published, so build locally:
+
+```bash
+docker build -t wpsecscan .
+docker run --rm wpsecscan https://example.com
+```
+
+With compose, edit the target in `docker-compose.yml` (or a `.env` file)
+and run `docker compose run --rm wpsecscan`.
+
 ## Verifying
 
-Every release ships SHA256SUMS.txt + Sigstore signatures + SLSA L3
-provenance. See [verify-release.md](verify-release.md).
+Every release ships `SHA256SUMS.txt`, Sigstore signatures and GitHub
+build-provenance attestations. See [verify-release.md](verify-release.md).
 
-## Per-channel verification quirks
+## Per-channel verification
 
 | Channel | Verifies as |
 |---------|-------------|
-| winget | Manifest SHA + ms-store curation |
-| Chocolatey | Package SHA + community moderation |
-| Homebrew | Tarball SHA |
-| Snap | Snap Store review |
-| Flatpak | Flathub review |
-| AUR | Maintainer trust (us) |
-| Docker | Sigstore cosign (recommended: `cosign verify`) |
 | pip | PyPI 2FA + Sigstore (since PEP 740) |
-| .exe direct | SLSA L3 + Sigstore (see verify-release.md) |
+| .exe / wheel / sdist direct | `gh attestation verify` + Sigstore `.sig`/`.pem` + `SHA256SUMS.txt` (see verify-release.md) |
+| source | `git` tag, or rebuild and compare (see verify-release.md) |

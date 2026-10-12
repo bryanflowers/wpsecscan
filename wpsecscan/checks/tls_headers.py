@@ -1,3 +1,14 @@
+"""TLS and security-header check.
+
+Fetches / once and looks for six response headers: Strict-Transport-Security
+(missing is high), Content-Security-Policy and X-Frame-Options (medium),
+X-Content-Type-Options, Referrer-Policy and Permissions-Policy (low). It also
+reports Server / X-Powered-By disclosure (low, or info when a CDN or WAF
+injects it). For https targets it opens a TLS connection to port 443 and
+reports TLS 1.1 or older (high), an expired certificate (critical), expiry in
+under 14 days (high), or a failed handshake (medium). A plain-HTTP target is
+reported as high. One GET plus one socket handshake.
+"""
 from __future__ import annotations
 
 import asyncio

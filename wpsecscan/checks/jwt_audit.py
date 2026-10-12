@@ -72,6 +72,23 @@ def _try_hs256_secret(token: str, secret: str) -> bool:
         return False
 
 
+def _looks_like_wp_user(body: str) -> bool:
+    """True when `body` is a JSON object carrying >= 2 WP-user-object field groups."""
+    try:
+        data = _json.loads(body or "")
+    except (ValueError, TypeError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    groups = (
+        ("id",),
+        ("username", "slug", "name"),
+        ("email",),
+        ("roles", "capabilities"),
+    )
+    return sum(1 for g in groups if any(k in data for k in g)) >= 2
+
+
 def _build_alg_none(token: str) -> str:
     """Tamper a JWT to use alg=none with the original claims."""
     try:
@@ -184,20 +201,41 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
                 # WP REST endpoint that's likely auth-gated.
                 r = await client.get("/wp-json/wp/v2/users/me",
                                       headers={"Authorization": f"Bearer {tampered}"})
-                if r is not None and r.status_code == 200 and "id" in (r.text or ""):
+                if r is not None and r.status_code == 200 and _looks_like_wp_user(r.text or ""):
                     findings.append(
                         Finding(
                             severity="critical",
                             title="Server accepts `alg=none` JWT — full auth bypass",
                             evidence=(
                                 f"Sent a tampered token with `alg=none` to /wp-json/wp/v2/users/me; "
-                                f"got HTTP 200 with what looks like a user object.\n\n"
+                                f"got HTTP 200 with a JSON user object.\n\n"
                                 f"Original claims (re-used in the tampered token): {claims}"
                             ),
                             remediation=(
                                 "Disable `alg=none` acceptance. The JWT library is probably "
                                 "`firebase/php-jwt` or `lcobucci/jwt`; both have a `setAllowedAlgs()` "
                                 "method — set it to ['HS256','RS256','ES256'] EXPLICITLY."
+                            ),
+                            url=client.url("/wp-json/wp/v2/users/me"),
+                            extra={"tampered_token": tampered[:80] + "..."},
+                        )
+                    )
+                elif r is not None and r.status_code == 200:
+                    findings.append(
+                        Finding(
+                            severity="medium",
+                            title="Endpoint responded 200 to an unsigned `alg=none` token — manual confirmation required",
+                            evidence=(
+                                f"Sent a tampered token with `alg=none` to /wp-json/wp/v2/users/me; "
+                                f"got HTTP 200, but the body is not a JSON user object, so an auth "
+                                f"bypass is NOT confirmed.\n\n"
+                                f"Original claims (re-used in the tampered token): {claims}"
+                            ),
+                            remediation=(
+                                "Request /wp-json/wp/v2/users/me with the tampered token and without "
+                                "any token and compare the bodies. If they differ and the first is a "
+                                "user object, disable `alg=none` acceptance (set allowed algorithms "
+                                "explicitly in the JWT library)."
                             ),
                             url=client.url("/wp-json/wp/v2/users/me"),
                             extra={"tampered_token": tampered[:80] + "..."},

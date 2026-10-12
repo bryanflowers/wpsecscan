@@ -1,7 +1,19 @@
+---
+id: smuggling_probe
+title: "HTTP request-smuggling indicators"
+severity_max: medium
+severity_dynamic: false
+aggressive: false
+category: "Transport & headers"
+words: 150
+---
+
 # HTTP request-smuggling indicators
 
 **check_id**: `smuggling_probe`
 **aggressive**: no
+**category**: Transport & headers
+**max severity**: medium
 **OWASP**: A03:2021 — Injection
 **MITRE ATT&CK**: T1190 — Exploit Public-Facing Application
 
@@ -22,6 +34,25 @@ disagree on framing:
 If any indicators are present, flag the risk class with a "verify with Burp /
 smuggler.py" remediation — we deliberately stop short of confirming actively.
 
+## Request footprint
+
+The module contains 4 request call(s) to the target (GET x1, HEAD x1, POST x2). Calls inside loops send more than one request, so treat this as a minimum.
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| medium | HTTP request-smuggling indicators present (⟨count⟩) | wpsecscan stops short of confirming smuggling — that would require write-side probes. For confirmation, run smuggler.py or PortSwigger's Burp Smuggling extension against this target. References: https://portswigger.net/web-security/request-smuggling · https://github.com/defparam/smuggler · CVE-2023-44487 (HTTP/2 rapid reset). |
+| info | No HTTP request-smuggling indicators detected | No action. |
+| info | Smuggling probe — no response from / | No action. |
+
+## Evidence the check records
+
+- Smuggling probe — no response from /: GET / didn't return a response.
+- No HTTP request-smuggling indicators detected: HTTP version: ⟨value⟩, Server: ⟨value⟩, Via: ⟨value⟩, X-Forwarded-Server: ⟨value⟩
+
 ## Compliance mapping
 
 - **compliance_map / pci_dss**: 6.4.1
@@ -33,8 +64,17 @@ smuggler.py" remediation — we deliberately stop short of confirming actively.
 - **compliance_v2 / cis_v8**: 12.6
 - **compliance_v2 / iso_27001_2022**: A.8.16
 
+## References
+
+- primary: https://portswigger.net/web-security/request-smuggling
+- deep dive: https://portswigger.net/research/http-desync-attacks
+- video: https://www.youtube.com/watch?v=w-eJM2Pc0KI
+- https://github.com/defparam/smuggler
+
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only smuggling_probe
+wpsecscan only smuggling_probe https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

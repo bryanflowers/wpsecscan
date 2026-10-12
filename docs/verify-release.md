@@ -6,7 +6,7 @@ Round-64 Group D — every release ships with:
 |----------|----------------|
 | **SHA256SUMS.txt** | byte-for-byte integrity of every binary |
 | **`<binary>.sig` + `<binary>.pem`** | Sigstore keyless signature — proves the .exe was built from `bryanflowers/wpsecscan` via our GitHub Action, not by a third party |
-| **GitHub-attested build provenance** | SLSA Level 3 build provenance attestation — the full build environment is recorded and verifiable |
+| **GitHub build-provenance attestation** | GitHub artifact attestation recording the workflow run that produced the file; check with `gh attestation verify` |
 | **`sbom.cyclonedx.json`** | Full Software Bill of Materials in CycloneDX format |
 
 ## Quick verify (recommended)
@@ -28,41 +28,36 @@ Get-FileHash wpsecscan.exe -Algorithm SHA256
 
 ## Full Sigstore verify (paranoid mode)
 
-This proves the .exe was produced by our GitHub Action on a tag push —
-not by a malicious lookalike.
+This proves the .exe was signed by our release-attestation GitHub Action
+on a tag — not by a malicious lookalike.
 
 ```bash
-# Install cosign once
-brew install cosign         # macOS
-# OR: go install github.com/sigstore/cosign/v2/cmd/cosign@latest
+# Install cosign once (e.g. via your OS package manager or the Sigstore
+# release page), or build it with Go:
+go install github.com/sigstore/cosign/v2/cmd/cosign@latest
 
 # Verify
 cosign verify-blob wpsecscan.exe \
   --signature wpsecscan.exe.sig \
   --certificate wpsecscan.exe.pem \
-  --certificate-identity-regexp 'https://github.com/bryanflowers/wpsecscan' \
+  --certificate-identity-regexp 'https://github.com/bryanflowers/wpsecscan/\.github/workflows/release-attestation\.yml@refs/tags/.*' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
 # Output: "Verified OK"
 ```
 
-## SLSA build provenance verify
+## GitHub build-provenance attestation verify
+
+Releases carry GitHub artifact attestations. The attestation workflow
+attests the artifacts it downloads from the release; there is no
+separate attestation file on the release page.
 
 ```bash
-# Install slsa-verifier once
-go install github.com/slsa-framework/slsa-verifier/v2/cli/slsa-verifier@latest
-
-# Download the attestation from the release page
-gh release download v2.2.0 --pattern '*.intoto.jsonl'
-
-# Verify
-slsa-verifier verify-artifact wpsecscan.exe \
-  --provenance-path wpsecscan.exe.intoto.jsonl \
-  --source-uri github.com/bryanflowers/wpsecscan \
-  --source-tag v2.2.0
-
-# Output: "PASSED: SLSA verification passed"
+# Needs the GitHub CLI (gh)
+gh attestation verify wpsecscan.exe --owner bryanflowers
 ```
+
+A successful run prints the workflow and commit that produced the file.
 
 ## Reproducible build verify (most paranoid)
 
@@ -70,20 +65,20 @@ Round-64 #33 — anyone can rebuild WPSecScan and prove the .exe matches
 ours bit-for-bit. The PyInstaller build is mostly deterministic when
 you control:
 - Python version (3.12 exactly)
-- PyInstaller version (pinned in requirements.txt)
+- PyInstaller version (pinned in `build.ps1`)
 - SOURCE_DATE_EPOCH env var (set to the tag's commit time)
 - Build host arch (`x86_64-linux` for our published Linux build)
 
 ```bash
 # Pin the version
-git checkout v2.2.0
+git checkout v2.8.5
 
 # Set the deterministic timestamp
 export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
 
 # Build
 python -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -e . pyinstaller==6.13.0
 .venv/bin/pyinstaller --noconfirm wpsecscan.spec
 
 # Compare
@@ -94,32 +89,22 @@ sha256sum dist/wpsecscan.exe
 If the SHAs differ, please open an issue with both checksums + your
 environment (`python --version`, `pip freeze`).
 
-## Verifying the WP companion plugin
+## The WP companion plugin
 
-```bash
-# The plugin is GPLv2+ and signed the same way
-unzip -l wpsecscan-companion.zip
-sha256sum wpsecscan-companion.zip
-cosign verify-blob wpsecscan-companion.zip \
-  --signature wpsecscan-companion.zip.sig \
-  --certificate wpsecscan-companion.zip.pem \
-  --certificate-identity-regexp 'https://github.com/bryanflowers/wpsecscan' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com
-```
+The plugin source lives in `wp-plugin/wpsecscan-companion/` in the
+repository. It is not attached to releases as a separate asset, so there is
+no companion-plugin signature to verify; review the source or use the
+tagged repository checkout.
 
 ## Trust signals summary
 
 WPSecScan publishes:
-- ✓ **SLSA Level 3** build provenance (round-64 #32)
+- ✓ **GitHub build-provenance attestations** on release artifacts (round-64 #32)
 - ✓ **Sigstore keyless signatures** on every artifact (round-64 #34)
 - ✓ **CycloneDX SBOM** per release (round-64 #35)
 - ✓ **OSSF Scorecard** badge (round-64 #36) — see badge on README
 - ✓ **CII Best Practices** badge (round-64 #37 — application in progress)
 - ✓ **security.txt** at `.well-known/security.txt` (round-64 #38)
-- ✓ **Bug bounty program** in [BUG-BOUNTY.md](https://github.com/bryanflowers/wpsecscan/blob/main/BUG-BOUNTY.md) (round-64 #38)
 - ⏳ **Annual third-party audit** (round-64 #39 — planned for v3.0)
 - ⏳ **E&O insurance** (round-64 #40 — under consideration)
 - ⏳ **EV code-signing certificate** (round-64 #31 — pending budget approval)
-
-This is more verification surface than any other WordPress security
-scanner — paid or free — currently publishes.

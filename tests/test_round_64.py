@@ -318,7 +318,6 @@ def test_webhook_v2_replay_rejected():
 # ============================================================
 
 def test_lint_checks_script_runnable():
-    from pathlib import Path
     script = Path(__file__).parent.parent / "scripts" / "lint-checks.py"
     assert script.exists()
 
@@ -376,7 +375,6 @@ def test_brand_monitor_typosquat_candidates():
     # The package __init__.py aliases the submodule's check fn to the
     # same name, shadowing the module. Reach the module via sys.modules
     # (set by the import side-effect during package load) instead.
-    import sys
     mod = sys.modules["wpsecscan.checks.brand_monitor"]
     cands = mod._typosquats("example.com")
     assert len(cands) > 0

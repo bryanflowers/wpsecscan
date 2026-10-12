@@ -153,7 +153,7 @@ async def _fetch_crtsh(apex: str) -> list[str]:
 def _apex(host: str) -> str:
     """`www.foo.co.uk` → `foo.co.uk`. Best-effort — doesn't read the PSL,
     but trims common 2-label TLDs (.co.uk, .com.au, …)."""
-    h = host.lower().lstrip("www.")
+    h = host.lower().removeprefix("www.")
     parts = h.split(".")
     if len(parts) <= 2:
         return h

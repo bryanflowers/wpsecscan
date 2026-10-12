@@ -1,7 +1,19 @@
+---
+id: login_timing
+title: "Login timing side-channel (user enum)"
+severity_max: medium
+severity_dynamic: false
+aggressive: false
+category: "Authentication & session"
+words: 161
+---
+
 # Login timing side-channel (user enum)
 
 **check_id**: `login_timing`
 **aggressive**: no
+**category**: Authentication & session
+**max severity**: medium
 **OWASP**: A07:2021 — Identification & Authn Failures
 **MITRE ATT&CK**: T1589.002 — Gather Victim Identity Information: Email Addresses
 
@@ -22,6 +34,27 @@ delta as a username-enumeration vector.
 
 Passive (no real password guesses, just timing).
 
+## Request footprint
+
+The module contains 2 request call(s) to the target (GET x1, POST x1). Calls inside loops send more than one request, so treat this as a minimum.
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| medium | Login timing leak: valid user takes ⟨delta_pct⟩% longer than invalid | WP core mitigates this somewhat in recent versions; if you're on an older release, upgrade. For belt-and-braces, install a plugin like 'Hide My WP Ghost' that adds a constant-time pre-check, OR enable a WAF rule that adds 100-300 ms of jitter to all wp-login.php POSTs (Cloudflare: Workers; Nginx: ngx_http_delay_module). |
+| info | Login timing probe inconclusive — too many network errors | No action. |
+| info | Login timing probe skipped: /wp-login.php not reachable | No action. |
+| info | No exploitable login timing leak (⟨delta_pct⟩% delta within tolerance) | No action — timing-based username enumeration not viable here. |
+
+## Evidence the check records
+
+- Login timing probe skipped: /wp-login.php not reachable: GET /wp-login.php -&gt; ⟨value⟩
+- Login timing probe inconclusive — too many network errors: Got ⟨count⟩ valid-user samples, ⟨count⟩ invalid-user samples.
+- Login timing leak: valid user takes ⟨delta_pct⟩% longer than invalid: ⟨sample_table⟩ WordPress runs bcrypt comparison only for known usernames. The timing delta lets an attacker enumerate which usernames exist on your site by measuring response time, even with no error-message difference.
+
 ## Compliance mapping
 
 - **compliance_map / pci_dss**: 8.2.1
@@ -36,5 +69,7 @@ Passive (no real password guesses, just timing).
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only login_timing
+wpsecscan only login_timing https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

@@ -1,7 +1,19 @@
+---
+id: yaml_templates
+title: "YAML templates (nuclei-style) (#9)"
+severity_max: info
+severity_dynamic: false
+aggressive: false
+category: "DNS, email & infra"
+words: 130
+---
+
 # YAML templates (nuclei-style) (#9)
 
 **check_id**: `yaml_templates`
 **aggressive**: no
+**category**: DNS, email & infra
+**max severity**: info
 **OWASP**: A05:2021 — Security Misconfiguration
 **MITRE ATT&CK**: T1190 — Exploit Public-Facing Application
 **CWE**: CWE-693
@@ -18,6 +30,26 @@ Discovers and runs every `*.yaml` / `*.yml` template in
 Optional dep: PyYAML. If not installed, the check emits an info finding
 explaining how to enable.
 
+## Request footprint
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| info | YAML templates skipped (PyYAML not installed) | No action. |
+| info | YAML templates skipped (none found in ~/.wpsecscan/templates/) | No action. |
+| info | YAML templates skipped (template_engine module missing) | No action. |
+| info | YAML templates — ⟨count⟩ template(s) ran, none matched | No action. |
+
+## Evidence the check records
+
+- YAML templates skipped (PyYAML not installed): Drop YAML templates into ~/.wpsecscan/templates/ to extend coverage without writing Python. nuclei-style schema (subset) — see wpsecscan/template_engine.py docstring for the supported fields. Install: `pip install pyyaml`
+- YAML templates skipped (none found in ~/.wpsecscan/templates/): PyYAML is installed but no .yaml/.yml templates were found. Drop nuclei-style templates in the templates directory to extend coverage.
+- YAML templates — ⟨count⟩ template(s) ran, none matched: Templates probed: ⟨value⟩
+- YAML templates skipped (template_engine module missing): Internal error: wpsecscan.template_engine couldn't be imported.
+
 ## Compliance mapping
 
 - **compliance_map / pci_dss**: 6.2.4
@@ -32,5 +64,7 @@ explaining how to enable.
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only yaml_templates
+wpsecscan only yaml_templates https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

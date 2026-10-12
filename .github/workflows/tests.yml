@@ -53,7 +53,7 @@ jobs:
         run: pytest -q --color=yes
 
   lint:
-    name: pyflakes
+    name: ruff
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -62,9 +62,10 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: |
-          pip install 'pyflakes==3.2.0'
-          pyflakes wpsecscan tests || true
-        # `|| true` so style nits don't block PRs; remove to make lint a gate
+          pip install 'ruff==0.8.4'
+          ruff check --select E9,F63,F7,F82,F823,F811,F402,B023 wpsecscan tests
+        # Gating set (W1h): undefined names, redefinitions, loop-var closures,
+        # syntax errors. Style rules are a separate non-gating sweep.
 
   build-exes:
     name: PyInstaller (smoke build)

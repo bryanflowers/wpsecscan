@@ -1,3 +1,14 @@
+"""Exposed sensitive-file check.
+
+Reads the probe list in data/known_paths.txt, where each entry is
+path|severity|label, then GETs every path. A 200 response is reported with
+the severity and label from the list (the list spans critical to info), for
+example backups, SQL dumps, .env and VCS files. To avoid false positives on
+sites that answer 200 for every URL, it first fetches / and discards
+HTML responses that match the homepage, or that come from paths whose real
+content is never HTML. If the list is missing an info finding says so. Fix:
+delete the file or deny it at the server, and rotate any credentials it held.
+"""
 from __future__ import annotations
 
 import sys

@@ -96,16 +96,16 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         if not result_data:
             continue
         # Walk the response looking for the sentinel field with a non-null value
-        def _walk(obj):
+        def _walk(obj, _sentinel=sentinel_field):
             if isinstance(obj, dict):
                 for k, v in obj.items():
-                    if k == sentinel_field and v not in (None, "", []):
+                    if k == _sentinel and v not in (None, "", []):
                         return True
-                    if _walk(v):
+                    if _walk(v, _sentinel):
                         return True
             elif isinstance(obj, list):
                 for item in obj:
-                    if _walk(item):
+                    if _walk(item, _sentinel):
                         return True
             return False
 

@@ -45,7 +45,8 @@ def build_document(report: ScanReport) -> dict:
     from .. import __version__
     doc = {
         "@context": "https://openvex.dev/ns/v0.2.0",
-        "@id": f"https://wpsecscan.dev/vex/{uuid.uuid4()}",
+        # Identifier only (unique per document); nothing fetches this URL.
+        "@id": f"https://wpsecscan.com/vex/{uuid.uuid4()}",
         "author": "WPSecScan",
         "role": "scanner",
         "timestamp": _now(),

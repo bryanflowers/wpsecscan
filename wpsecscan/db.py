@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import time
 from dataclasses import dataclass
@@ -533,13 +534,41 @@ def _split_pre_release(v: str) -> tuple[str, str]:
     return v, ""
 
 
+def has_numeric_version(v: str | None) -> bool:
+    """True when `v` carries at least one digit. `None`, `""`, `"unknown"`,
+    `"trunk"` are NOT versions: ver_parts() maps them to [0], which would put
+    an unversioned plugin below every `fixed_in` and match every CVE."""
+    return isinstance(v, str) and any(ch.isdigit() for ch in v)
+
+
 def ver_parts(v: str) -> list[int]:
     base, _tag = _split_pre_release(v)
     out: list[int] = []
     for p in base.split("."):
         num = "".join(ch for ch in p if ch.isdigit())
         out.append(int(num) if num else 0)
+    # Trailing zeros are not significant: 2.0.0 == 2.0 == 2.
+    while len(out) > 1 and out[-1] == 0:
+        out.pop()
     return out
+
+
+# Pre-release phase order. Unknown words rank after these, then lexically.
+_PRE_RANK = {"dev": 0, "alpha": 1, "a": 1, "beta": 2, "b": 2,
+             "pre": 3, "preview": 3, "rc": 4, "c": 4}
+
+
+def _tag_key(tag: str) -> list[tuple[int, int, str]]:
+    """Natural-sort key for a pre-release tag: alpha and numeric runs are
+    compared separately, numerics as ints (`rc9` < `rc10`, `beta` < `rc`)."""
+    key: list[tuple[int, int, str]] = []
+    for run in re.findall(r"[A-Za-z]+|[0-9]+", tag):
+        if run.isdigit():
+            key.append((1, int(run), ""))
+        else:
+            word = run.lower()
+            key.append((0, _PRE_RANK.get(word, 9), word))
+    return key
 
 
 def ver_lt(a: str, b: str) -> bool:
@@ -553,22 +582,22 @@ def ver_lt(a: str, b: str) -> bool:
     # `1.2.3-rc1` < `1.2.3`, `1.2.3` == `1.2.3`, `1.2.3-rc1` < `1.2.3-rc2`.
     ta = _split_pre_release(a)[1]
     tb = _split_pre_release(b)[1]
-    if ta == tb:
-        return False
     if ta and not tb:
         return True   # pre-release < release
     if tb and not ta:
         return False  # release > pre-release
-    return ta < tb    # both have tags, compare lexicographically
+    return _tag_key(ta) < _tag_key(tb)  # both tagged (or both bare): natural sort
 
 
 def ver_lte(a: str, b: str) -> bool:
-    return a == b or ver_lt(a, b)
+    """a <= b. Defined via ver_lt so `2.0.0` <= `2.0` and `2.0` <= `2.0.0`."""
+    return not ver_lt(b, a)
 
 
 def affected(installed: str, vuln: Vuln) -> bool:
-    """Is `installed` in the vulnerable range of `vuln`?"""
-    if not installed:
+    """Is `installed` in the vulnerable range of `vuln`? A version with no
+    digit ("unknown", "") is never in range — it cannot be compared."""
+    if not has_numeric_version(installed):
         return False
     if vuln.affected_from and ver_lt(installed, vuln.affected_from):
         return False
@@ -593,7 +622,7 @@ def find_for(vulns: Iterable[Vuln], type_: str, slug: str, installed_version: st
     findings on plugins with rich CVE histories."""
     out: list[Vuln] = []
     slug = (slug or "").lower()
-    if not installed_version:
+    if not has_numeric_version(installed_version):
         return out
     for v in vulns:
         if v.type != type_ or v.slug != slug:

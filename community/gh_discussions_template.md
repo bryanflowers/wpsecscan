@@ -18,7 +18,7 @@ Round-64 #132 — copy these into the repo's Discussions settings.
 
 ### 🛡️ Security (security)
 *PUBLIC security discussion only. Real vulnerabilities go to
-security@wpsecscan.com — see SECURITY.md.*
+bryaninbangkok@gmail.com or GitHub Security Advisories — see SECURITY.md.*
 
 ### 🎓 Show & tell (show-and-tell)
 *Share how you use WPSecScan: writeups, dashboards, integrations.*
@@ -31,7 +31,7 @@ security@wpsecscan.com — see SECURITY.md.*
 ### Bug report template
 
 ```markdown
-**WPSecScan version:** (e.g. 2.2.0, run `wpsecscan --version`)
+**WPSecScan version:** (run `wpsecscan --version`)
 **OS:** (Windows 11 / Ubuntu 22.04 / macOS 14)
 **Python version:** (output of `python --version`)
 
