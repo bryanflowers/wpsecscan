@@ -149,6 +149,9 @@ line-length = 120
 extend-exclude = ["build", "dist", "wpsecscan.egg-info"]
 
 [tool.ruff.lint]
-# Gating set: undefined names, redefinitions, loop-var closures, syntax errors.
-# The style rules (I, E7xx, F401, UP*) are a separate non-gating sweep (W9).
-select = ["E9", "F63", "F7", "F82", "F823", "F811", "F402", "B023"]
+# Gating set: undefined names, redefinitions, loop-var closures, syntax errors
+# (E9/F6/F7/F8/F823/F811/F402/B023), plus the style rules cleaned and held
+# clean by the v2.9.1 sweep (I import-sort, E401, F541, UP037). Not gated:
+# F401 (the package re-exports through __init__.py) and E701/E702 (left as-is).
+select = ["E9", "F63", "F7", "F82", "F823", "F811", "F402", "B023",
+          "I", "E401", "F541", "UP037"]

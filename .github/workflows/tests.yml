@@ -63,7 +63,7 @@ jobs:
           cache: pip
       - run: |
           pip install 'ruff==0.8.4'
-          ruff check --select E9,F63,F7,F82,F823,F811,F402,B023 wpsecscan tests
+          ruff check --select E9,F63,F7,F82,F823,F811,F402,B023,I,E401,F541,UP037 wpsecscan tests
         # Gating set (W1h): undefined names, redefinitions, loop-var closures,
         # syntax errors. Style rules are a separate non-gating sweep.
 
