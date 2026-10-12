@@ -1,7 +1,19 @@
+---
+id: gdpr_dsr
+title: "GDPR Data-Subject-Request audit"
+severity_max: medium
+severity_dynamic: false
+aggressive: false
+category: "Privacy, compliance & accessibility"
+words: 125
+---
+
 # GDPR Data-Subject-Request audit
 
 **check_id**: `gdpr_dsr`
 **aggressive**: no
+**category**: Privacy, compliance & accessibility
+**max severity**: medium
 **OWASP**: A04:2021 — Insecure Design
 **MITRE ATT&CK**: T1592.001 — Gather Victim Host Information: Hardware
 
@@ -15,6 +27,26 @@ sites MUST tell visitors how to exercise data rights — and many WP sites
 quietly miss this.
 
 Purely defensive: GET-only, no auth, no parameters.
+
+## Request footprint
+
+The module contains 1 request call(s) to the target (GET x1). Calls inside loops send more than one request, so treat this as a minimum.
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| medium | Privacy page at ⟨p⟩ is missing a Data-Subject-Request process | Add a section to the privacy page explaining how to request data access / deletion / portability, with a contact email or web form. GDPR Art. 12 requires the process to be 'easily accessible and easy to understand'. |
+| low | No privacy / GDPR page found at the usual paths | Publish a privacy notice at /privacy/ (or equivalent) that names the data controller, the legal bases for processing, the retention periods, and HOW visitors can exercise their rights (access, erasure, portability). Required by GDPR Art. 13-14 for any EU traffic. |
+| info | Privacy page at ⟨p⟩ mentions DSR concepts (⟨count⟩ phrase(s) matched) | No immediate action — verify the page also has an actual contact channel for requests. |
+
+## Evidence the check records
+
+- No privacy / GDPR page found at the usual paths: Probed: ⟨value⟩
+- Privacy page at ⟨p⟩ is missing a Data-Subject-Request process: Found a page at ⟨p⟩ but none of the expected DSR phrases appeared in the first 20 KB. Phrases looked for: 'data subject', 'right of access', 'right to erasure', 'DPO', 'request your data', etc.
+- Privacy page at ⟨p⟩ mentions DSR concepts (⟨count⟩ phrase(s) matched): Matched phrases: ⟨value⟩
 
 ## Compliance mapping
 
@@ -30,5 +62,7 @@ Purely defensive: GET-only, no auth, no parameters.
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only gdpr_dsr
+wpsecscan only gdpr_dsr https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

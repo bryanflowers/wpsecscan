@@ -1,7 +1,19 @@
+---
+id: wp_membership_lms_audit
+title: "Membership + LMS plugin audit (#4-5)"
+severity_max: high
+severity_dynamic: false
+aggressive: false
+category: "WordPress core, plugins & themes"
+words: 117
+---
+
 # Membership + LMS plugin audit (#4-5)
 
 **check_id**: `wp_membership_lms_audit`
 **aggressive**: no
+**category**: WordPress core, plugins & themes
+**max severity**: high
 **OWASP**: A01:2021 — Broken Access Control
 **MITRE ATT&CK**: T1190 — Exploit Public-Facing Application
 **CWE**: CWE-285
@@ -19,6 +31,30 @@ Round-59 #4-5 — Membership + LMS plugin audit.
 
 Each plugin's REST endpoints + protected-content paths are probed for
 unauthenticated readability — the most common bug class.
+
+## Request footprint
+
+The module contains 4 request call(s) to the target (GET x4). Calls inside loops send more than one request, so treat this as a minimum.
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| high | ⟨name⟩ REST endpoint readable unauthenticated | Lock `⟨rest_path⟩` to authenticated callers via `permission_callback`. ⟨name⟩ ships defaults that are sometimes too permissive. |
+| medium | ⟨name⟩ REST endpoint readable unauthenticated | Add `permission_callback` requiring at least `read` capability on `⟨rest_path⟩`. |
+| info | LMS plugin: ⟨name⟩ ⟨value⟩ detected | LMS plugins commonly suffer quiz-bypass and certificate-IDOR. Audit nonce + per-user ownership checks. |
+| info | Membership plugin: ⟨name⟩ ⟨value⟩ detected | Membership plugins gate paid content. Audit `permission_callback` on REST + AJAX. |
+| info | Membership/LMS audit — no plugins detected | No action. |
+
+## Evidence the check records
+
+- Membership plugin: ⟨name⟩ ⟨value⟩ detected: ⟨plugin_path⟩ reachable.
+- LMS plugin: ⟨name⟩ ⟨value⟩ detected: ⟨plugin_path⟩ reachable.
+- Membership/LMS audit — no plugins detected: Probed 3 membership + 4 LMS plugins.
+- ⟨name⟩ REST endpoint readable unauthenticated: GET ⟨rest_path⟩ -&gt; ⟨value⟩ (⟨count⟩ bytes).
+- ⟨name⟩ REST endpoint readable unauthenticated: GET ⟨rest_path⟩ -&gt; ⟨value⟩ (⟨count⟩ bytes).
 
 ## Compliance mapping
 
@@ -38,5 +74,7 @@ unauthenticated readability — the most common bug class.
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only wp_membership_lms_audit
+wpsecscan only wp_membership_lms_audit https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

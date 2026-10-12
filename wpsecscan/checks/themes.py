@@ -1,3 +1,14 @@
+"""Theme enumeration.
+
+Fetches / and extracts theme slugs from /wp-content/themes/<slug>/ asset URLs
+in the HTML. For up to ten slugs it requests /wp-content/themes/<slug>/
+style.css and reads the Version header when the file contains "Theme Name".
+The slug-to-version map is stored in ctx['shared']['themes'] for later
+checks. One info finding lists every theme and its version; nothing is
+emitted when the homepage fails or shows no theme paths. Fix: keep all
+installed themes updated, and delete unused ones, because inactive themes
+remain reachable by URL. At most 11 GET requests.
+"""
 from __future__ import annotations
 
 import re

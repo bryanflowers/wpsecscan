@@ -1,7 +1,19 @@
+---
+id: js_framework_deep
+title: "JS framework deep-detect + version pin (#B31)"
+severity_max: high
+severity_dynamic: false
+aggressive: false
+category: "Discovery & enumeration"
+words: 59
+---
+
 # JS framework deep-detect + version pin (#B31)
 
 **check_id**: `js_framework_deep`
 **aggressive**: no
+**category**: Discovery & enumeration
+**max severity**: high
 **OWASP**: A06:2021 — Vulnerable & Outdated Components
 **MITRE ATT&CK**: T1592.002 — Software
 **CWE**: CWE-1104
@@ -15,6 +27,26 @@ Detects React/Vue/Angular/Svelte/Next/Nuxt/Remix/Astro/Qwik/SolidJS by
 parsing the home HTML for framework-specific markers, then extracts
 versions from the main bundle URL when possible. Cross-references
 versions against a minimum-safe-version pin list.
+
+## Request footprint
+
+The module contains 1 request call(s) to the target (GET x1). Calls inside loops send more than one request, so treat this as a minimum.
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| high | ⟨name⟩ ⟨version⟩ below patched baseline ⟨min_safe⟩ | Upgrade ⟨name⟩ to ⟨min_safe⟩ or later. Cross-reference with the bundled CVE DB for specifics. |
+| info | JS framework deep — no SPA frameworks detected | No action. |
+| info | JS framework deep — no home page | No action. |
+| info | JS frameworks detected: ⟨count⟩ | SPA frameworks bundle their own deps. Run `npm audit` or `pnpm audit` in your front-end repo. |
+
+## Evidence the check records
+
+- JS framework deep — no SPA frameworks detected: Probed ⟨count⟩ frameworks.
+- ⟨name⟩ ⟨version⟩ below patched baseline ⟨min_safe⟩: Detected ⟨name⟩ ⟨version⟩; min-safe ⟨min_safe⟩.
 
 ## Compliance mapping
 
@@ -34,5 +66,7 @@ versions against a minimum-safe-version pin list.
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only js_framework_deep
+wpsecscan only js_framework_deep https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

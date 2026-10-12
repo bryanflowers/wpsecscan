@@ -1,7 +1,19 @@
+---
+id: backup_file_fuzz
+title: "Backup-file long-tail fuzzer"
+severity_max: critical
+severity_dynamic: false
+aggressive: false
+category: "File & directory exposure"
+words: 45
+---
+
 # Backup-file long-tail fuzzer
 
 **check_id**: `backup_file_fuzz`
 **aggressive**: no
+**category**: File & directory exposure
+**max severity**: critical
 **OWASP**: A05:2021 — Security Misconfiguration
 **MITRE ATT&CK**: T1083 — File and Directory Discovery
 **CWE**: CWE-538
@@ -14,6 +26,23 @@ H7 Backup-file long-tail fuzzer.
 Existing `exposed_files` and `backup_exposure` checks cover the common cases
 (`wp-config.php.bak`, `.git/config`, etc.). This fuzzer extends the tail with
 ~30 less-common variants that often slip through.
+
+## Request footprint
+
+The module contains 1 request call(s) to the target (GET x1). Calls inside loops send more than one request, so treat this as a minimum.
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| critical/high | Backup-file fuzzer — ⟨count⟩ sensitive file(s) reachable | Block these patterns in your web server config. Nginx example: location ~ \.(bak\|swp\|tmp\|orig\|save\|old\|copy\|disabled\|dev\|staging\|production)$ { deny all; } location ~ /\.(git\|vscode\|idea\|DS_Store\|svn) { deny all; } location = /wp-config.php { deny all; } Apache equivalent in .htaccess: &lt;FilesMatch "\.(bak\|swp\|tmp\|orig\|save\|old\|copy)$"&gt; Require all denied &lt;/FilesMatch&gt; |
+| info | Backup-file fuzzer — clean (⟨count⟩ variants probed) | No action. |
+
+## Evidence the check records
+
+- Backup-file fuzzer — clean (⟨count⟩ variants probed): No backup / IDE / editor files reachable.
 
 ## Compliance mapping
 
@@ -33,5 +62,7 @@ Existing `exposed_files` and `backup_exposure` checks cover the common cases
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only backup_file_fuzz
+wpsecscan only backup_file_fuzz https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

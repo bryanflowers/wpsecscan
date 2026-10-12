@@ -1,3 +1,14 @@
+"""Directory-listing check.
+
+Requests five WordPress directories with GET: /wp-content/uploads/,
+/wp-content/plugins/, /wp-content/themes/, /wp-includes/ and /wp-content/.
+A directory is reported (high) when it answers 200 and the body contains an
+"Index of" title or heading, or "Directory listing for". Each exposed path is
+its own finding. If none of the five lists its contents, one info finding is
+emitted. Fix: add `Options -Indexes` to .htaccess on Apache, make sure
+`autoindex` is off on Nginx, and optionally place an empty index.html in the
+directory. Five GET requests, no authentication.
+"""
 from __future__ import annotations
 
 from ..http import Client

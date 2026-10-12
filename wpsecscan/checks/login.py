@@ -1,3 +1,14 @@
+"""Login-surface check.
+
+Makes three requests. GET /wp-login.php is reported (info) when the response
+is 200 and contains the login form. GET /wp-admin/ without following
+redirects is reported (info) on 200, 301 or 302. POST /xmlrpc.php sending
+system.listMethods is reported when a valid methodResponse comes back: medium
+if system.multicall or wp.getUsersBlogs is listed, otherwise low. If none of
+the three respond, one info finding says the surface looks hardened. Fix:
+restrict /wp-login.php and /wp-admin/ by IP or 2FA, and disable or block
+XML-RPC if Jetpack and the mobile app are not in use.
+"""
 from __future__ import annotations
 
 from ..http import Client

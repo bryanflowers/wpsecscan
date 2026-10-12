@@ -1,7 +1,19 @@
+---
+id: service_exposure
+title: "Service-port exposure: Redis/Memcache/DB (#B35-B37)"
+severity_max: critical
+severity_dynamic: false
+aggressive: false
+category: "DNS, email & infra"
+words: 167
+---
+
 # Service-port exposure: Redis/Memcache/DB (#B35-B37)
 
 **check_id**: `service_exposure`
 **aggressive**: no
+**category**: DNS, email & infra
+**max severity**: critical
 **OWASP**: A05:2021 — Security Misconfiguration
 **MITRE ATT&CK**: T1046 — Network Service Discovery
 **CWE**: CWE-668
@@ -23,6 +35,26 @@ breaks the user's own egress rules). Instead we:
   - try a single 1-second TCP connect to each suspect port
   - if it opens, that's evidence the port is publicly bound
 
+## Request footprint
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| critical/high | ⟨label⟩ reachable on ⟨host⟩:⟨port⟩ | — |
+| info | Service-port exposure — no high-risk ports open | No action. |
+| info | Service-port exposure — skipped for local target | No action. |
+| info | Service-port exposure — skipped for private/RFC1918 target | No action. |
+
+## Evidence the check records
+
+- Service-port exposure — skipped for local target: host=⟨host⟩
+- Service-port exposure — skipped for private/RFC1918 target: host=⟨host⟩ resolved to ⟨resolved_ip⟩ (private range). Set WPSECSCAN_SCAN_LAN=1 to override (will probe 14 well-known service ports).
+- Service-port exposure — no high-risk ports open: Probed ⟨count⟩ suspect ports on ⟨host⟩.
+- ⟨label⟩ reachable on ⟨host⟩:⟨port⟩: TCP connect to ⟨host⟩:⟨port⟩ succeeded within 1s — service is publicly bound.
+
 ## Compliance mapping
 
 - **compliance_map / pci_dss**: 1.2.1
@@ -41,5 +73,7 @@ breaks the user's own egress rules). Instead we:
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only service_exposure
+wpsecscan only service_exposure https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

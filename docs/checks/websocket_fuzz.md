@@ -1,7 +1,19 @@
+---
+id: websocket_fuzz
+title: "WebSocket frame fuzzer (#23)"
+severity_max: medium
+severity_dynamic: false
+aggressive: true
+category: "GraphQL & APIs"
+words: 130
+---
+
 # WebSocket frame fuzzer (#23)
 
 **check_id**: `websocket_fuzz`
 **aggressive**: yes
+**category**: GraphQL & APIs
+**max severity**: medium
 **OWASP**: A03:2021 — Injection
 **MITRE ATT&CK**: T1190 — Exploit Public-Facing Application
 **CWE**: CWE-345
@@ -27,6 +39,29 @@ Frames sent:
 
 Aggressive only.
 
+## Request footprint
+
+The module contains 1 request call(s) to the target (GET x1). Calls inside loops send more than one request, so treat this as a minimum.
+
+This is an aggressive check: it sends active probes. It only runs with --aggressive, and without --owned (or a recorded ownership consent for the host) the scanner downgrades the run to passive checks only.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| medium | WebSocket ⟨u⟩ — ⟨count⟩ suspicious response(s) | Audit the WebSocket message handler. Treat every inbound message as untrusted input — schema-validate (Ajv / jsonschema) before any DB or filesystem operation. Add per-connection auth checks; don't assume the Sec-WebSocket-Origin header has been validated. |
+| info | WebSocket fuzz skipped (passive mode) | No action. |
+| info | WebSocket fuzz skipped (websockets not installed) | No action. |
+| info | WebSocket fuzz — no endpoints found in homepage HTML | No action. |
+| info | WebSocket fuzz — ⟨count⟩ endpoint(s) tested, no issues | No action. |
+
+## Evidence the check records
+
+- WebSocket fuzz skipped (passive mode): Pass --aggressive to enable.
+- WebSocket fuzz skipped (websockets not installed): Install: `pip install websockets`
+- WebSocket fuzz — no endpoints found in homepage HTML: No `new WebSocket(...)` / `wss?://...` literals on /.
+- WebSocket fuzz — ⟨count⟩ endpoint(s) tested, no issues: Endpoints: ⟨value⟩
+
 ## Compliance mapping
 
 - **compliance_map / pci_dss**: 6.2.4
@@ -41,5 +76,7 @@ Aggressive only.
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only websocket_fuzz
+wpsecscan only websocket_fuzz https://example.com --aggressive --owned
 ```
+
+`only` runs this check alone and prints its findings.

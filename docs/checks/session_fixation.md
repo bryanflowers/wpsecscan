@@ -1,7 +1,19 @@
+---
+id: session_fixation
+title: "Session-fixation precondition probe"
+severity_max: medium
+severity_dynamic: false
+aggressive: false
+category: "Authentication & session"
+words: 222
+---
+
 # Session-fixation precondition probe
 
 **check_id**: `session_fixation`
 **aggressive**: no
+**category**: Authentication & session
+**max severity**: medium
 **OWASP**: A07:2021 — Identification & Authn Failures
 **MITRE ATT&CK**: T1539 — Steal Web Session Cookie
 **CWE**: CWE-384
@@ -27,6 +39,26 @@ either:
   (a) ignores our value and issues a fresh cookie (good — no fixation),
   (b) echoes our value back (bad — fixation likely possible).
 
+## Request footprint
+
+The module contains 1 request call(s) to the target (GET x1). Calls inside loops send more than one request, so treat this as a minimum.
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| medium | Session-fixation precondition: server accepted ⟨count⟩ client-set cookie(s) without regenerating | WordPress should regenerate `wordpress_logged_in_*` on successful login. If you've added a custom session plugin, ensure it calls `session_regenerate_id(true)` (PHP) on login. Belt-and-braces: set every session cookie HttpOnly + Secure + SameSite=Strict. |
+| info | Session cookies regenerated on /wp-login.php (⟨count⟩ cookie(s)) | No action. |
+| info | Session-fixation probe — /wp-login.php unreachable | No action. |
+
+## Evidence the check records
+
+- Session-fixation probe — /wp-login.php unreachable: Couldn't reach the login page.
+- Session-fixation precondition: server accepted ⟨count⟩ client-set cookie(s) without regenerating: Pre-set the following cookies and hit /wp-login.php: ⟨value⟩ No Set-Cookie response regenerated them with a different value. If the server uses these cookies as the session identifier post-login, an attacker who can plant a cookie in the victim's browser (subdomain XSS, MITM, etc.) can fixate the session.
+- Session cookies regenerated on /wp-login.php (⟨count⟩ cookie(s)): Server actively reset the cookies we pre-planted: ⟨value⟩. Session-fixation unlikely.
+
 ## Compliance mapping
 
 - **compliance_map / pci_dss**: 8.3
@@ -42,8 +74,15 @@ either:
 - **compliance_v2 / cis_v8**: 5.4
 - **compliance_v2 / iso_27001_2022**: A.8.5
 
+## References
+
+- primary: https://owasp.org/www-community/attacks/Session_fixation
+- deep dive: https://book.hacktricks.xyz/pentesting-web/session-fixation
+
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only session_fixation
+wpsecscan only session_fixation https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

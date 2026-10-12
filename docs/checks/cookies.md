@@ -1,7 +1,19 @@
+---
+id: cookies
+title: "Cookie hardening"
+severity_max: medium
+severity_dynamic: false
+aggressive: false
+category: "Transport & headers"
+words: 67
+---
+
 # Cookie hardening
 
 **check_id**: `cookies`
 **aggressive**: no
+**category**: Transport & headers
+**max severity**: medium
 **OWASP**: A07:2021 — Identification & Authn Failures
 **MITRE ATT&CK**: T1539 — Steal Web Session Cookie
 
@@ -11,6 +23,45 @@ Cookie hardening check — inspect Set-Cookie flags on common WP endpoints.
 
 Looks specifically at /wp-login.php and /wp-admin/ (which set wp-* cookies on
 login attempts) for missing Secure / HttpOnly / SameSite flags.
+
+## Request footprint
+
+The module contains 1 request call(s) to the target (GET x1). Calls inside loops send more than one request, so treat this as a minimum.
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| medium/low | ⟨count⟩ cookie(s) missing security flags | Set Secure (HTTPS-only), HttpOnly (no JS access), and SameSite=Lax/Strict (CSRF mitigation). For WP cookies, in wp-config.php: define('COOKIE_DOMAIN', 'example.com'); define('FORCE_SSL_ADMIN', true); At the server level (Nginx) you can also rewrite Set-Cookie headers. |
+| info | All observed cookies have appropriate security flags | No action needed. |
+| info | No cookies observed from probed endpoints | No action needed. |
+
+## Evidence the check records
+
+- No cookies observed from probed endpoints: GET /wp-login.php, /wp-admin/, and / returned no Set-Cookie headers.
+- All observed cookies have appropriate security flags: Inspected ⟨count⟩ cookie(s); none missing required flags.
+
+## Suggested fix
+
+Force secure WP cookies. Where to apply it: wp-config.php.
+
+```php
+define('FORCE_SSL_ADMIN', true);
+@ini_set('session.cookie_secure', 1);
+@ini_set('session.cookie_httponly', 1);
+@ini_set('session.cookie_samesite', 'Lax');
+```
+
+## How to verify manually
+
+Commands to confirm the issue by hand, and again after you fix it:
+
+```
+curl -sI https://example.com/wp-login.php | grep -i set-cookie
+curl -sI https://example.com/wp-admin/ | grep -i set-cookie
+```
 
 ## Compliance mapping
 
@@ -30,5 +81,7 @@ login attempts) for missing Secure / HttpOnly / SameSite flags.
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only cookies
+wpsecscan only cookies https://example.com
 ```
+
+`only` runs this check alone and prints its findings.

@@ -1,7 +1,19 @@
+---
+id: headless_templates
+title: "Headless DOM templates (Playwright) (#14)"
+severity_max: info
+severity_dynamic: true
+aggressive: true
+category: "GraphQL & APIs"
+words: 178
+---
+
 # Headless DOM templates (Playwright) (#14)
 
 **check_id**: `headless_templates`
 **aggressive**: yes
+**category**: GraphQL & APIs
+**max severity**: info (some findings take their severity at run time)
 **OWASP**: A03:2021 — Injection
 **MITRE ATT&CK**: T1059.007 — JavaScript Execution
 **CWE**: CWE-79
@@ -24,6 +36,30 @@ for WP scanning:
 Templates in ~/.wpsecscan/templates/*.yaml may include `headless:`. Requires
 Playwright (optional dep); falls back to an info finding when not installed.
 
+## Request footprint
+
+This is an aggressive check: it sends active probes. It only runs with --aggressive, and without --owned (or a recorded ownership consent for the host) the scanner downgrades the run to passive checks only.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| info | Headless DOM templates skipped (passive mode) | No action. |
+| info | Headless template '⟨name⟩' — browser launch failed | No action. |
+| info | Headless templates skipped (Playwright not installed) | No action. |
+| info | Headless templates skipped (PyYAML not installed) | No action. |
+| info | Headless templates — none found | No action. |
+| varies | [headless template] ⟨name⟩ | — |
+
+## Evidence the check records
+
+- Headless DOM templates skipped (passive mode): Pass --aggressive to drive a real browser against the target.
+- Headless templates skipped (Playwright not installed): Install: `pip install playwright && playwright install chromium`.
+- Headless templates skipped (PyYAML not installed): Install pyyaml to enable.
+- Headless templates — none found: No template in ~/.wpsecscan/templates/ includes a `headless:` block.
+- Headless template '⟨name⟩' — browser launch failed: Playwright couldn't launch chromium (run `playwright install chromium`).
+- [headless template] ⟨name⟩: Headless template ⟨value⟩ matched against the rendered DOM.
+
 ## Compliance mapping
 
 - **compliance_map / pci_dss**: 6.2.4
@@ -38,5 +74,7 @@ Playwright (optional dep); falls back to an info finding when not installed.
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only headless_templates
+wpsecscan only headless_templates https://example.com --aggressive --owned
 ```
+
+`only` runs this check alone and prints its findings.

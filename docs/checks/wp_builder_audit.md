@@ -1,7 +1,19 @@
+---
+id: wp_builder_audit
+title: "Block-theme/FSE + page-builder audit (#1-2)"
+severity_max: high
+severity_dynamic: false
+aggressive: false
+category: "WordPress core, plugins & themes"
+words: 106
+---
+
 # Block-theme/FSE + page-builder audit (#1-2)
 
 **check_id**: `wp_builder_audit`
 **aggressive**: no
+**category**: WordPress core, plugins & themes
+**max severity**: high
 **OWASP**: A06:2021 — Vulnerable & Outdated Components
 **MITRE ATT&CK**: T1592.002 — Software
 **CWE**: CWE-1104
@@ -18,6 +30,27 @@ Round-59 #1-2 — Block-theme/FSE + page-builder audit.
 #2 Page-builder fingerprint + known-vulnerable-version match for
    Elementor, Divi, Beaver Builder, WPBakery, Bricks, Oxygen. These
    are the highest-CVE-density plugins in the entire WP ecosystem.
+
+## Request footprint
+
+The module contains 2 request call(s) to the target (GET x2). Calls inside loops send more than one request, so treat this as a minimum.
+
+This is a passive check: it runs without --aggressive.
+
+## Findings this check can raise
+
+| Severity | Finding | Remediation |
+|----------|---------|-------------|
+| high | ⟨name⟩ ⟨version⟩ below patched baseline ⟨min_safe⟩ | Update ⟨name⟩ to ⟨min_safe⟩ or later — older versions have public RCE/stored-XSS CVEs. |
+| info | Block theme / FSE active (⟨count⟩ indicator(s)) | FSE themes expose template + template-part REST endpoints. Confirm /wp-json/wp/v2/templates returns 401/403 to anonymous users — otherwise template HTML may be edited via REST. |
+| info | Builder/FSE audit — no FSE indicators, no builders detected | No action. |
+| info | Page builders detected (⟨count⟩) | Cross-reference each builder version against its CVE history (the bundled CVE DB does this for plugins, not themes). |
+
+## Evidence the check records
+
+- Block theme / FSE active (⟨count⟩ indicator(s)): Reachable: ⟨value⟩
+- Builder/FSE audit — no FSE indicators, no builders detected: Probed FSE endpoints + 7 popular builders.
+- ⟨name⟩ ⟨version⟩ below patched baseline ⟨min_safe⟩: ⟨path⟩ reports version ⟨version⟩; baseline ⟨min_safe⟩ (pre-patch).
 
 ## Compliance mapping
 
@@ -37,5 +70,7 @@ Round-59 #1-2 — Block-theme/FSE + page-builder audit.
 ## Run only this check
 
 ```
-wpsecscan --target https://example.com --only wp_builder_audit
+wpsecscan only wp_builder_audit https://example.com
 ```
+
+`only` runs this check alone and prints its findings.
