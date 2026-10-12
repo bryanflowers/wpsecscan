@@ -22,7 +22,7 @@ Install with `pip install wpsecscan[<extra>]` or `pip install wpsecscan[all]`.
 | `pdf`      | reportlab | Real PDF executive + attestation reports (otherwise HTML fallback) |
 | `browser`  | playwright | Headless DOM-XSS check + per-finding screenshots in HTML report |
 | `yaml`     | pyyaml | Daemon mode YAML config parsing |
-| `ops`      | redis, bcrypt | Shared CVE-DB cache (Redis) + bcrypt-hashed RBAC tokens (sha256 fallback if absent) |
+| `ops`      | redis, bcrypt | Shared CVE-DB cache (Redis). bcrypt is installed with this extra but no module imports it |
 | `otel`     | opentelemetry-* | One OTLP span per check, shipped to your APM |
 | `test`     | pytest | Run the test suite |
 | `all`      | every optional package above | One-line "kitchen sink" install |

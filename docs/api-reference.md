@@ -36,9 +36,10 @@ or `WPSECSCAN_API_TOKEN`; it refuses to start without one) exposes:
   is unset, any target is accepted.
 - `429` when the concurrent-scan cap is reached.
 
-The sections below describe the planned daemon / multi-tenant API (JWT
-login, `/scans`, `/sites`, tenants). The embedded server above implements
-only the endpoints in the table.
+The sections below describe a planned daemon API (JWT login, `/scans`,
+`/sites`). The embedded server above implements only the endpoints in the
+table. There is no SSO, role-based access control, quota or multi-tenant
+mode in the tool.
 
 ## Auth
 
@@ -49,9 +50,6 @@ Obtain a token via:
 wpsecscan daemon login --username admin
 ```
 
-The token is OIDC-signed when SSO is configured (see
-`wpsecscan/auth/sso_oidc.py`); otherwise HMAC-signed with a local
-key.
 
 ## Endpoints
 
@@ -126,24 +124,6 @@ Receiver MUST:
 2. Reject replayed nonces (cache last 4096)
 3. Compute the HMAC + compare with `hmac.compare_digest`
 
-## RBAC
-
-| Role     | Can call |
-|----------|----------|
-| reader   | GET /scans/*, GET /sites |
-| operator | + POST /scans, POST/DELETE /sites |
-| admin    | + everything (users, settings, billing) |
-
-See `wpsecscan/auth/rbac.py` for the full permission matrix.
-
-## Rate limits
-
-The daemon enforces per-token rate limits:
-- 60 scan requests / hour (default; configurable per tenant)
-- 600 read requests / minute
-
-Quota counter resets at UTC midnight (see `wpsecscan/enterprise/quota.py`).
-
 ## Errors
 
 All errors return a JSON object:
@@ -151,14 +131,7 @@ All errors return a JSON object:
 { "error": "scan_not_found", "message": "No scan with id ..." }
 ```
 
-Common codes: `scan_not_found`, `quota_exceeded`, `permission_denied`,
-`invalid_target`, `aggressive_requires_approval`.
-
-## Multi-tenant
-
-When the daemon runs with `--multi-tenant`, every endpoint is
-namespaced under `/tenants/:tenant_id/`. The token must contain a
-`tenant_id` claim matching the URL.
+Common codes: `scan_not_found`, `invalid_target`.
 
 ## Versioning
 

@@ -99,3 +99,6 @@ targets.*.txt
 
 # local pip cache (created by editable installs run from the repo root)
 pip/
+
+# local release build staging (wheel/sdist/exe pulled for the GitHub release)
+dist_release/

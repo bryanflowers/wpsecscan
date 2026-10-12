@@ -95,8 +95,6 @@ from wpsecscan.reporters import (
 from wpsecscan.integrations import (
     cisa_kev,        # cisa_kev.is_kev("CVE-2024-1234") -> bool
     epss,            # epss.lookup_scores(["CVE-2024-1234"]) -> {cve: {epss, percentile}}
-    virustotal,      # virustotal.lookup_url(url, token) / lookup_ip(ip, token)
-    sucuri_sitecheck,  # sucuri_sitecheck.lookup(target) -> dict
     github_issues,   # github_issues.create_issues_for_report(report, repo, token)
 )
 ```

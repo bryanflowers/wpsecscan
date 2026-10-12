@@ -226,21 +226,8 @@ def test_trend_over_time_history_round_trip(monkeypatch, tmp_path):
 
 
 # ============================================================
-# Group L — Enterprise (RBAC + audit log + approval)
+# Group L — Audit log + tenant-id validation (RBAC/approval/quota/billing removed)
 # ============================================================
-
-def test_rbac_reader_cannot_start_scan():
-    from wpsecscan.auth import rbac
-    u = rbac.User(username="alice", role="reader")
-    with pytest.raises(PermissionError):
-        rbac.require(u, rbac.PERM_START_SCAN)
-
-
-def test_rbac_operator_can_start_scan():
-    from wpsecscan.auth import rbac
-    u = rbac.User(username="bob", role="operator")
-    rbac.require(u, rbac.PERM_START_SCAN)  # no raise
-
 
 def test_audit_log_chain_verifies(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
@@ -251,44 +238,11 @@ def test_audit_log_chain_verifies(monkeypatch, tmp_path):
     assert ok and n == 2, f"err={err}"
 
 
-def test_approval_workflow_requires_two_people(monkeypatch, tmp_path):
-    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    from wpsecscan.auth import approval_workflow as aw
-    req = aw.create_request("alice", "https://x.com", "aggressive_scan", "PCI audit")
-    with pytest.raises(ValueError):
-        aw.approve(req.request_id, "alice")  # same user
-    aw.approve(req.request_id, "bob")        # different user OK
-    final = aw.consume(req.request_id)
-    assert final.approved_by == "bob"
-
-
 def test_multi_tenant_validates_id():
     from wpsecscan.enterprise import multi_tenant
     with pytest.raises(ValueError):
         multi_tenant.validate_tenant_id("Bad Tenant!")  # bad chars
     assert multi_tenant.validate_tenant_id("ok-tenant-1") == "ok-tenant-1"
-
-
-def test_quota_blocks_after_max(monkeypatch, tmp_path):
-    monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    from wpsecscan.enterprise import multi_tenant, quota
-    multi_tenant.create_tenant("t1")
-    for _ in range(3):
-        quota.consume("t1", max_per_day=3)
-    with pytest.raises(PermissionError):
-        quota.consume("t1", max_per_day=3)
-
-
-def test_billing_signature_verify():
-    from wpsecscan.enterprise import billing_stub
-    import hmac, hashlib, time
-    secret = "whsec_test"
-    body = b'{"event":"x"}'
-    ts = int(time.time())
-    sig = hmac.new(secret.encode(), f"{ts}.".encode() + body, hashlib.sha256).hexdigest()
-    header = f"t={ts},v1={sig}"
-    assert billing_stub.verify_stripe_signature(body, header, secret) is True
-    assert billing_stub.verify_stripe_signature(body, header, "wrong") is False
 
 
 # ============================================================

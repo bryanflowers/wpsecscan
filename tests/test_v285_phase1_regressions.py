@@ -19,7 +19,7 @@ H12  — creds_vault has a module-level Lock guarding the fallback RMW.
 M1   — scanner has try/except around is_paused() invocations.
 M2   — graphql_dos uses a regex, not body.count('"a').
 M3   — saml_xsw status filter no longer contains 405.
-M4   — org_dashboard.glob excludes canonical aliases.
+M4   — (org_dashboard module removed in v2.9.1; its glob test is gone).
 M5   — dns_security has a bounded asyncio.Semaphore for _txt.
 M6   — subdomains gather uses return_exceptions=True.
 M7   — exec_pdf / auditor_pdf / attestation guard scanned_at None.
@@ -196,23 +196,6 @@ def test_m3_saml_xsw_status_filter_drops_405():
     src = Path("wpsecscan/checks/saml_xsw.py").read_text(encoding="utf-8")
     assert "in (200, 302, 405)" not in src
     assert "in (200, 302)" in src
-
-
-# ---------------------------------------------------------------------------
-# M4 — org_dashboard glob excludes canonical alias
-# ---------------------------------------------------------------------------
-
-def test_m4_org_dashboard_glob_filter():
-    src = Path("wpsecscan/reporters/org_dashboard.py").read_text(encoding="utf-8")
-    assert 'glob("*-*.json")' in src
-    # Pre-fix `glob("*.json")` is gone from the _latest_per_url scope
-    # (other reporters may still glob *.json legitimately).
-    idx = src.find("def _latest_per_url")
-    assert idx >= 0
-    end = src.find("\ndef ", idx + 1)
-    body = src[idx:end if end > 0 else idx + 1500]
-    assert "sorted(reports_dir.glob(\"*.json\"))" not in body, \
-        "v2.8.5 M4 — bare *.json glob still in _latest_per_url"
 
 
 # ---------------------------------------------------------------------------

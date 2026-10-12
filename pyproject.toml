@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "wpsecscan"
 version = "2.9.0"
-description = "Defensive WordPress security scanner. 294 checks, CVE feed aggregated nightly from up to 8 public sources, AI-assisted remediation (BYO key), check-level compliance mappings for 12 frameworks, Sigstore-signed releases with GitHub build-provenance attestations, 9 report formats plus 14 export formats, multi-tenant RBAC/SSO/audit-log modules. Authorized testing only."
+description = "Defensive WordPress security scanner. 294 checks, CVE feed aggregated nightly from up to 8 public sources, AI-assisted remediation (BYO key), check-level compliance mappings for 12 frameworks, Sigstore-signed releases with GitHub build-provenance attestations, 9 report formats plus 14 export formats, a managed-sites registry, batch scans from a URL file, a cron-style --daemon scheduler, a token-protected --api-server with a target allowlist, and an HMAC-chained audit log for credential-vault and marketplace actions. Authorized testing only."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
@@ -66,7 +66,7 @@ pdf = ["reportlab>=4.0,<5"]
 browser = ["playwright>=1.40,<2"]
 # Daemon mode YAML config
 yaml = ["pyyaml>=6.0,<7"]
-# Distributed CVE-DB cache + RBAC bcrypt hashing
+# Distributed CVE-DB cache (redis). bcrypt is declared here but no module imports it.
 ops = ["redis>=5.0,<7", "bcrypt>=4.0,<5"]
 # Optional Pillow for GUI image rendering + pystray for minimize-to-tray (#56).
 # (keyring moved to default `dependencies` in v2.5.1 because the `wpsecscan

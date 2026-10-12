@@ -165,8 +165,8 @@ Checks at that release: **161 → 189**.
 **What it does:** Round-64 broadens WPSecScan from a passive
 WordPress scanner into a full defensive-security platform with
 read-only proof helpers, continuous monitoring, wrappers for 10
-threat-intel providers, Sigstore-signed releases, enterprise SSO +
-RBAC + audit-log + multi-tenant modules, 26 new attack-surface checks,
+threat-intel providers, Sigstore-signed releases, an HMAC-chained
+audit log, 26 new attack-surface checks,
 and drafted packaging manifests (never published; PyPI, the GitHub release
 binaries and a source install are the real channels).
 
@@ -184,7 +184,7 @@ binaries and a source install are the real channels).
 | I — Reports & sharing | 7 | SVG badge, public scorecard, ELI5, trends |
 | J — Mobile + accessibility | 6 | RN/Capacitor + WCAG AAA + screen-reader CLI |
 | K — Distribution | 10 | Drafted manifests for several package managers; none published and the manifests have been removed. Real channels: PyPI, GitHub release binaries, source |
-| L — Enterprise | 9 | OIDC/SAML/RBAC/audit/approval/multi-tenant/quota/billing |
+| L — Enterprise | 9 | Only the HMAC-chained audit log (`auth/audit_log.py`, used by the credential vault and marketplace) and tenant-id validation (`enterprise/multi_tenant.py`) are in the tree; the SSO, RBAC, approval-workflow, quota and billing scaffolds were removed in v2.9.1 (no importers) |
 | M — Community | 10 | Design docs and scaffolds (public DB, marketplace, bot, leaderboard, CTF); no hosted service is running |
 | N — IaC | 8 | Ansible / Sentinel / ServiceNow / Datadog / Grafana / Prometheus assets in-tree (Terraform and Pulumi assets are not shipped) |
 | O — SDKs + API | 7 | Python/JS/Go SDKs + OpenAPI + Postman + webhook v2 |
@@ -546,7 +546,7 @@ incremental skips — all silent. Round-56 surfaces them.
 - **Activity event bus** (`wpsecscan/activity.py`) — every feature emits a
   short categorised event (threat-intel / reporter / integration / governance /
   meta / artifact). 25 emit sites wired across check-health, incremental, KEV,
-  EPSS, VirusTotal, Sucuri, CVE-explainer, audit-log, audit-shipping,
+  EPSS, VirusTotal, CVE-explainer, audit-log, audit-shipping,
   screenshot capture, auto-update, and every reporter.
 - **Live multi-panel console dashboard** during scans
   (`wpsecscan/console_live.py`) — `rich.Live` layout with a header (target +
@@ -576,7 +576,7 @@ incremental skips — all silent. Round-56 surfaces them.
 
 The 47-item round-55 expansion brought the registry size from 94 to **104**
 plus a deep set of non-check modules (api server, sbom, attestation PDF,
-auto-PR, GraphQL-style query, OTel traces, RBAC, audit-log shipping, chat
+auto-PR, GraphQL-style query, OTel traces, audit-log shipping, chat
 bots, region egress, hot-reload, plugin scaffold, color-blind palette).
 
 ### New active checks (Wave A)
@@ -627,8 +627,7 @@ bots, region egress, hot-reload, plugin scaffold, color-blind palette).
 
 ### Team / collab (Wave F)
 - **Embedded HTTP API server** (`wpsecscan/api_server.py`) — `--api-server 127.0.0.1:8765 --api-token <secret>`; stdlib-only, 5 endpoints incl. `/openapi.json`
-- **Org dashboard** (`reporters/org_dashboard.py`) — per-business-unit risk rollup
-- **RBAC** (`wpsecscan/rbac.py`) — reader / scanner / admin roles; bcrypt-hashed tokens; sha256 fallback
+- Removed in v2.9.1 (no importers): the org dashboard reporter and the RBAC module
 - **Audit-log shipping** (`wpsecscan/audit_log_ship.py`) — Splunk HEC / Datadog / Loki
 - **Slack + Discord chat bots** (`wpsecscan/chat_bot.py`) — translation layer; wire into the API server's route
 
@@ -678,10 +677,9 @@ following non-check capabilities:
 `s3_bucket_discovery`, `github_leak_search` (opt-in), `jwt_audit`.
 
 **Threat-intel integrations:** CISA KEV catalog (`integrations/cisa_kev.py`),
-EPSS scoring (`integrations/epss.py`), VirusTotal URL/IP
-(`integrations/virustotal.py`), Sucuri SiteCheck
-(`integrations/sucuri_sitecheck.py`), Wordfence/NVD CVE explainer
-(`cve_explainer.py`).
+EPSS scoring (`integrations/epss.py`), Wordfence/NVD CVE explainer
+(`cve_explainer.py`). (The standalone VirusTotal and Sucuri SiteCheck
+modules were removed in v2.9.1; they had no importers.)
 
 **Per-check tag schema** now includes `cwe` (e.g. `CWE-79`) and `d3fend`
 (e.g. `D3-IVA`) fields in `data/check_tags.json` (C4 + C9).
