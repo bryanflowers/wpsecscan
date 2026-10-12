@@ -7,7 +7,7 @@ Versioning: [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Rolled to v2.9.0 via the v2.8.5 stuck-rule:
+Carried over from v2.8.5, not addressed in v2.9.0:
 - **GUI M10/M11/L1/L4/L5/L9** — Tk-interactive polish items (mkdir
   blocking, mark_wizard_seen ordering, Windows ACL via icacls, trend
   rename fallback, proxy lock during scan, background report writes).
@@ -15,12 +15,204 @@ Rolled to v2.9.0 via the v2.8.5 stuck-rule:
 - **Full `rich` 13 → 15 upgrade** — deserves its own evaluation cycle.
 - **pytest-cov install + coverage census** — defer with a proper
   coverage-target ramp plan.
-- **Mobile API docs on wpsecscan.com** — defer to website batch.
 - **8 CodeQL lower-severity items** — 5 unused module-level globals
   + 3 multiple-definition dead-assignments. Touch when those modules
   are otherwise revisited.
 
 Plus the v2.8.3 / v2.8.2 carry-overs.
+
+## [v2.9.0] — 2026-10-12
+
+Truth-and-safety release. A full audit of v2.8.5 found that the
+advertised ownership-consent gate had been deleted (be6cb82) while the
+docs still described it, that three reporters did not import on Python
+3.10/3.11, that several README/FEATURES/site claims did not match the
+code, and that a few checks produced high-severity false positives or
+missed real CVE matches. This release restores the gate, fixes those
+bugs and makes the public claims machine-checked. No new scan checks.
+
+### Breaking / behaviour changes
+
+- **Aggressive mode requires ownership consent.** Consent comes from
+  `--owned`, the `WPSECSCAN_OWNED_TARGETS` env var (`1`, a host list or
+  `*.wildcard`), `wpsecscan owned add <host>` (stored in
+  `~/.wpsecscan/owned_targets.json`), REST `POST /scan` with
+  `"owned": true`, a per-target `owned: true` in the daemon config, or the
+  GUI confirmation dialog (with "remember host as owned"). Without
+  consent the scan runs passive and records a `consent_gate` info result.
+  The gate lives inside `scanner.scan(consent=...)`, so the CLI, REST,
+  daemon, `only`, `benchmark`, GUI and third-party callers all inherit it.
+- **REST `POST /scan`** now returns 403 for hosts outside
+  `WPSECSCAN_API_ALLOWED_TARGETS` and reports `consent` as
+  `granted` / `downgraded` / `n/a`.
+- **`wpsecscan kev`** exits 2 when the KEV feed is unavailable (it
+  previously reported "0 matches").
+- **`kev.filter_findings_to_kev`** returns `None` when the feed is
+  unavailable; `0` now only means "feed read, nothing matched".
+  `json_out` adds `kev_error` / `epss_error` markers so consumers can tell
+  "not checked" from "none".
+- **Unversioned plugins no longer match every CVE.** A version with no
+  digit (`unknown`, empty, `trunk`) parsed as `0` and sorted below every
+  `fixed_in`. It now matches nothing. The low-severity "plugin exists in
+  DB, version not detected" finding is unchanged.
+- **Version comparison** (`db.ver_*`): trailing zeros are not significant
+  (`2.0.0` == `2.0`), so `ver_lte("2.0.0", "2.0")` is now true and range
+  boundaries written as `2.0.0` include `2.0`.
+- **Distribution manifests removed** for channels that were never
+  published (checked against each registry on 2026-10-12): `winget/`,
+  `chocolatey/`, `homebrew/`, `snap/`, `aur/`, `flatpak/`,
+  `distribution/`, `packaging/`, `pulumi/`. Supported channels are PyPI,
+  GitHub release assets and source install.
+- **Bounty files removed** (the root bounty policy file and
+  `docs/bounty.md`): no bounty programme exists; `SECURITY.md` is
+  authoritative.
+- **Schema identifiers** moved to `https://wpsecscan.com/schema/*.json`
+  (`wpsecscan/data/report.schema.json` and the reporters).
+- **Marketplace default index** is now the in-repo `docs/marketplace.json`
+  (raw GitHub URL on `main`) instead of the nonexistent
+  `wpsecscan-marketplace` repo; an empty catalogue prints
+  "No marketplace entries yet."
+
+### Security / safety
+
+- **Consent gate restored** (`wpsecscan/consent.py`): `has_consent(target)`
+  plus `wpsecscan owned add|remove|list`. The CLI asks for confirmation on
+  a TTY and prints a notice when non-interactive. The daemon logs a
+  startup warning for each unconsented aggressive target. Background: the
+  CHANGELOG, FEATURES and site advertised a "strict consent gate" in
+  `exploit_verify.py`; that module was deleted in be6cb82 and the only
+  remaining gate was opt-in from a single CLI path.
+- **Nightly `wpsecscan.yml`** no longer falls back to scanning
+  `https://your-wp-site.com`; it skips unless `vars.WPSEC_TARGET` is set.
+  The `ci/` templates (Jenkins, Azure, GitLab) had the same placeholder
+  default and were corrected.
+- **`plugin_slug_squat_check`** now caches for 24 h and caps lookups at
+  20 (previously up to 50 live requests to api.wordpress.org per scan).
+- **Daemon** — fixed an `ImportError` (relative imports in
+  `daemon/_legacy.py`) that made `--daemon` fail on start.
+
+### Fixed
+
+- **Python 3.10/3.11 import break.** `exec_pdf`, `auditor_pdf` and
+  `attestation` reporters used 3.12-only f-string quoting; the import
+  raised `SyntaxError` on 3.10/3.11 although `requires-python>=3.10`.
+  This shipped in 2.8.5 and was the red CI on 4 of 8 matrix cells.
+- **NameErrors**: `host_recon.py` (`label`, whenever a port was open);
+  `gui.py` (`json`, and the `except` name used in deferred lambdas);
+  `gui_windows.py` (`ACCENT`); `reporters/issue_export.py` (annotation);
+  `__main__.py` (`console_reporter`, F402 shadowing, F823).
+- **`--help`** now works on every subcommand (66; 18 printed a usage
+  error before).
+- **False positives**:
+  - `http2_settings` matched EOL banners by substring (`Apache/2.4.62`
+    matched the `2.4.6` entry and raised HIGH); it now parses product and
+    version and compares tuples.
+  - `jwt_audit` raised the CRITICAL `alg=none` finding when `id` merely
+    appeared in the body; it now needs a JSON object with at least two
+    WordPress user fields, otherwise a medium "confirm manually" finding.
+  - `core_version` dropped the pre-release suffix (`6.5-rc1` compared as
+    `6`), flagging current release candidates as outdated.
+  - `backup_file_fuzz`: operator-precedence bug made `404` anywhere in a
+    body over 5 KB a soft-404.
+  - `graphql_field_authz_deep` B023 closure bug; `cloudflare_origin_leak`
+    `lstrip("www.")` stripped characters rather than a prefix.
+- **CVE matching**: `unknown` no longer parses as `0`; `ver_lte` handles
+  `2.0.0` / `2.0` (plugin_cves previously skipped real matches);
+  pre-release tags are natural-sorted (`rc9` < `rc10`, `beta` < `rc`);
+  `plugins.py` reports `None` rather than the string `unknown` for a
+  readme with no numeric stable tag; the WPScan lookup honours
+  `introduced_in` and skips unversioned plugins.
+- **KEV zero ambiguity**: see `filter_findings_to_kev` above.
+- **EPSS**: a fetch failure was cached as `{}` for 24 h, hiding scores
+  until the cache expired; failures are no longer cached and the last
+  good value (even if stale) is served instead.
+- **Workflows**: `ossf-scorecard.yml` pinned a setup-python SHA as the
+  scorecard action (10/10 runs failed since 08-10); two other pins pointed
+  at commits that do not exist. `cve-feed.yml` commit messages always had
+  an empty entry count (quoting bug).
+- **GUI**: documentation deep-links point at the repository until the
+  site pages exist.
+
+### Changed
+
+- **Gating lint in CI.** `tests.yml` runs `ruff` with
+  `E9,F63,F7,F82,F823,F811,F402,B023` and fails the job (it was
+  `pyflakes || true`); `[tool.ruff]` added to `pyproject.toml`.
+- **One version source.** `scripts/bump-version.py --check|--set` rewrites
+  every version-bearing file from `pyproject.toml`; `release.ps1` calls it;
+  `tests/test_version_consistency.py` fails on drift. `__version__` is read
+  through `importlib.metadata` with a literal fallback. 15 files had
+  drifted (2.2.0 / 2.3.0 / 1.9.0); all now agree.
+- **`build.ps1`** installed from a `requirements.txt` deleted in May; it
+  now runs `pip install -e . pyinstaller==6.13.0` and checks the version.
+- **Dockerfile** licence label MIT → AGPL-3.0-or-later; version label
+  added.
+- **Claims reconciled** across README, FEATURES, `pyproject.toml` and
+  `docs/`, with `scripts/claims-check.py` computing the real numbers from
+  the code and `tests/test_claims_check.py` failing the suite on
+  disagreement. Categories corrected or removed:
+  - the SLSA-level claim (the attestation workflow is not reusable and
+    attests downloaded artifacts);
+  - the in-toto verify recipe (no such asset; the real flow is
+    `gh attestation verify`, `cosign verify-blob` and `sha256sum`);
+  - the PoC-verifier count (5 read-only proof helpers);
+  - the "always-on monitors" count (one file-change monitor plus
+    watchers);
+  - the CVE-source claim ("up to 8 configured"; 4 returned 0 on
+    2026-10-12);
+  - the compliance-framework count (12 have check-level mappings; FERPA
+    has none);
+  - "every check tagged CWE/D3FEND" (109 of 298 empty);
+  - install channels (winget, Chocolatey, Homebrew, Snap, Flatpak, AUR and
+    a container registry: none exist);
+  - the `scan` verb, `--verify-exploits`, `--only`, `--target` (not in
+    the parser);
+  - static test/check badges;
+  - the executable size (~17 MB claimed, 31 MB actual);
+  - dead hosts `wpsecscan.dev` / `wpsecscan.org` and the marketplace and
+    analytics subdomains.
+- **`docs/proof.md`** added (what the proof helpers do and do not do).
+  **`docs/analytics.md`** rewritten to the verified behaviour: off by
+  default, local-only, no upload.
+- **Per-check docs regenerated** for all 295 checks with
+  `scripts/generate-docs.py` (docstring, finding titles/severities,
+  remediations, request budget, tags, compliance ids and references,
+  extracted statically). 161 → 295 pages; 4 pages for removed checks
+  deleted. The old template told users to run `--target ... --only`, which
+  do not exist; it now says `wpsecscan only <id> <url>`. Nine core checks
+  that had no module docstring gained one.
+- **`scripts/export-site-data.py`** writes the website's `checks.json` and
+  a `release.json` (version, counts, asset URLs) so the site does not
+  hard-code numbers; `--check` mode for CI.
+- `pyproject.toml` description rewritten to what the code does.
+
+### Tests
+
+- 1338 passed on Python 3.14 locally (was 1114).
+- 13 new test files: `test_claims_check.py`, `test_consent_gate.py`,
+  `test_export_site_data.py`, `test_generate_docs.py`,
+  `test_marketplace_origin_v290.py`, `test_v290_api_consent.py`,
+  `test_v290_check_logic.py`, `test_v290_cli.py`,
+  `test_v290_cve_matching.py`, `test_v290_daemon_consent.py`,
+  `test_v290_gui.py`, `test_v290_nameerrors.py`,
+  `test_version_consistency.py`. `test_round_55/62/64.py` were adjusted
+  for the new behaviour.
+
+### Known / deferred
+
+- Python 3.10 and 3.11 are verified by CI, not locally (local runs are on
+  3.14).
+- `only` and `benchmark` downgrade aggressive checks to passive and print
+  a `consent_gate` notice when consent is missing; they do not prompt
+  interactively.
+- The Scorecard workflow fix has not yet been confirmed by a run; the
+  next scheduled Monday run is the check.
+- CVE feed sources Wordfence, WPVulnerability, Patchstack RSS and CIRCL
+  returned 0 entries on 2026-10-12 (documented, not fixed). The live feed
+  had 710 entries from NVD, MITRE, GHSA and OSV.
+- Scheduled for 2.9.x: ruff style sweep (W9), removal of dead modules (W10;
+  the SSO, RBAC, approval and billing scaffolds have no callers), and
+  tests for the 97 checks that have none (W11).
 
 ## [v2.8.5] — 2026-06-11
 
