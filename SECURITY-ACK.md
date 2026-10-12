@@ -14,8 +14,8 @@ _(none yet — first responsible disclosure earns this slot)_
 2. Report it per [SECURITY.md](SECURITY.md) — email
    bryaninbangkok@gmail.com with "WPSecScan security disclosure" in the
    subject
-3. Wait for our acknowledgment + patch (target: 7 days first-response,
-   30 days patch)
+3. Wait for our acknowledgment + patch (targets are in [SECURITY.md](SECURITY.md):
+   first reply within 5 business days, patch within 30 days for high/critical)
 4. Once the fix ships, we add your name + the CVE here
 
 We'll honour any pseudonym you prefer + optional link to your blog /
@@ -30,7 +30,6 @@ In scope:
 - The `data-feed` branch aggregator output
 - `scripts/aggregate-cve-feed.py`
 - Build / release / signing infrastructure
-- The licensing system
 
 Out of scope:
 - Findings in plugins/themes WPSecScan scans (report to the upstream

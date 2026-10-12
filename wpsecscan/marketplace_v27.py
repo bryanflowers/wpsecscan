@@ -6,8 +6,8 @@
   L129 community CVE-DB contributions (submit-cve subcommand)
   L130 public bug-bounty leaderboard (HackerOne report aggregation)
 
-Marketplace index is hosted on GitHub Pages at
-  https://bryanflowers.github.io/wpsecscan/marketplace.json
+Marketplace index default (a file in the repo, served raw):
+  https://raw.githubusercontent.com/bryanflowers/wpsecscan/main/docs/marketplace.json
 with a stable JSON schema:
 
   {
@@ -38,7 +38,7 @@ from ._util import home_dir
 
 _INDEX_URL = os.environ.get(
     "WPSECSCAN_MARKETPLACE_URL",
-    "https://bryanflowers.github.io/wpsecscan/marketplace.json",
+    "https://raw.githubusercontent.com/bryanflowers/wpsecscan/main/docs/marketplace.json",
 )
 _CACHE_TTL = 6 * 3600
 
@@ -55,6 +55,25 @@ _SLUG_RE = _re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 def _safe_slug(slug: str) -> bool:
     return bool(_SLUG_RE.match(slug))
+
+
+_LEGACY_PAGES_HOST = "bryanflowers.github.io"
+_RAW_HOST = "raw.githubusercontent.com"
+
+
+def _trusted_origins() -> list[tuple[str, str]]:
+    """(host, path-prefix) pairs that source_url / sig / pem URLs may use.
+
+    raw.githubusercontent.com serves every GitHub repo, so when the index
+    lives there the trust boundary is the index's own owner/repo path, not
+    the whole host. The previous GitHub Pages origin stays trusted for the
+    default index only."""
+    u = _urlparse.urlparse(_INDEX_URL)
+    host = u.netloc.lower()
+    if host == _RAW_HOST:
+        prefix = "/".join(u.path.split("/")[:3]) + "/"
+        return [(host, prefix), (_LEGACY_PAGES_HOST, "/wpsecscan/")]
+    return [(host, "/")]
 
 
 def _allowed_install_origin() -> str:
@@ -78,9 +97,13 @@ def _safe_source_url(src_url: str) -> tuple[bool, str]:
         return False, f"scheme must be https (got {p.scheme!r})"
     if not p.netloc:
         return False, "URL has no host"
-    if p.netloc.lower() != _allowed_install_origin():
+    host = p.netloc.lower()
+    trusted = _trusted_origins()
+    if host not in {h for h, _pfx in trusted}:
         return False, (f"host {p.netloc!r} doesn't match marketplace origin "
                         f"{_allowed_install_origin()!r}")
+    if not any(host == h and p.path.startswith(pfx) for h, pfx in trusted):
+        return False, f"path {p.path!r} is outside the marketplace repository"
     return True, ""
 
 
@@ -156,6 +179,10 @@ def cmd_marketplace(args: list[str]) -> None:
     checks = idx.get("checks", [])
 
     if sub == "list":
+        if not checks:
+            from .marketplace import NO_ENTRIES_MESSAGE
+            print(NO_ENTRIES_MESSAGE)
+            return
         print(f"{len(checks)} marketplace check(s) (index v{idx.get('_version', 1)}):")
         for c in sorted(checks, key=lambda x: -int(x.get("stars", 0)))[:50]:
             print(f"  {c.get('slug', '?'):30s} ★{c.get('stars', 0):4d}  by @{c.get('author_handle', '?'):15s}  {c.get('title', '')[:60]}")

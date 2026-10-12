@@ -1,8 +1,8 @@
 # WPSecScan check marketplace — design scaffold
 
 > **⚠️ STATUS: DESIGN PROPOSAL — NOT IMPLEMENTED.**
-> Commands (`marketplace list/search/install/verify`) and the
-> `marketplace.wpsecscan.com` index referenced below do not exist.
+> No hosted marketplace index exists, and the trust-score, signature
+> and community-vote mechanics below are not built.
 > What *is* shipped today: `wpsecscan check new SLUG` scaffolds a
 > local custom check, and `wpsecscan check publish SLUG` appends to
 > `~/.wpsecscan/marketplace.json` which the operator can hand-upload
@@ -22,7 +22,7 @@ The marketplace just adds:
 
 ## Index format
 
-`https://marketplace.wpsecscan.com/index.json`:
+An index served from a host the project would run (none exists today), e.g. `https://<marketplace-host>/index.json`:
 
 ```json
 {
@@ -38,7 +38,7 @@ The marketplace just adds:
       "certificate_url": "https://github.com/vendor-x/.../shopify_plus_audit.py.pem",
       "categories": ["commerce", "shopify"],
       "license": "MIT",
-      "min_wpsecscan_version": "2.2.0",
+      "min_wpsecscan_version": "2.8.5",
       "trust_score": 4.7,
       "downloads_30d": 1240
     }

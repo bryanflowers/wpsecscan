@@ -2,19 +2,17 @@
 
 ## Windows (binary — recommended)
 
-1. Download `wpsecscan-setup-1.9.0.exe` (or `wpsecscan.exe` + `wpsecscan-gui.exe`) from the [latest release](https://github.com/bryanflowers/wpsecscan/releases/latest).
-2. Run the installer. The wizard offers:
-   - Install location (default `C:\Program Files\WPSecScan`)
-   - "Run at Windows startup" checkbox
-   - "Add to PATH" checkbox
-3. Done. `wpsecscan` is on your PATH; `WPSecScan` is in the Start Menu.
+1. Download `wpsecscan.exe` and `wpsecscan-gui.exe` from the [latest release](https://github.com/bryanflowers/wpsecscan/releases/latest). There is no installer; the two files are standalone.
+2. Copy them into a folder on your PATH (e.g. `C:\Tools\`).
+3. Optionally check them first: see [verify-release.md](verify-release.md).
 
 ### Defender false-positive
 The .exe is unsigned (cost-saving choice). Defender may flag pattern-detection
-strings as suspicious. To allow:
+strings as suspicious. The repository ships a helper that adds an exclusion
+(run from an admin PowerShell, from a source checkout):
 
 ```
-powershell -ExecutionPolicy Bypass -File "C:\Program Files\WPSecScan\add-defender-exclusion.ps1"
+powershell -ExecutionPolicy Bypass -File scripts\add-defender-exclusion.ps1
 ```
 
 ## Windows (pip)
@@ -48,9 +46,9 @@ pytest -q
 
 ## Uninstall
 
-### Windows installer
-Settings → Apps → WPSecScan → Uninstall. The wizard offers to also remove
-`~/.wpsecscan/` config (off by default).
+### Windows binaries
+Delete `wpsecscan.exe` and `wpsecscan-gui.exe`. Remove `~/.wpsecscan/`
+too if you want to drop config and history.
 
 ### pip
 ```

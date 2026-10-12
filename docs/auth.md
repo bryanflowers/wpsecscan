@@ -1,8 +1,8 @@
 # Authenticated scans (login as admin)
 
-Without auth, WPSecScan sees only the public surface. With auth, it sees
-~3× more checks (admin endpoints, REST `?context=edit`, admin AJAX,
-site-health internals).
+Without auth, WPSecScan sees only the public surface. With auth, the
+`authenticated` check also runs (admin endpoints, REST `?context=edit`,
+admin AJAX, site-health internals).
 
 ## Quickest: WP Application Password (recommended)
 
@@ -15,7 +15,7 @@ and revokable from the admin UI.
 3. **Run with the App Password**:
 
 ```
-wpsecscan --target https://yoursite.com \
+wpsecscan https://yoursite.com \
           --auth-user admin \
           --auth-app-password 'aBcD EfGh IjKl MnOp'
 ```
@@ -26,7 +26,7 @@ need it again until the next scan).
 ## Cookie-based login (legacy WP < 5.6)
 
 ```
-wpsecscan --target https://yoursite.com --auth-user admin --auth-pass 'real-pw'
+wpsecscan https://yoursite.com --auth-user admin --auth-pass 'real-pw'
 ```
 
 Posts to `/wp-login.php`, captures the `wordpress_logged_in_*` cookie,
@@ -38,7 +38,7 @@ If the account requires TOTP (Two-Factor / Wordfence 2FA), pass the
 code at runtime:
 
 ```
-wpsecscan --target https://yoursite.com \
+wpsecscan https://yoursite.com \
           --auth-user admin --auth-pass 'real-pw' \
           --auth-totp 123456
 ```

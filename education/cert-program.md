@@ -59,15 +59,15 @@ Every candidate signs:
 I will only run WPSecScan against:
   - sites I own
   - sites I have written permission to test
-  - sites in a bug-bounty program with explicit in-scope mention
+  - sites whose owner's published disclosure policy explicitly puts them in scope
 I will not use the cert as authorisation for any other testing.
 I will report findings responsibly per disclosure norms.
 ```
 
 ## Verification
 
-Each cert is a Sigstore-signed JSON + a public verifier URL:
-`https://wpsecscan.com/cert/<id>`. Employers can verify on the spot.
+Design: each cert would be a Sigstore-signed JSON plus a public verifier
+page. Neither the certificate programme nor a verifier exists today.
 
 ## Revocation
 

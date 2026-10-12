@@ -49,7 +49,7 @@ December covering the year just ended.
 ### 6. Compliance + governance (2 pages)
 - PCI 4.0 adoption (for WooCommerce sites)
 - GDPR cookie-consent honest-implementation rate
-- Bug-bounty program coverage
+- Disclosure-policy (security.txt) coverage
 
 ### 7. Looking ahead (2 pages)
 - 2026's emerging risks (AI/LLM injection, Web3, supply chain)
@@ -65,7 +65,7 @@ December covering the year just ended.
 
 ## Distribution
 
-- Free PDF on wpsecscan.com/state-of-wp-2026
+- Free PDF (location to be decided; no report has been published)
 - HTML web version (CC-BY-SA)
 - Press kit with high-res charts
 - Talk circuit at WordCamp + DEF CON + RSA recap

@@ -48,7 +48,7 @@ block, what WPSecScan check fires on it.
 
 If you're an admin:
 1. Update plugins to {{list}}
-2. Run `wpsecscan db update && wpsecscan scan <site>`
+2. Run `wpsecscan db update && wpsecscan <site>`
 3. Review the {{N}} new findings
 
 If you're a dev:

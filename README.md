@@ -6,13 +6,8 @@
 [![release](https://img.shields.io/github/v/release/bryanflowers/wpsecscan)](https://github.com/bryanflowers/wpsecscan/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/bryanflowers/wpsecscan/total)](https://github.com/bryanflowers/wpsecscan/releases)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![checks](https://img.shields.io/badge/checks-293%2B-brightgreen)](FEATURES.md)
-[![CVE sources](https://img.shields.io/badge/CVE%20sources-8-blue)](docs/data-sources.md)
-[![tests passing](https://img.shields.io/badge/tests-1066%20passing-brightgreen)](tests/)
 [![PyPI](https://img.shields.io/pypi/v/wpsecscan)](https://pypi.org/project/wpsecscan/)
-[![SLSA Level 3](https://img.shields.io/badge/SLSA-Level%203-success)](docs/verify-release.md)
 [![Sigstore signed](https://img.shields.io/badge/Sigstore-signed-blueviolet)](docs/verify-release.md)
-[![threat-intel](https://img.shields.io/badge/threat--intel-10%20providers-orange)](FEATURES.md)
 
 > **⚠ AUTHORIZED USE ONLY**
 >
@@ -24,61 +19,73 @@
 > liability for misuse. By using this software you confirm you have the
 > required authorisation for every target you scan.
 
-**The most thoroughly-sourced WordPress vulnerability scanner — open source, AGPLv3, runs locally.**
+**Open-source (AGPLv3) WordPress vulnerability scanner that runs on your own machine.**
 
-226 checks across 18 categories. **8-source nightly CVE aggregator**
-(NVD + GHSA + Mitre + OSV + Wordfence + WPVulnerability + CIRCL +
-Patchstack). **SLSA L3 + Sigstore-signed releases**. **10-provider
-threat-intel federation** (CISA KEV, EPSS, Exploit-DB, Metasploit,
-ATT&CK Navigator, STIX, MISP, OpenCTI, OTX, GreyNoise). **Continuous
-monitoring** (CT/DNS/WHOIS/RBL/honeypot/auto-rollback). **Active
-exploit verification** with strict consent gating. **Enterprise
-mode**: OIDC + SAML + RBAC + audit-log + approval workflow +
-multi-tenant + quotas. **Distribution**: Docker, K8s, Homebrew, Snap,
-Flatpak, winget, AUR, Chocolatey.
+294 checks (31 of them aggressive) plus an `authenticated` check that runs
+when you supply credentials. CVE feed aggregated nightly from up to 8 public
+sources; per-source counts are in the feed header. Sigstore-signed releases
+with GitHub build-provenance attestations. Aggressive checks run passive
+unless the target is marked as owned (see [Safety](#safety)).
 
-Original headline:
-gives you a fresher and more complete vulnerability database than
-any single paid or free service. Runs entirely on your machine — no
-telemetry, no per-site licensing, no data leaves your box.
+Distribution: PyPI (`pip install wpsecscan`), the GitHub release assets
+(`wpsecscan.exe`, `wpsecscan-gui.exe`, wheel, sdist), or a source install.
+The `Dockerfile` in this repo is for building an image yourself; no
+pre-built image is published.
 
 Ships as two standalone Windows binaries — no Python required on the machine you run them on.
 
-- **`wpsecscan.exe`** — command-line scanner. Output: console + HTML + JSON + CSV + SARIF + Markdown + Excel (XLSX) + executive PDF + Burp scope XML + CycloneDX SBOM + shields.io status badge SVG.
+- **`wpsecscan.exe`** — command-line scanner. `--format` takes 9 values (json, html, csv, md, xlsx, sarif, burp, docx, exec-pdf); `wpsecscan emit` writes 14 more export formats from a saved report (CycloneDX / SPDX SBOM, CEF, LEEF, …); `wpsecscan badge URL` writes a shields.io-style status badge SVG.
 - **`wpsecscan-gui.exe`** — full GUI with live progress tree, finding details, risk score,
   scan profiles, multi-target queue, scheduled scans, webhook alerts, exploit playbooks, and more.
-- **`wpsecscan-companion.zip`** — WordPress plugin that exposes a read-only, token-gated
-  REST endpoint so the scanner gets authoritative diagnostics in one round-trip (3× more
-  accurate plugin/theme detection vs HTTP-probe guessing).
+- **`wp-plugin/wpsecscan-companion/`** — WordPress plugin (source in this repo, not a release
+  asset) that exposes a read-only, token-gated REST endpoint so the scanner gets authoritative
+  plugin/theme diagnostics in one round-trip instead of HTTP-probe guessing.
 
-### Why people are switching to WPSecScan
+### What it does
 
-- **8-source CVE aggregator** runs nightly on our infrastructure — pulls
-  Wordfence + NVD + GitHub Security Advisories + Mitre CVE List + OSV.dev +
-  WPVulnerability.com + CIRCL + Patchstack and merges them into one feed.
-  Users get a strictly fresher + more complete DB than Wordfence/Patchstack
-  alone. **6 of 8 sources are fully free, no key required.**
+- **Nightly CVE feed** — a GitHub Action merges up to 8 public sources
+  (NVD, GitHub Security Advisories, Mitre CVE List, OSV.dev, Wordfence,
+  WPVulnerability, CIRCL, Patchstack RSS) into one deduped feed. Not every
+  source returns data: on 2026-10-12 four did (NVD 500, Mitre 185, GHSA 23,
+  OSV 10; 710 entries after merge) and four returned nothing (Wordfence API
+  withdrawn, WPVulnerability fetch failing, Patchstack RSS discontinued,
+  CIRCL no WordPress-relevant entries). See [docs/data-sources.md](docs/data-sources.md).
 - **Daily DB refresh + per-CVE webhook alerts** — `wpsecscan schedule
   install` registers a daily 02:00 CVE-refresh + weekly 03:00 site scan
   on Windows Task Scheduler / macOS launchd / Linux systemd.
   `wpsecscan db subscribe https://hooks.slack.com/...` fires the moment a
   new CVE drops for a plugin you have installed.
-- **15 compliance frameworks mapped** per check: OWASP Top 10 + MITRE
-  ATT&CK + CWE + D3FEND + PCI-DSS 4.0 + NIST 800-53 + ISO 27001 + HIPAA +
-  FERPA + SOC 2 + FedRAMP + GDPR + HITRUST CSF v11.4 + CMMC 2.0 +
-  NIST CSF 2.0 + CIS Critical Controls v8 + ISO 27001:2022 Annex A.
-- **11 report formats**: HTML, JSON, CSV, SARIF 2.1.0, Markdown, Excel
-  (XLSX with per-OWASP-category sheets), executive PDF, CycloneDX SBOM,
-  Burp Suite scope XML, attestation PDF, shields.io status-badge SVG.
-- **10 third-party integrations** including Burp Suite project XML,
-  OWASP ZAP findings import, Nuclei template auto-pull, JIRA / Linear /
-  GitHub Issues bulk-create, Wordfence Cloud sync, Sucuri SiteCheck,
-  Patchstack + WPScan write-back, WP Engine / Kinsta / WP.com host APIs.
+- **Compliance mappings for 12 frameworks**, per check: PCI-DSS 4.0, NIST
+  800-53, ISO 27001, HIPAA, SOC 2, FedRAMP, GDPR, HITRUST CSF v11.4,
+  CMMC 2.0, NIST CSF 2.0, CIS Critical Controls v8, ISO 27001:2022 Annex A.
+  Every check also carries OWASP Top 10 and MITRE ATT&CK tags; CWE and
+  D3FEND tags are present on most checks, not all. (Cyber Essentials Plus
+  and Essential 8 exist only as scorecard helpers in `compliance_v28.py`,
+  not as per-check mappings.)
+- **Report and export formats**: `--format` takes json, html, csv, md,
+  xlsx, sarif, burp, docx and exec-pdf; `wpsecscan emit` adds 14 export
+  formats from a saved JSON report.
+- **Ticketing and push destinations**: `wpsecscan push` has 16 providers;
+  `--push-jira`, `--push-linear`, `--push-servicenow`, `--push-github`,
+  `--push-redmine`, `--push-bugzilla` and `--push-trac` file findings
+  directly during a scan.
+- **Monitoring**: one continuous file-change monitor (`--continuous`,
+  needs the companion plugin and its token) plus watchers in `watchers.py`
+  for WordPress version drift, core-file hash diffs, DNS changes,
+  subdomain takeover and new-CVE alerts.
+- **Threat-intel helpers**: CISA KEV and EPSS enrichment, plus wrappers
+  for Exploit-DB links, Metasploit module mapping, ATT&CK Navigator and
+  STIX export, MISP, OpenCTI, OTX and GreyNoise (`threat_intel_v2.py`).
+- **Enterprise-oriented modules** in the package: OIDC and SAML SSO, RBAC,
+  audit log, approval workflow, multi-tenant, quotas. These are library
+  modules, not a hosted service.
 - **AI-assisted remediation** with PII masking + prompt-injection guard +
-  per-backend cost tracking. Bring your own OpenAI / Anthropic / Ollama /
-  llama.cpp key. **`WPSECSCAN_NO_AI=1` to hard-disable.**
-- **Privacy-first**: no telemetry, runs locally, supports SOCKS5/HTTP
+  per-backend cost tracking (7 `wpsecscan ai` helpers). Bring your own
+  OpenAI / Anthropic / Ollama / llama.cpp key. **`WPSECSCAN_NO_AI=1` to
+  hard-disable.**
+- **Local-first**: scans run on your machine, supports SOCKS5/HTTP
   proxies (Tor friendly), `WPSECSCAN_NO_NETWORK=1` for air-gapped mode.
+  Usage analytics are off by default and opt-in (`wpsecscan analytics`).
 
 ---
 
@@ -110,10 +117,15 @@ daemon config), `[ops]` (redis + bcrypt for enterprise mode), or
 
 ### Option B — pre-built Windows binaries
 
-1. Open `dist\` in this folder.
-2. Copy `wpsecscan.exe` and `wpsecscan-gui.exe` somewhere on your PATH
+1. Download `wpsecscan.exe` and `wpsecscan-gui.exe` from the
+   [latest GitHub release](https://github.com/bryanflowers/wpsecscan/releases/latest).
+2. Copy them somewhere on your PATH
    (e.g. `C:\Tools\` or `C:\Users\<you>\bin\`).
 3. Done. No Python, no installer, no admin rights needed.
+
+Each release also carries `SHA256SUMS.txt`, Sigstore `.sig`/`.pem` files and
+a CycloneDX SBOM; see [docs/verify-release.md](docs/verify-release.md) to
+check them.
 
 The first time you run them, Windows SmartScreen may warn that the publisher is unknown
 (the binaries aren't code-signed). Click **More info → Run anyway**.
@@ -126,12 +138,12 @@ Requires Python 3.10+ and PyInstaller. Open PowerShell in the project root:
 .\build.ps1
 ```
 
-This creates a virtualenv in `.venv\`, installs dependencies from `requirements.txt`,
-and runs PyInstaller. Output:
+This creates a virtualenv in `.venv\`, installs the project and PyInstaller
+(`pip install -e .`), and runs PyInstaller. Output:
 
 ```
-dist\wpsecscan.exe                  # CLI (~17 MB)
-dist\wpsecscan-gui.exe       # GUI (~17 MB)
+dist\wpsecscan.exe          # CLI (~31 MB)
+dist\wpsecscan-gui.exe      # GUI (~31 MB)
 ```
 
 Both are single-file executables — copy them anywhere and they run on their own.
@@ -144,7 +156,7 @@ python -m venv .venv
 pip install .
 python run.py https://example.com         # CLI
 python run_gui.py                          # GUI
-pytest                                     # 780 tests
+pytest
 ```
 
 ---
@@ -215,23 +227,23 @@ wpsecscan compare-pypi-version           # is the installed version current?
 
 # v2.8.4 — mobile API + GUI Phase 4
 wpsecscan-mobile-api                     # PWA backend + GUI launcher with QR enrol
-# In the GUI: File menu → Push to… / Export As… / AI (16 push, 14 export, 6 AI subs)
+# In the GUI: File menu → Push to… / Export As… / AI (16 push, 14 export, 7 AI helpers)
 # Right-click a finding for "Push to…" / "AI explain" / "Export As…" context items.
-# +31 tests, CodeQL Python SAST workflow added.
+# CodeQL Python SAST workflow added.
 
 # v2.8.5 — bug-fix + CI repair release
 # 3 Critical (gui _save_pref lock TOCTOU race, scanner parallel-groups WAF streak,
 # history .json/.sig atomic ordering), 10 High (mobile_api dead /findings/ branch,
 # do_OPTIONS scope, POST /api/scan rate-limit, QR-URL token leak, PhotoImage base64,
 # cdn_edge_audit precedence, payment_commerce or-await, a11y walrus, sites atomic,
-# creds_vault RMW), 7 Medium, 1 syntax-fix (3.10/3.11 CI green), +17 regression tests.
+# creds_vault RMW), 7 Medium, 1 syntax-fix (3.10/3.11 CI green).
 ```
 
 ---
 
-## What it checks (226 checks)
+## What it checks (294 checks)
 
-Passive checks always run; aggressive checks need `--aggressive`.
+Passive checks always run; aggressive checks need `--aggressive` and a target marked as owned (see [Safety](#safety)).
 
 - **Recon**: WP core version · plugin enum (slug + version) · theme enum · user enum (`?author=`, REST `wp/v2/users`)
 - **Surface**: 40+ exposed-path probes (`.env`, `wp-config.php.bak`, `.git/config`, debug.log, backup-plugin dumps, phpinfo, adminer, …) · WebDAV / OPTIONS enum · beta/test/debug query-parameter discovery
@@ -242,14 +254,14 @@ Passive checks always run; aggressive checks need `--aggressive`.
 - **Supply-chain**: external JS hosts + SRI hash check · source-map exposure · JS library version audit · S3 bucket discovery + public-ACL probe · GitHub leaked-token search (opt-in, scans your domain against AKIA/sk_live_/ghp_/etc.)
 - **Subdomain attack surface**: certificate-transparency discovery · dangling-CDN takeover candidates · **cookie-tossing chain** detection (apex-cookie + takeover-able subdomain)
 - **Server fingerprint**: Server-Timing, X-Request-ID, X-Debug-Token leaks
-- **CVE matching**: 7000+ Wordfence CVEs + 307 high-confidence exploit signatures + 224 modern payloads · CISA KEV catalog enrichment · EPSS percentile scoring · VirusTotal URL/IP enrichment (opt-in)
+- **CVE matching**: the nightly aggregated feed (plus a small embedded fallback) + 311 exploit signatures + 224 payloads · CISA KEV catalog enrichment · EPSS percentile scoring · VirusTotal URL/IP enrichment (opt-in)
 - **Aggressive** (`--aggressive`): SQLi (error-based + time-blind escalator) · reflected XSS · SSRF · path traversal · open redirect · file upload · default credentials (max 10) · SSTI (7 template engines) · NoSQL operator injection · path-normalisation bypass (`..%2f`, `..;/`, …) · race-condition probe (parallel POSTs) · active HTTP smuggling (CL.TE / TE.CL) · headless DOM-XSS (Playwright, optional)
 - **Deep** (`--deep-throttle`): 10-500 wrong-password attempts at 5-60s pacing to map your login throttle threshold (synthetic non-existent user, fixed wrong password — never brute-force)
 - **Authenticated** (`--auth-user`/`--auth-pass`): logs in, audits user roles, plugins, Site Health, options
 
-### Round-54 additions (Nov 2026 — A1-G4 catalogue)
+### Round-54 additions (A1-G4 catalogue)
 
-WPSecScan grew from 80 → 94 checks plus a wide non-check toolkit:
+Round fifty-four added the checks and non-check tooling below (the current registry total is given in the heading of the previous section):
 
 | Area | New |
 |------|-----|
@@ -363,7 +375,7 @@ Tuning:
   --hibp-token TOKEN           HaveIBeenPwned API key
 
 Maintenance:
-  --update-db                  Refresh the Wordfence vulnerability database
+  --update-db                  Refresh the local vulnerability database (aggregated feed)
                                (exits 75 on remote-fetch failure for CI detection)
   --diff OLD.json NEW.json     Diff two saved JSON reports
   --baseline BASELINE.json     Diff scan-in-progress against a saved baseline (alias: --diff-against)
@@ -371,7 +383,7 @@ Maintenance:
   --completion {bash,zsh,powershell}   Print shell-completion script and exit
   --version
 
-Subcommands (run `wpsecscan <subcommand> --help` for details):
+Subcommands (66 in total; `wpsecscan --help` lists them, `wpsecscan <subcommand> --help` gives details; a few of them):
   sites          Manage a list of sites (add/list/scan/remove)
   schedule       Install/uninstall a Windows-Scheduler / launchd / systemd cron
   digest         Configure SMTP / webhook digests of new findings
@@ -445,6 +457,7 @@ to read the password from stdin via `getpass` (stops it leaking into
   brute-force is permanently out of scope. The "deep throttle" probe uses a synthetic
   non-existent username and a fixed wrong password — it maps your defense, it does
   not guess passwords.
+- Aggressive mode runs passive unless the target is marked as owned: pass `--owned`, set `WPSECSCAN_OWNED_TARGETS`, or run `wpsecscan owned add <host>`.
 - All active payloads are read-only. The payload library is enforced at load-time
   with a pytest invariant that scans for any write-side operations.
 - The webhook URL allow-list rejects raw IPs, internal addresses (incl. AWS metadata
@@ -512,12 +525,11 @@ to see errors).
 
 | Category                  | Count |
 |---------------------------|-------|
-| Checks                    | **226** |
+| Checks                    | **294** (+ `authenticated`; 31 aggressive) |
 | Payloads                  | **224** |
-| Exploit signatures        | **307** |
-| Plugin CVE database       | ~7,000 (Wordfence) + 7 other sources via the nightly aggregator |
-| Exploit-playbook entries  | **25** |
-| Tests                     | **667** |
+| Exploit signatures        | **311** |
+| Plugin CVE database       | nightly aggregated feed from up to 8 public sources (see [docs/data-sources.md](docs/data-sources.md)) |
+| Exploit-playbook entries  | **39** |
 
 ---
 

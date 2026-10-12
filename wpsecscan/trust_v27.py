@@ -28,7 +28,7 @@ def reproducible_build_verify(version: str | None = None) -> tuple[bool, str]:
     Note: TRUE reproducible build requires deterministic timestamps
     (SOURCE_DATE_EPOCH), pinned build deps, etc. — this verifier is a
     first-step sanity check, not a SLSA L4 attestation. The full
-    SLSA L4 verification flow is documented in docs/SLSA-L4-rebuilders.md.
+    release verification steps are documented in docs/verify-release.md.
     """
     if not version:
         from . import __version__
@@ -157,11 +157,9 @@ def third_party_audit_url() -> str:
 # ---------------------------------------------------------------------------
 
 def set_deterministic_seed(seed: int = 1729) -> None:
-    """Pin all randomness so two runs of the same input produce
-    byte-identical reports. Affects:
-      - Python random module
-      - secrets module (via random override — best-effort only)
-      - time-sensitive check IDs that hash the current minute
+    """Seed the `random` module (and numpy, if installed) and export the seed
+    as WPSECSCAN_DETERMINISTIC_SEED so other code can read it. It does NOT
+    seed or override the `secrets` module, which draws from the OS CSPRNG.
     """
     random.seed(seed)
     os.environ["WPSECSCAN_DETERMINISTIC_SEED"] = str(seed)

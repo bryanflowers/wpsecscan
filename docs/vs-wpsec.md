@@ -11,8 +11,8 @@ This page is a feature-by-feature comparison researched in May 2026.
 | **Pricing** | Free, AGPLv3 — unlimited sites | Free (1 site, 20 reports); Premium €39/mo; White-label €395/mo |
 | **Deployment** | **Runs locally** on your machine — no data leaves you | SaaS — site data sent to their cloud |
 | **Source code** | Open (audit + fork) | Closed |
-| **Scan count** | 150+ checks across 18 categories | Smaller curated check list (vuln-DB driven) |
-| **Compliance** | OWASP, MITRE ATT&CK, CWE, D3FEND, PCI 4.0, NIST 800-53, HIPAA, FERPA, SOC 2, FedRAMP, GDPR, HITRUST, CMMC, NIST CSF 2.0, CIS v8, ISO 27001:2022 | None advertised |
+| **Scan count** | 294 checks | Smaller curated check list (vuln-DB driven) |
+| **Compliance** | Check-level mappings for 12 frameworks (PCI 4.0, NIST 800-53, ISO 27001, HIPAA, SOC 2, FedRAMP, GDPR, HITRUST, CMMC, NIST CSF 2.0, CIS v8, ISO 27001:2022); OWASP and ATT&CK tags on every check | None advertised |
 | **AI augmentation** | Optional BYO key (OpenAI / Anthropic / Ollama / llama.cpp), PII-masked, cost-tracked | None |
 | **Authenticated scan** | Cookie + Application Password + 2FA + companion-plugin token | None |
 | **Multi-site dashboard** | Yes (`wpsecscan sites` + GUI tab) | Yes (their main UX) |
@@ -20,7 +20,7 @@ This page is a feature-by-feature comparison researched in May 2026.
 | **Email alerts** | Yes (via `wpsecscan digest`) | Yes |
 | **Slack / Teams / Discord** | Yes (webhook env vars) | Webhook only (Premium) |
 | **Jira / Linear / GitHub Issues filing** | Yes | No |
-| **CI/CD integration** | Yes — `wpsecscan/wpsecscan@v1` GitHub Action | None advertised |
+| **CI/CD integration** | Yes — `--fail-on` exit codes plus templates in `ci/` | None advertised |
 | **Aggressive payload checks** | Yes (`--aggressive` — SQLi/XSS/SSRF/path traversal) | No (passive vuln-DB only) |
 | **WP companion plugin** | Yes — token-gated REST endpoint for richest data | No |
 | **PCI evidence pack** | Yes (JSON for QSA workpaper) | No |
@@ -41,11 +41,11 @@ This page is a feature-by-feature comparison researched in May 2026.
 
 ## Where WPSecScan wins
 
-- **5-10x more checks** across deeper categories (vertical-plugin audits, headless WP, crypto agility, PQ, post-quantum hybrid KEX hints, etc.)
-- **15 compliance frameworks mapped** vs zero
+- **More checks** across deeper categories (vertical-plugin audits, headless WP, crypto agility, post-quantum hybrid KEX hints, etc.)
+- **Compliance mappings for 12 frameworks** vs none advertised
 - **AI-augmented remediation** with prompt-injection guard + PII masking
-- **Auth + companion plugin** = ~3x more accurate plugin/theme detection (no HTTP-probe guessing)
-- **CI/CD-first** — fail builds on `--max-critical`, ships GitHub Action
+- **Auth + companion plugin** = authoritative plugin/theme data (no HTTP-probe guessing)
+- **CI/CD-friendly** — fail builds with `--fail-on`, templates in `ci/`
 - **Aggressive payload checks** for owned-site pentesting
 - **Privacy** — nothing leaves the machine
 - **No per-site pricing** — unlimited sites at the free tier

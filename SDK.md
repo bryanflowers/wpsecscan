@@ -6,12 +6,15 @@ your own tools, CI pipelines, or custom dashboards.
 ## Install
 
 ```bash
-pip install httpx[http2] jinja2 rich openpyxl
-git clone https://github.com/bryan/wpsecscan.git
-pip install -e ./wpsecscan
+pip install wpsecscan
 ```
 
-(PyPI release pending — for now install from source.)
+To work from a source checkout instead:
+
+```bash
+git clone https://github.com/bryanflowers/wpsecscan.git
+pip install -e ./wpsecscan
+```
 
 ## 30-second example
 

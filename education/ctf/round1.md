@@ -1,11 +1,15 @@
 # WPSecScan CTF — Round 1
 
+> **STATUS: DESIGN PROPOSAL — NOT RUNNING.** The target site, flags,
+> submission process and prizes described below do not exist; no CTF is
+> hosted. This is the outline for a future round.
+
 Round-64 #153 — first community CTF challenge.
 
 ## Scenario
 
-You're auditing `https://ctf-target-round1.wpsecscan.com` (a
-deliberately-vulnerable WordPress site we host). Your job: use
+You're auditing `https://<ctf-target-host>` (a
+deliberately-vulnerable WordPress site that would be hosted for the event). Your job: use
 WPSecScan to find 5 specific flags, each a string of the form
 `WPSEC{<hex>}` embedded in a finding's evidence field.
 
@@ -21,7 +25,7 @@ WPSecScan to find 5 specific flags, each a string of the form
 ## Hints (in increasing spoiler-ness)
 
 ### Hint 1 — Where to start
-Run `wpsecscan scan https://ctf-target-round1.wpsecscan.com --aggressive`.
+Run `wpsecscan https://<ctf-target-host> --aggressive --owned` (only against the CTF host, which the organisers would mark as in scope).
 The flag locations span both passive + aggressive checks.
 
 ### Hint 2 — File paths

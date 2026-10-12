@@ -189,7 +189,7 @@ def intoto_attestation(report, *, builder_id: str = "https://wpsecscan") -> dict
         "_type": "https://in-toto.io/Statement/v0.1",
         "subject": [{"name": report.target,
                       "digest": {"sha256": "0" * 64}}],
-        "predicateType": "https://wpsecscan/Attestation/v1",
+        "predicateType": "https://wpsecscan.com/schema/attest-v1.json",
         "predicate": {
             "builder": {"id": builder_id},
             "scanner": {"name": "wpsecscan"},

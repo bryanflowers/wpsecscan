@@ -10,10 +10,10 @@ WPSecScan supports outbound proxies for every scanner HTTP/HTTPS request:
 
 ```bash
 # Single scan via SOCKS5 (e.g. local Tor):
-wpsecscan --target https://example.com --proxy socks5://127.0.0.1:9050
+wpsecscan https://example.com --proxy socks5://127.0.0.1:9050
 
 # HTTP proxy with auth (password URL-encoded automatically):
-wpsecscan --target https://example.com \
+wpsecscan https://example.com \
           --proxy http://proxy.example:8080 \
           --proxy-auth alice:s3cret
 ```
@@ -68,7 +68,7 @@ when `hardware_keys` module dependencies are installed).
 
 ```bash
 # If you're using Tor specifically:
-wpsecscan --target https://check.torproject.org --proxy socks5://127.0.0.1:9050
+wpsecscan https://check.torproject.org --proxy socks5://127.0.0.1:9050
 
 # Look for the "Congratulations. This browser is configured to use Tor."
 # string in the report — confirms routing through an exit node.
