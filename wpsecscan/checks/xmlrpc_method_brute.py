@@ -19,7 +19,6 @@ import asyncio
 from ..http import Client
 from ..models import Finding
 
-
 # Methods that wpscan & common pentest checklists probe for
 CANDIDATE_METHODS = (
     # WP-core (should all be visible via listMethods; included as a control)

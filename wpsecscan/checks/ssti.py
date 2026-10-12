@@ -64,7 +64,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     if r is not None and r.text:
         for m in re.findall(r'href=["\']([^"\']+\?[^"\']+)', r.text[:80000]):
             try:
-                from urllib.parse import urlparse, parse_qs
+                from urllib.parse import parse_qs, urlparse
                 u = urlparse(m)
                 p = u.path or "/"
                 for k in parse_qs(u.query or "").keys():

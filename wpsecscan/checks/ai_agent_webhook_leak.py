@@ -19,7 +19,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 # Common chatbot-relay endpoints that get registered in wp-json.
 _RELAY_ROUTES = (
     "/wp-json/mwai/v1/chats/submit",       # AI Engine

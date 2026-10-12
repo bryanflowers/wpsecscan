@@ -18,9 +18,9 @@ worst-case secrets-in-the-web-root pattern.
 from __future__ import annotations
 
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 VERSION_RE = re.compile(r"Version:\s*([\d.]+)", re.IGNORECASE)
 

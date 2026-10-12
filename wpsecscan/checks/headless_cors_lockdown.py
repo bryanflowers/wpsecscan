@@ -16,7 +16,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _PROBE_PATHS = (
     "/wp-json/",
     "/wp-json/wp/v2/users",

@@ -12,7 +12,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _PRIV_ROLES = ("administrator", "editor", "super_admin", "shop_manager")
 
 

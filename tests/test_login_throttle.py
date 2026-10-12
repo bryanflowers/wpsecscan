@@ -4,8 +4,8 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import patch
 
-from wpsecscan.checks.login_throttle import ATTEMPTS
 from tests.conftest import FakeClient, FakeResponse
+from wpsecscan.checks.login_throttle import ATTEMPTS
 
 
 async def _no_sleep(_s):

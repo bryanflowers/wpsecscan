@@ -45,7 +45,7 @@ def test_rest_api_clean_when_nothing_exposed():
 # ============================== cors ==============================
 
 def test_cors_reflects_attacker_origin_with_credentials():
-    from wpsecscan.checks.cors import check, PROBE_ORIGIN
+    from wpsecscan.checks.cors import PROBE_ORIGIN, check
     client = FakeClient(responses={
         "/": FakeResponse(headers={
             "access-control-allow-origin": PROBE_ORIGIN,
@@ -331,6 +331,7 @@ def test_referenced_buckets_clean_when_no_buckets_referenced():
     """Item 6: with no bucket URLs in the page, the check emits one info finding
     instead of crashing or returning empty."""
     import asyncio as _asyncio
+
     from wpsecscan.checks.referenced_buckets import check
     client = FakeClient(responses={"/": FakeResponse(text="<html>plain page</html>")})
     ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
@@ -376,6 +377,7 @@ def test_all_new_checks_registered():
 
 def test_waf_lockout_guard_aborts_on_403():
     import asyncio as _asyncio
+
     from wpsecscan.checks.waf_lockout_guard import check
     block = FakeResponse(status_code=403, text="Access denied. Ray ID: abc")
     client = FakeClient(responses={"*": block})
@@ -387,6 +389,7 @@ def test_waf_lockout_guard_aborts_on_403():
 
 def test_waf_lockout_guard_passes_through_on_200():
     import asyncio as _asyncio
+
     from wpsecscan.checks.waf_lockout_guard import check
     ok = FakeResponse(status_code=200, text="<html>normal</html>")
     client = FakeClient(responses={"*": ok})
@@ -400,6 +403,7 @@ def test_waf_lockout_guard_passes_through_on_200():
 
 def test_companion_advanced_skips_without_token():
     import asyncio as _asyncio
+
     from wpsecscan.checks.companion_advanced import check
     client = FakeClient(responses={})
     ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
@@ -426,6 +430,7 @@ def test_tor_list_parser():
 
 def test_tls_modern_skips_non_https():
     import asyncio as _asyncio
+
     from wpsecscan.checks.tls_modern import check
     client = FakeClient(responses={})
     ctx = {"target": "http://example.com", "shared": {}, "step": lambda _s: None}
@@ -437,6 +442,7 @@ def test_tls_modern_skips_non_https():
 
 def test_wp_fork_detects_classicpress():
     import asyncio as _asyncio
+
     from wpsecscan.checks.wp_fork_detection import check
     cp_root = FakeResponse(
         status_code=200,
@@ -451,6 +457,7 @@ def test_wp_fork_detects_classicpress():
 
 def test_wp_fork_detects_headless_next():
     import asyncio as _asyncio
+
     from wpsecscan.checks.wp_fork_detection import check
     home = FakeResponse(
         status_code=200,
@@ -464,6 +471,7 @@ def test_wp_fork_detects_headless_next():
 
 def test_wp_fork_default_to_vanilla():
     import asyncio as _asyncio
+
     from wpsecscan.checks.wp_fork_detection import check
     client = FakeClient(responses={"/": FakeResponse(text="<html>vanilla</html>")})
     ctx = {"target": "https://example.com", "shared": {}, "step": lambda _s: None}
@@ -476,6 +484,7 @@ def test_wp_fork_default_to_vanilla():
 
 def test_page_builder_cve_flags_bricks():
     import asyncio as _asyncio
+
     from wpsecscan.checks.page_builder_cve import check
     body = '<html><meta name="generator" content="Bricks 1.9.5"><body class="brxe-section"></body></html>'
     client = FakeClient(responses={"/": FakeResponse(text=body)})
@@ -486,6 +495,7 @@ def test_page_builder_cve_flags_bricks():
 
 def test_page_builder_cve_flags_divi():
     import asyncio as _asyncio
+
     from wpsecscan.checks.page_builder_cve import check
     body = '<html><body><div class="et_pb_section et_pb_section_0">divi</div></body></html>'
     client = FakeClient(responses={"/": FakeResponse(text=body)})
@@ -496,6 +506,7 @@ def test_page_builder_cve_flags_divi():
 
 def test_page_builder_cve_none_when_clean():
     import asyncio as _asyncio
+
     from wpsecscan.checks.page_builder_cve import check
     body = "<html><body>vanilla site</body></html>"
     client = FakeClient(responses={"/": FakeResponse(text=body)})
@@ -508,6 +519,7 @@ def test_page_builder_cve_none_when_clean():
 
 def test_wc_storefront_skips_when_no_wc_detected():
     import asyncio as _asyncio
+
     from wpsecscan.checks.woocommerce_storefront import check
     client = FakeClient(responses={
         "/": FakeResponse(text="<html>not a WP site</html>"),
@@ -522,6 +534,7 @@ def test_wc_storefront_flags_fragments_cacheable():
     """If the fragments endpoint returns Cache-Control: public, max-age=...
     the check fires high."""
     import asyncio as _asyncio
+
     from wpsecscan.checks.woocommerce_storefront import check
     cart = FakeResponse(status_code=200, text='{"items":[]}')
     apply = FakeResponse(status_code=200, text='{"fragments":{}}')
@@ -542,6 +555,7 @@ def test_wc_storefront_flags_fragments_cacheable():
 
 def test_wc_storefront_flags_coupon_enumeration():
     import asyncio as _asyncio
+
     from wpsecscan.checks.woocommerce_storefront import check
     cart = FakeResponse(status_code=200, text='{"items":[]}')
     apply = FakeResponse(status_code=200, text='{"error":"invalid"}')
@@ -561,6 +575,7 @@ def test_wc_storefront_flags_coupon_enumeration():
 
 def test_host_header_validation_flags_spoofed_acceptance():
     import asyncio as _asyncio
+
     from wpsecscan.checks.host_header_validation import check
     vulnerable_resp = FakeResponse(
         status_code=200,
@@ -574,6 +589,7 @@ def test_host_header_validation_flags_spoofed_acceptance():
 
 def test_host_header_validation_clean_when_421_returned():
     import asyncio as _asyncio
+
     from wpsecscan.checks.host_header_validation import check
     safe = FakeResponse(status_code=421, text="Misdirected Request")
     client = FakeClient(responses={"*": safe})
@@ -588,6 +604,7 @@ def test_crlf_location_injection_flags_set_cookie_followthrough():
     """If the server reflects the CRLF payload into a Set-Cookie follower
     header, the check should fire high."""
     import asyncio as _asyncio
+
     from wpsecscan.checks.crlf_location_injection import check
     # Build a 302 response with the injected Set-Cookie present.
     vulnerable_resp = FakeResponse(
@@ -608,6 +625,7 @@ def test_crlf_location_injection_flags_set_cookie_followthrough():
 
 def test_crlf_location_injection_clean_path():
     import asyncio as _asyncio
+
     from wpsecscan.checks.crlf_location_injection import check
     # 302 with a clean Location and no Set-Cookie.
     safe = FakeResponse(status_code=302, headers={"location": "https://example.com/"})
@@ -619,8 +637,8 @@ def test_crlf_location_injection_clean_path():
 
 def test_new_exploit_signatures_loaded():
     """Verify the expanded exploit_signatures.json loads and has the new entries."""
-    from pathlib import Path
     import json
+    from pathlib import Path
     sig_path = Path(__file__).resolve().parents[1] / "wpsecscan" / "data" / "exploit_signatures.json"
     data = json.loads(sig_path.read_text(encoding="utf-8"))
     ids = [s["id"] for s in data["signatures"] if "id" in s]

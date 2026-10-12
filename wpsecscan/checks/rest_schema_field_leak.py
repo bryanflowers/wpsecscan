@@ -19,7 +19,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 _PATHS = (
     "/wp-json/wp/v2/posts",
     "/wp-json/wp/v2/users",

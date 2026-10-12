@@ -14,7 +14,7 @@ import html as _html
 import json
 from pathlib import Path
 
-from ..models import Finding, ScanReport, SEVERITY_RANK
+from ..models import SEVERITY_RANK, Finding, ScanReport
 
 
 def _top_findings(report: ScanReport, min_sev: str = "medium") -> list[tuple[str, Finding]]:

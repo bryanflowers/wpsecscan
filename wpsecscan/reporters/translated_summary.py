@@ -6,7 +6,6 @@ translation involved.
 """
 from __future__ import annotations
 
-
 _PHRASES = {
     "en": {
         "title":      "Security scan summary",

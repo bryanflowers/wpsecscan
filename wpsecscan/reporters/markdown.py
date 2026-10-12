@@ -25,9 +25,9 @@ def render(report: ScanReport, top_n: int | None = None,
     is consumable by static-site generators (Hugo, Obsidian, MkDocs).
     """
     s = report.summary
+    from .. import confidence as _conf
     from ..models import SEVERITY_RANK
     from ..risk import risk_grade, risk_label
-    from .. import confidence as _conf
     score = report.risk_score
     waf_detected = any(
         ("WAF" in (f.title or "") or "CDN detected" in (f.title or ""))

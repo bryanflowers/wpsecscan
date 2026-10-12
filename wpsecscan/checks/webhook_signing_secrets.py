@@ -7,10 +7,11 @@ real payment. Critical — these are NOT covered by the generic
 sk_live_/pk_live_ patterns in secret_leak.py.
 """
 from __future__ import annotations
+
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 _PATTERNS = (
     ("Stripe webhook signing secret", "critical",

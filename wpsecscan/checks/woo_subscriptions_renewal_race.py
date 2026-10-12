@@ -21,7 +21,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _FINGERPRINT_PATHS = (
     "/wp-content/plugins/woocommerce-subscriptions/",
     "/wc-api/wc_subscriptions_renewal_payment",

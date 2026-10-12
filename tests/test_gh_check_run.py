@@ -1,5 +1,5 @@
 """Wave 3 — unit tests for wpsecscan/gh_check_run.py."""
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 

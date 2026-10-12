@@ -19,7 +19,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 # Top WP-relevant packages from packagist/npmjs (high-popularity targets)
 _KNOWN_GOOD = frozenset((
     # composer

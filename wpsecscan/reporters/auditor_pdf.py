@@ -66,15 +66,20 @@ def write(report: ScanReport, path: Path) -> None:
 
 
 def _render_pdf_reportlab(report: ScanReport, path: Path) -> None:
-    from reportlab.lib.pagesizes import letter
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import inch
     from reportlab.lib.colors import HexColor
-    from reportlab.platypus import (
-        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak,
-        KeepTogether,
-    )
     from reportlab.lib.enums import TA_LEFT
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from reportlab.platypus import (
+        KeepTogether,
+        PageBreak,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
 
     styles = getSampleStyleSheet()
     title_s = ParagraphStyle("title", parent=styles["Title"], fontSize=20, alignment=TA_LEFT, spaceAfter=4)

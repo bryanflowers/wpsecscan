@@ -50,6 +50,7 @@ import time as _time
 
 def _bounty_cache_path():
     from pathlib import Path
+
     from wpsecscan import history as _h
     return Path(_h._home()) / "bounty_cache.json"
 

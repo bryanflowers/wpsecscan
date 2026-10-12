@@ -25,7 +25,6 @@ from urllib.parse import urlparse
 from ..http import Client
 from ..models import Finding
 
-
 _DC_CREATOR_RE = re.compile(r"<dc:creator[^>]*>(?:<!\[CDATA\[)?([^<\]]+)", re.IGNORECASE)
 _AUTHOR_NAME_RE = re.compile(r'"author_name"\s*:\s*"([^"]+)"')
 _AUTHOR_URL_RE  = re.compile(r"https?://[^/]+/author/([a-z0-9._-]+)", re.IGNORECASE)

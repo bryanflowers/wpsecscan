@@ -9,6 +9,7 @@ import asyncio
 import json
 import os
 from pathlib import Path
+
 from tests.conftest import FakeClient, FakeResponse
 
 
@@ -174,6 +175,7 @@ def test_round_62_compliance_v2_present():
 def test_service_exposure_strict_ip_validation():
     """QA fix: service_exposure must not crash on garbage like '1234567'."""
     import asyncio
+
     from wpsecscan.checks.service_exposure import check
     ctx = {"target": "https://1234567", "shared": {}, "step": lambda _s: None}
     out = asyncio.run(check(FakeClient(base_url="https://1234567"), ctx))

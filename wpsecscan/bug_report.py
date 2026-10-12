@@ -27,8 +27,7 @@ import urllib.request
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 
-from . import __version__
-from . import crash_submit
+from . import __version__, crash_submit
 
 
 def _home() -> Path:

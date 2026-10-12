@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 
 from wpsecscan.payloads import (
-    Payload,
     VALID_CATEGORIES,
     VALID_RISKS,
+    Payload,
     by_category,
     evaluate_response,
     load_payloads,

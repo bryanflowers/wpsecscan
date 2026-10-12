@@ -23,7 +23,6 @@ from urllib.parse import urlparse
 from ..http import Client
 from ..models import Finding
 
-
 # (port, label, severity-if-open)
 HOST_PORTS = (
     (22,    "SSH",                 "info"),

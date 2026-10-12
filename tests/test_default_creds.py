@@ -4,8 +4,8 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import patch
 
-from wpsecscan.checks.default_creds import DEFAULT_CREDENTIALS
 from tests.conftest import FakeClient, FakeResponse
+from wpsecscan.checks.default_creds import DEFAULT_CREDENTIALS
 
 
 async def _no_sleep(_s):  # async stub so asyncio.sleep can be patched

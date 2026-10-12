@@ -19,7 +19,7 @@ from .csv_out import _safe_cell
 def _open_pyxl():
     """Late-import openpyxl so the rest of the package still works without it."""
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
     return Workbook, Font, PatternFill, Alignment, get_column_letter
 
@@ -163,8 +163,8 @@ def write(report: ScanReport, path: Path) -> None:
 
 def render(report: ScanReport) -> bytes:
     """For symmetry with other reporters — returns the XLSX bytes."""
-    import tempfile
     import os
+    import tempfile
     fd, name = tempfile.mkstemp(suffix=".xlsx")
     os.close(fd)
     try:

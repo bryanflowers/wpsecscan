@@ -8,7 +8,9 @@ on some Apache configs). We probe the last three calendar years
 explicitly to catch those edge cases.
 """
 from __future__ import annotations
+
 from datetime import datetime, timezone
+
 from ..http import Client
 from ..models import Finding
 

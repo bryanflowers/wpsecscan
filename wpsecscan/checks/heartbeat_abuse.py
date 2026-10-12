@@ -8,6 +8,7 @@ hammer it to drive load.
 from __future__ import annotations
 
 import time
+
 from ..http import Client
 from ..models import Finding
 

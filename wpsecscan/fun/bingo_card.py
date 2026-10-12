@@ -10,7 +10,6 @@ from __future__ import annotations
 import random
 from html import escape
 
-
 # 30 short labels we draw from. Random pick of 24 to fill a 5x5
 # (centre is "FREE").
 _BINGO_ITEMS = [

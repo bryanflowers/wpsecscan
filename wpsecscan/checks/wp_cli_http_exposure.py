@@ -19,7 +19,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _PATHS = (
     "/wp-cli-server",
     "/wp-cli/run",

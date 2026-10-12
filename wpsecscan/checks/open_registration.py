@@ -9,10 +9,11 @@ membership site (WooCommerce subscriptions, MemberPress, LearnDash) it's
 intentional — we soften severity in that case.
 """
 from __future__ import annotations
+
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 _MEMBERSHIP_PLUGIN_MARKERS = (
     "memberpress", "membermouse", "wishlist-member",

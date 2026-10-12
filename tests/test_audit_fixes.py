@@ -6,15 +6,14 @@
 """
 from __future__ import annotations
 
-import io
 import csv
+import io
 
 import pytest
 
-from wpsecscan.models import Finding, CheckResult, ScanReport
-from wpsecscan.reporters import csv_out
 from wpsecscan.gui_payloads import _validate_target_url
-
+from wpsecscan.models import CheckResult, Finding, ScanReport
+from wpsecscan.reporters import csv_out
 
 # ============================== csv injection ==============================
 
@@ -140,8 +139,9 @@ def test_authenticated_completion_evidence_no_username():
 
 def test_sarif_renders_minimum_required_fields():
     """SARIF 2.1.0 needs version, runs[].tool.driver.name, ruleId, message.text."""
-    from wpsecscan.reporters import sarif
     import json as _j
+
+    from wpsecscan.reporters import sarif
     r = _build_report("Reflected XSS")
     out = sarif.render(r)
     d = _j.loads(out)
@@ -157,12 +157,13 @@ def test_sarif_renders_minimum_required_fields():
 def test_scanner_gather_handles_check_exception():
     """One failing check must not kill all the others in concurrent mode."""
     import asyncio
-    from wpsecscan.scanner import scan
 
     # Easiest reproduction: pass a target that resolves but isn't a real WP site;
     # checks will mostly hit timeouts/None responses but must not crash.
     # Skip if no network — this is an integration smoke, not a unit test.
     import socket
+
+    from wpsecscan.scanner import scan
     try:
         socket.gethostbyname("example.invalid")
         pytest.skip("DNS resolves invalid TLD; can't run isolation test")

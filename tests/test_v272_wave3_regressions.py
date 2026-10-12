@@ -13,7 +13,6 @@ import os
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # C12 — perf_v27.etag_set atomic write
 # ---------------------------------------------------------------------------
@@ -99,8 +98,9 @@ def test_import_snyk_findings_handles_non_dict_extra(monkeypatch):
     with TypeError when import_snyk_findings tries to write through
     `f.extra["snyk_dup"] = True`."""
     import httpx as _httpx
+
     from wpsecscan import integrations_v27
-    from wpsecscan.models import Finding, CheckResult, ScanReport
+    from wpsecscan.models import CheckResult, Finding, ScanReport
 
     f_bad = Finding(severity="high", title="t", evidence="e")
     f_bad.extra = None  # type: ignore[assignment]

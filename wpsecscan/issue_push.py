@@ -168,7 +168,7 @@ def push_linear(target: str, payloads: list[dict],
 def servicenow_payloads(report, min_sev: str = "high") -> list[dict]:
     """Build ServiceNow incident records (table=incident). The instance URL
     and basic-auth come from env at push time."""
-    from .reporters.issue_export import _top_findings, _markdown_body
+    from .reporters.issue_export import _markdown_body, _top_findings
     out = []
     sev_map = {"critical": 1, "high": 2, "medium": 3, "low": 4, "info": 5}
     for cid, f in _top_findings(report, min_sev):

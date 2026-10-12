@@ -42,15 +42,14 @@ import uuid
 from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs
-
+from urllib.parse import parse_qs, urlparse
 
 # B2: cap the in-memory task store to avoid unbounded growth from long-running
 # servers. When the cap is reached we evict the oldest finished task.
 _TASKS_MAX = 1000
 
 
-_TASKS: "OrderedDict[str, dict]" = OrderedDict()
+_TASKS: OrderedDict[str, dict] = OrderedDict()
 _TASKS_LOCK = threading.Lock()
 
 # B20 (v2.8.0) — cap concurrent in-flight scans. Pre-fix code spawned
@@ -95,8 +94,9 @@ def _reports_dir() -> Path:
 
 
 def _history_for(url: str) -> list[dict]:
-    from . import history as _h
     import glob as _glob
+
+    from . import history as _h
     safe = _h._safe_filename(url)
     out = []
     d = _reports_dir()

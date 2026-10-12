@@ -92,14 +92,14 @@ def render(report: ScanReport) -> str:
         cid: [_substitute(line, report.target) for line in lines]
         for cid, lines in guidance["verify"].items()
     }
-    from ..risk import risk_tier, risk_label, risk_grade
+    from ..risk import risk_grade, risk_label, risk_tier
     score = report.risk_score
     conf_map = _build_confidence_map(report)
     # Jinja can't easily handle tuple keys — flatten to "check_id::idx" strings
     conf_flat = {f"{cid}::{i}": v for (cid, i), v in conf_map.items()}
     # D4: WAF rules per check
-    from .. import waf_rules as _wr
     from .. import recommend as _rec
+    from .. import waf_rules as _wr
     waf_rules_map = {r.check_id: _wr.get_rule(r.check_id) for r in report.results if _wr.get_rule(r.check_id)}
     recommendations = _rec.recommendations_for(report)
 
@@ -108,6 +108,7 @@ def render(report: ScanReport) -> str:
     # — render a shallow copy of the ScanReport with reordered results so
     # subsequent reporters (console, JSON) see the original scan-execution order.
     from dataclasses import replace
+
     from ..models import SEVERITY_RANK
     def _worst_rank(check_result):
         if not check_result.findings:

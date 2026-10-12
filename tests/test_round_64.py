@@ -14,7 +14,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ============================================================
 # Group F — Modern WP attack-surface (#51-70) — smoke tests
 # ============================================================
@@ -211,6 +210,7 @@ def test_translated_summary_supports_6_langs():
 def test_trend_over_time_history_round_trip(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan.reporters import trend_over_time
     importlib.reload(trend_over_time)
     trend_over_time.append_to_history("test.example.com", {"critical": 1, "high": 0})
@@ -300,6 +300,7 @@ def test_smart_skip_runs_graphql_when_present():
 
 def test_connection_pool_shares_clients():
     import asyncio
+
     from wpsecscan.perf.connection_pool import SharedClientPool
 
     async def go():

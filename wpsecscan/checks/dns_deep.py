@@ -20,9 +20,9 @@ import re
 import socket
 import subprocess
 from urllib.parse import urlparse
+
 from ..http import Client
 from ..models import Finding
-
 
 SECRET_RES = (
     re.compile(r"AKIA[0-9A-Z]{16}"),                              # AWS access key

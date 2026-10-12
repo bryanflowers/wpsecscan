@@ -20,7 +20,6 @@ import shutil
 import subprocess
 from pathlib import Path
 
-
 # ---- #98 WebAuthn ----
 
 def has_webauthn() -> bool:
@@ -37,11 +36,13 @@ def register_webauthn_credential(user_id: bytes, rp_id: str,
     over WebSocket / HTTP. Returns {} if `fido2` not installed."""
     if not has_webauthn():
         return {}
-    from fido2.webauthn import (PublicKeyCredentialCreationOptions,
-                                  PublicKeyCredentialRpEntity,
-                                  PublicKeyCredentialUserEntity,
-                                  PublicKeyCredentialParameters,
-                                  PublicKeyCredentialType)
+    from fido2.webauthn import (
+        PublicKeyCredentialCreationOptions,
+        PublicKeyCredentialParameters,
+        PublicKeyCredentialRpEntity,
+        PublicKeyCredentialType,
+        PublicKeyCredentialUserEntity,
+    )
     opts = PublicKeyCredentialCreationOptions(
         rp=PublicKeyCredentialRpEntity(name="WPSecScan", id=rp_id),
         user=PublicKeyCredentialUserEntity(id=user_id, name="operator",
@@ -61,9 +62,9 @@ def verify_webauthn_assertion(assertion: dict, expected_challenge: bytes,
     if not has_webauthn() or not isinstance(assertion, dict):
         return False
     try:
-        from fido2.server import Fido2Server
-        from fido2.webauthn import PublicKeyCredentialRpEntity, AttestedCredentialData
         from fido2.cose import CoseKey
+        from fido2.server import Fido2Server
+        from fido2.webauthn import AttestedCredentialData, PublicKeyCredentialRpEntity
         server = Fido2Server(PublicKeyCredentialRpEntity(name="WPSecScan", id=rp_id))
         cred_data = AttestedCredentialData(
             aaguid=b"\x00" * 16,

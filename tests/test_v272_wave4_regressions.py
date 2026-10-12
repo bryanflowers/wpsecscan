@@ -41,6 +41,7 @@ def test_auth_debug_log_pipes_body_through_mask_private():
     the file rather than inspect.getsource because the module-level
     `check` symbol is re-exported as `authenticated` in __init__.py."""
     from pathlib import Path
+
     import wpsecscan
     pkg_root = Path(wpsecscan.__file__).parent
     text = (pkg_root / "checks" / "authenticated.py").read_text(encoding="utf-8")

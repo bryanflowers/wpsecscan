@@ -6,9 +6,9 @@ leak, then maps versions against EOL data to flag end-of-life software.
 from __future__ import annotations
 
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 SERVER_PATTERNS = {
     "server":          re.compile(r"^([A-Za-z0-9.\-/+]+)(?:\s+\(([^)]+)\))?", re.IGNORECASE),

@@ -21,7 +21,6 @@ import httpx
 
 from ._util import home_dir
 
-
 _KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 _CACHE_TTL = 6 * 3600  # 6 hours
 

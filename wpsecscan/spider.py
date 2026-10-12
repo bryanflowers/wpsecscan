@@ -20,7 +20,6 @@ from urllib.parse import urldefrag, urljoin, urlparse
 
 from .http import Client
 
-
 _HREF_RE = re.compile(r'href=["\']([^"\']+)["\']', re.IGNORECASE)
 _SRC_RE  = re.compile(r'src=["\']([^"\']+)["\']', re.IGNORECASE)
 _JS_URL_RE = re.compile(r'["\'](\\?/[^"\'<>]{2,200}?)["\']')

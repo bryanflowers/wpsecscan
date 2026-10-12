@@ -79,7 +79,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
             severity="medium",
             title=f"Session-fixation precondition: server accepted {len(accepted_names)} client-set cookie(s) without regenerating",
             evidence=(
-                f"Pre-set the following cookies and hit /wp-login.php:\n  "
+                "Pre-set the following cookies and hit /wp-login.php:\n  "
                 + "\n  ".join(f"- {n}" for n in accepted_names)
                 + "\n\nNo Set-Cookie response regenerated them with a different value. If the server uses "
                 "these cookies as the session identifier post-login, an attacker who can plant a cookie "

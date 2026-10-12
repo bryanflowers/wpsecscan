@@ -17,6 +17,7 @@ import asyncio
 import socket
 import ssl
 from urllib.parse import urlparse
+
 from ..http import Client
 from ..models import Finding
 
@@ -48,7 +49,7 @@ def _parse_cert(der: bytes) -> dict:
             "sig_alg": "", "must_staple": False}
     try:
         from cryptography import x509
-        from cryptography.hazmat.primitives.asymmetric import rsa, ec
+        from cryptography.hazmat.primitives.asymmetric import ec, rsa
         cert = x509.load_der_x509_certificate(der)
         out["subject"] = cert.subject.rfc4514_string()
         try:

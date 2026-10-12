@@ -9,7 +9,6 @@ from datetime import datetime
 
 from wpsecscan import scheduler
 
-
 # 2026-05-31 is a Sunday; 2026-05-25 is Monday.
 SUNDAY    = datetime(2026, 5, 31, 3, 0)
 MONDAY    = datetime(2026, 5, 25, 3, 0)

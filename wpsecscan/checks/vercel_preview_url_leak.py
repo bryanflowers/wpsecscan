@@ -20,7 +20,6 @@ from urllib.parse import urlparse
 from ..http import Client
 from ..models import Finding
 
-
 _PREVIEW_HOST_RE = re.compile(
     r'https?://([a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.'
     r'(?:vercel\.app|netlify\.app|pages\.dev|github\.io|fly\.dev|surge\.sh|render\.com))',

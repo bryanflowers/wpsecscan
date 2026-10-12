@@ -8,10 +8,11 @@ We probe common upload endpoints (WP media library, GF/CF7/WC product image).
 Aggressive only.
 """
 from __future__ import annotations
+
 import asyncio
+
 from ..http import Client
 from ..models import Finding
-
 
 SVG_XXE = (
     b'<?xml version="1.0"?>\n'

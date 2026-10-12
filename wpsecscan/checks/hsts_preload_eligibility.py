@@ -12,6 +12,7 @@ three preload conditions and additionally hits hstspreload.org's status
 API to confirm whether the domain is already on the list.
 """
 from __future__ import annotations
+
 import os
 import re
 from urllib.parse import urlparse
@@ -20,7 +21,6 @@ import httpx
 
 from ..http import Client
 from ..models import Finding
-
 
 _MAX_AGE_RE = re.compile(r"max-age\s*=\s*(\d+)", re.IGNORECASE)
 

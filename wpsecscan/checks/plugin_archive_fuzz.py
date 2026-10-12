@@ -10,7 +10,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 ARCHIVE_EXTS = ("zip", "tar", "tar.gz", "tgz", "rar", "7z", "sql.gz",
                 "backup", "bak", "old")
 MAX_SLUGS = 12  # cap to avoid request explosion on sites with 60+ plugins

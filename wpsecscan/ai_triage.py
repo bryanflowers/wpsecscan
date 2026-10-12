@@ -18,12 +18,11 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
 from . import ai_assist, ai_safety
-
 
 # ============================================================
 # Settings
@@ -67,7 +66,7 @@ class AITriageSettings:
     conversational_qa: bool = False
 
     @classmethod
-    def load(cls) -> "AITriageSettings":
+    def load(cls) -> AITriageSettings:
         p = _settings_path()
         if not p.exists():
             return cls()

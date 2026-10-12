@@ -12,8 +12,7 @@ wp-config; they don't attempt to modify plugin code.
 """
 from __future__ import annotations
 
-from .models import ScanReport, SEVERITY_RANK
-
+from .models import SEVERITY_RANK, ScanReport
 
 # check_id -> (patch_text, target_file, commit_message)
 FIX_TEMPLATES = {
@@ -151,9 +150,9 @@ def gh_commands(report: ScanReport, *, repo: str, branch_prefix: str = "wpsec-fi
         ])
 
     lines.extend([
-        f"git push -u origin HEAD",
+        "git push -u origin HEAD",
         f"gh pr create --repo {repo} --title 'security: WPSecScan-suggested config hardening' \\",
-        f"  --body 'Generated from a WPSecScan report. Each commit corresponds to a single check ID.\\nReview each patch carefully — these are conservative defaults, not site-specific tuning.'",
+        "  --body 'Generated from a WPSecScan report. Each commit corresponds to a single check ID.\\nReview each patch carefully — these are conservative defaults, not site-specific tuning.'",
     ])
     return lines
 

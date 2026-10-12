@@ -38,8 +38,8 @@ def test_xxe_upload_is_marked_aggressive():
 # ---- D1 XLSX smoke ----
 
 def test_xlsx_reporter_writes_valid_xlsx(tmp_path):
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters import xlsx_out
-    from wpsecscan.models import Finding, CheckResult, ScanReport
     r = ScanReport(
         target="https://example.com",
         scanned_at="2026-05-23T00:00:00Z",
@@ -68,8 +68,8 @@ def test_xlsx_reporter_writes_valid_xlsx(tmp_path):
 # ---- D3 markdown CLI smoke ----
 
 def test_markdown_reporter_render():
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters import markdown as md
-    from wpsecscan.models import Finding, CheckResult, ScanReport
     r = ScanReport(
         target="https://example.com",
         scanned_at="2026-05-23T00:00:00Z",
@@ -94,8 +94,8 @@ def test_markdown_reporter_render():
 def test_markdown_reporter_top_n_keeps_highest_severities():
     """--md-top N must keep the N most-severe findings (cross-check), preserving
     their per-check grouping. Slack-style truncation."""
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters import markdown as md
-    from wpsecscan.models import Finding, CheckResult, ScanReport
     r = ScanReport(
         target="https://example.com",
         scanned_at="2026-05-23T00:00:00Z",
@@ -130,7 +130,7 @@ def test_patchstack_function_exists_and_handles_no_token():
 # ---- A7 OSV.dev helper exists ----
 
 def test_osv_helper_module_exists():
-    from wpsecscan.checks.js_libraries import _query_osv, OSV_PACKAGE_MAP
+    from wpsecscan.checks.js_libraries import OSV_PACKAGE_MAP, _query_osv
     assert "jQuery" in OSV_PACKAGE_MAP
     assert callable(_query_osv)
 
@@ -156,7 +156,7 @@ def test_github_repo_validation():
 
 def test_github_create_issues_returns_summary_with_empty_token():
     from wpsecscan.integrations import github_issues as gh
-    from wpsecscan.models import Finding, CheckResult, ScanReport
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     r = ScanReport(
         target="https://example.com", scanned_at="t", duration_ms=0,
         results=[CheckResult(check_id="sqli", check_name="x",
@@ -181,7 +181,7 @@ def test_waf_rule_generator_exists_for_common_checks():
 
 def test_recommendation_engine_groups_findings():
     from wpsecscan import recommend as rec
-    from wpsecscan.models import Finding, CheckResult, ScanReport
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     r = ScanReport(
         target="https://example.com", scanned_at="t", duration_ms=0,
         results=[
@@ -199,7 +199,7 @@ def test_recommendation_engine_groups_findings():
 
 def test_recommendation_engine_skips_info_only():
     from wpsecscan import recommend as rec
-    from wpsecscan.models import Finding, CheckResult, ScanReport
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     r = ScanReport(
         target="https://example.com", scanned_at="t", duration_ms=0,
         results=[

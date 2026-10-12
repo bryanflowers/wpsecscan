@@ -22,7 +22,6 @@ from pathlib import Path
 
 from ..models import ScanReport
 
-
 _PII_PATTERNS = {
     "EMAIL":        re.compile(r"\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b", re.IGNORECASE),
     "IPv4":         re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
@@ -53,11 +52,11 @@ def render(report: ScanReport) -> str:
                 rows.append((r.check_id, f.severity, f.title, cats))
 
     lines: list[str] = [
-        f"# GDPR DSR / Subject Access Request — data-touching findings",
+        "# GDPR DSR / Subject Access Request — data-touching findings",
         "",
         f"**Target**: {report.target}  ",
         f"**Scanned**: {report.scanned_at}  ",
-        f"**Scanner**: wpsecscan",
+        "**Scanner**: wpsecscan",
         "",
         "## Findings that touched user-data fields",
         "",

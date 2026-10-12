@@ -10,7 +10,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _FINGERPRINTS = (
     ("/wp-content/plugins/ai-engine/", "Meow AI Engine"),
     ("/wp-content/plugins/bertha-ai/", "Bertha AI"),

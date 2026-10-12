@@ -21,7 +21,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _STORE_ROUTES = (
     "/wp-json/wc/store/v1/cart",
     "/wp-json/wc/store/v1/cart/items",
@@ -48,7 +47,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
 
     findings.append(Finding(
         severity="low",
-        title=f"WooCommerce Store API (/wc/store/v1) reachable — verify WAF + plugin filters cover this namespace",
+        title="WooCommerce Store API (/wc/store/v1) reachable — verify WAF + plugin filters cover this namespace",
         evidence=(
             "Reachable Store API routes (HTTP 200):\n  "
             + "\n  ".join(f"{r[0]}" for r in open_routes) + "\n\n"

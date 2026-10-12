@@ -7,9 +7,9 @@ which means the tool is fully reachable from the public internet (not
 just behind a static-file rewrite).
 """
 from __future__ import annotations
+
 from ..http import Client
 from ..models import Finding
-
 
 _PROBES = (
     ("/adminer.php",          ('id="loginform"', '"adminer"', 'Adminer.input'), "Adminer"),

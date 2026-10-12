@@ -14,6 +14,7 @@ import socket
 import ssl
 import time
 from urllib.parse import urlparse
+
 from ..http import Client
 from ..models import Finding
 
@@ -67,7 +68,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     _, detail = _tls_reneg_test(host, port)
     return [Finding(
         severity="info",
-        title=f"TLS renegotiation DoS — manual test required",
+        title="TLS renegotiation DoS — manual test required",
         evidence=f"{detail}\n\nVerify manually:\n  openssl s_client -connect {host}:{port} -reconnect 5",
         remediation="If the server accepts >1 client-initiated reneg, add `ssl_session_tickets off;` + `ssl_reuse_sessions off;` to nginx, or upgrade OpenSSL.",
         url=ctx["target"],

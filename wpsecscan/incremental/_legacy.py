@@ -16,7 +16,6 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-
 # ---------- K26 incremental scan helpers ----------
 
 # Checks that are pointless to re-run if nothing about the target has changed.

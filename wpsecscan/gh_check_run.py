@@ -27,7 +27,6 @@ import httpx
 
 from .models import ScanReport
 
-
 _SEV_RANK = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 
 

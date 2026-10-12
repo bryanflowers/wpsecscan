@@ -47,7 +47,6 @@ from typing import Any
 from .http import Client
 from .models import Finding
 
-
 _SEVERITY_NORMALISE = {
     "info": "info", "informational": "info",
     "low": "low",

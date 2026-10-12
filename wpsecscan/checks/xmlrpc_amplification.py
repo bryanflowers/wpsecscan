@@ -5,9 +5,9 @@ one POST with 50 nested wp.getUsersBlogs calls. Compute the
 response-bytes / request-bytes ratio. >100x = high (concrete DoS math).
 """
 from __future__ import annotations
+
 from ..http import Client
 from ..models import Finding
-
 
 _PAYLOAD_TEMPLATE = """<?xml version="1.0"?>
 <methodCall><methodName>system.multicall</methodName>

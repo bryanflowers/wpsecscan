@@ -25,7 +25,6 @@ import re
 import time
 from pathlib import Path
 
-
 # ---- #69 cost tracking ----
 
 _COST_PER_1K = {

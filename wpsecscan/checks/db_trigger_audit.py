@@ -12,7 +12,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 # Known-bad trigger callbacks that indicate webshell-style persistence.
 _SUSPICIOUS_TRIGGER_PATTERNS = (
     "system(",

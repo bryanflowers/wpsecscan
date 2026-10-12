@@ -26,7 +26,6 @@ import httpx
 
 from .models import ScanReport
 
-
 _USER_AGENT = "WPSecScan-SIEM/1.0"
 
 # S10: redact anything in an error message that looks like a long
@@ -35,6 +34,7 @@ _USER_AGENT = "WPSecScan-SIEM/1.0"
 # only redact strings of 24+ chars that are pure base64url / hex —
 # normal English text and URLs are safe.
 import re as _re
+
 # Match long opaque tokens AND JWT-style three-part tokens (header.payload.sig)
 # where any of the three parts is itself long. \b word boundaries don't span
 # `.`, so JWTs need their own alternation.

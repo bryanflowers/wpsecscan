@@ -7,6 +7,7 @@ distinct from a missing-HTTPS finding because the FINAL URL is HTTPS;
 only the intermediate hop is broken.
 """
 from __future__ import annotations
+
 import os
 from urllib.parse import urlparse
 

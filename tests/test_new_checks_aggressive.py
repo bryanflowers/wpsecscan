@@ -169,8 +169,8 @@ def test_payload_count_grew():
 
 
 def test_signature_count_grew():
-    from pathlib import Path
     import json
+    from pathlib import Path
     sig_path = Path(__file__).resolve().parents[1] / "wpsecscan" / "data" / "exploit_signatures.json"
     data = json.loads(sig_path.read_text(encoding="utf-8"))
     assert len(data["signatures"]) >= 40

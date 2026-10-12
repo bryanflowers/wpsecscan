@@ -16,7 +16,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _AJAX_ACTIONS = (
     "wp-privacy-export-personal-data",
     "wp-privacy-erase-personal-data",

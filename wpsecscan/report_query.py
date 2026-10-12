@@ -16,7 +16,6 @@ from __future__ import annotations
 import re
 from typing import Any, Iterable
 
-
 _TOKEN = re.compile(
     r"\s*("
     r"\(|\)|,|\[|\]|"

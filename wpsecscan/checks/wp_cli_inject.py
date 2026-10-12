@@ -13,9 +13,9 @@ user-supplied data interpolated into the command string. This check:
 from __future__ import annotations
 
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 CLI_PATHS = (
     "/wp-cli.phar",

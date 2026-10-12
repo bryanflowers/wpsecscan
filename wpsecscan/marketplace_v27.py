@@ -35,7 +35,6 @@ from pathlib import Path
 
 from ._util import home_dir
 
-
 _INDEX_URL = os.environ.get(
     "WPSECSCAN_MARKETPLACE_URL",
     "https://raw.githubusercontent.com/bryanflowers/wpsecscan/main/docs/marketplace.json",
@@ -311,7 +310,7 @@ def cmd_marketplace(args: list[str]) -> None:
             pass
         print(f"installed: {target}")
         if sig_url and pem_url:
-            print(f"# Verify the signature:")
+            print("# Verify the signature:")
             print(f"  wpsecscan marketplace verify {slug}")
         else:
             print("# Installed without signature (--allow-unsigned). "
@@ -344,8 +343,8 @@ def cmd_marketplace(args: list[str]) -> None:
         # wildcard `.+` regexp meant ANY Sigstore-signed blob passed.
         identity_re = _cosign_identity_regexp(entry.get("author_handle", ""))
         if identity_re is None:
-            print(f"refusing verify: index entry has missing/invalid "
-                   f"author_handle (required to pin Sigstore identity)",
+            print("refusing verify: index entry has missing/invalid "
+                   "author_handle (required to pin Sigstore identity)",
                    file=sys.stderr); sys.exit(2)
         import shutil
         if not shutil.which("cosign"):
@@ -355,6 +354,7 @@ def cmd_marketplace(args: list[str]) -> None:
         if not local.exists():
             print(f"check not installed locally: {local}", file=sys.stderr); sys.exit(2)
         import subprocess
+
         # Fetch sig + cert
         import tempfile
         td = Path(tempfile.mkdtemp())

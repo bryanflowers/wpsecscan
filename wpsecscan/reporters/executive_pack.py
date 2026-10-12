@@ -15,10 +15,10 @@ Output: HTML (always) + PDF (when reportlab installed) under
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from datetime import datetime
-from ..models import ScanReport
+from pathlib import Path
 
+from ..models import ScanReport
 
 # Curated cost rules — best-effort industry averages
 COST_RULES = {

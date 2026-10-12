@@ -7,6 +7,7 @@ replaces it. Without a replacement, scheduled events (digest emails, post
 publication, plugin upkeep, transient cleanup) silently stop firing.
 """
 from __future__ import annotations
+
 from ..http import Client
 from ..models import Finding
 
@@ -45,7 +46,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         return findings
     findings.append(Finding(
         severity="info",
-        title=f"DISABLE_WP_CRON may be set, no confirmation of replacement scheduler",
+        title="DISABLE_WP_CRON may be set, no confirmation of replacement scheduler",
         evidence=(
             f"/wp-cron.php → {why}. This suggests DISABLE_WP_CRON is true in "
             "wp-config.php. WordPress's scheduled events (digests, transients, "

@@ -13,7 +13,7 @@ from __future__ import annotations
 import html as _html
 from pathlib import Path
 
-from ..models import ScanReport, Finding
+from ..models import Finding, ScanReport
 
 
 def _top_findings(report: ScanReport, limit: int = 5) -> list[Finding]:
@@ -42,12 +42,13 @@ def _has_reportlab() -> bool:
 
 
 def _render_pdf_reportlab(report: ScanReport, path: Path) -> None:
-    from reportlab.lib.pagesizes import letter
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import inch
     from reportlab.lib.colors import HexColor
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
     from reportlab.lib.enums import TA_LEFT
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
     from ..risk import risk_grade, risk_label, risk_tier
 
     score = report.risk_score
@@ -158,8 +159,9 @@ def _render_pdf_reportlab(report: ScanReport, path: Path) -> None:
 
 def _load_recent_scores(target: str, limit: int = 12) -> list[int]:
     """Item #49 — pull the last N risk_score values from saved snapshots."""
-    from .. import history as _h
     import json as _json
+
+    from .. import history as _h
     snaps = _h.snapshot_history(target)
     out: list[int] = []
     for sp in snaps[-limit:]:

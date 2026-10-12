@@ -39,7 +39,6 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-
 _MUTABLE_PREFIXES = (
     "wp-content/", "wp-content\\",
     "wp-config.php",

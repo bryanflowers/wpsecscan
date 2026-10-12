@@ -10,9 +10,9 @@
 from __future__ import annotations
 
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 ACF_JWT_RE = re.compile(r"acf[_-]?pro[_-]?key[\"']?\s*[:=]\s*[\"']([A-Za-z0-9-_]{30,})", re.IGNORECASE)
 MULTISITE_INDICATOR = ("wp-signup.php", "is_multisite", "ms-files.php")
@@ -86,7 +86,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         findings.append(Finding(
             severity="info",
             title=f"Child theme detected: {', '.join(sorted(themes_in_html))}",
-            evidence=f"Multiple theme directories serve assets — likely a parent + child setup.",
+            evidence="Multiple theme directories serve assets — likely a parent + child setup.",
             remediation="Audit the child theme's `functions.php` for security hardening that might be overriding parent-theme defaults (e.g., removing nonce checks, or echoing user input without escape).",
             url=ctx["target"],
         ))

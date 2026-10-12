@@ -16,7 +16,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 _URL_RE = re.compile(r'url\(\s*[\'"]?(https?://[^\)\'"\s]+)', re.IGNORECASE)
 
 _PRIVATE_HOSTS = (

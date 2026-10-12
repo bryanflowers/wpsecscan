@@ -19,11 +19,10 @@ Aggressive only.
 """
 from __future__ import annotations
 
-from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from ..http import Client
 from ..models import Finding
-
 
 REBINDER_URL = "http://7f000001.0a000001.rbndr.us/"
 

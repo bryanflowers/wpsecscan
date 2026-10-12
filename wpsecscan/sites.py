@@ -27,7 +27,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-
 # ---- file location ----
 
 def _home() -> Path:

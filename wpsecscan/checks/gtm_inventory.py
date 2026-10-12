@@ -10,10 +10,11 @@ them publicly helps two things:
      you have a separate staging container.
 """
 from __future__ import annotations
+
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 _GTM_RE = re.compile(r"\b(GTM-[A-Z0-9]{4,12})\b")
 

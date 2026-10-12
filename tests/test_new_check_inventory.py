@@ -14,7 +14,6 @@ import importlib
 
 from tests.conftest import FakeClient
 
-
 NEW_PASSIVE = [
     "gdpr_dsr", "wp_engine_misconfig", "oauth_redirect", "cache_poisoning",
     "upload_path_predictable", "http2_settings", "favicon_fingerprint", "a11y_lite",
@@ -77,8 +76,8 @@ def test_aggressive_checks_self_skip_without_aggressive():
 
 
 def test_full_tag_coverage_includes_new_checks():
-    from wpsecscan.checks import ALL_CHECKS
     from wpsecscan import tags as _tags
+    from wpsecscan.checks import ALL_CHECKS
     _tags.reset_cache()
     all_ids = {cid for cid, _n, _f, _a in ALL_CHECKS}
     missing = [cid for cid in all_ids if _tags.get_tags(cid) is None]
@@ -86,8 +85,8 @@ def test_full_tag_coverage_includes_new_checks():
 
 
 def test_full_compliance_coverage_includes_new_checks():
-    from wpsecscan.checks import ALL_CHECKS
     from wpsecscan import tags as _tags
+    from wpsecscan.checks import ALL_CHECKS
     _tags.reset_cache()
     all_ids = {cid for cid, _n, _f, _a in ALL_CHECKS}
     missing = [cid for cid in all_ids if _tags.get_compliance(cid) is None]
@@ -123,9 +122,10 @@ def test_risk_grade_letters():
 
 def test_json_reporter_includes_grade_and_compliance():
     """Regression: JSON output must include risk_grade + per-check compliance + tags."""
+    import json as _j
+
     from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters import json_out
-    import json as _j
     r = ScanReport(
         target="https://example.com",
         scanned_at="2026-05-23T00:00:00Z",

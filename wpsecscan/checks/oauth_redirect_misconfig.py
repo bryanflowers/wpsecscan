@@ -8,11 +8,12 @@ redirects can accept tokens for any redirect (depending on provider) — a
 phishing-prep vector.
 """
 from __future__ import annotations
+
 import re
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
+
 from ..http import Client
 from ..models import Finding
-
 
 _OAUTH_LINK_RE = re.compile(
     r'href=[\"\']([^\"\']*(?:accounts\.google\.com/o/oauth2|'

@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ---------------- activity bus ----------------
 
 def test_activity_emit_and_recent():
@@ -88,8 +87,8 @@ def test_activity_bounded_deque():
 def test_reporter_html_emits(tmp_path):
     """HTML reporter write should emit one reporter event."""
     from wpsecscan import activity
-    from wpsecscan.reporters import html as _h
     from wpsecscan.models import ScanReport
+    from wpsecscan.reporters import html as _h
     activity.clear()
     rep = ScanReport(target="https://x.com", scanned_at="now", duration_ms=0)
     p = tmp_path / "r.html"
@@ -101,8 +100,8 @@ def test_reporter_html_emits(tmp_path):
 def test_reporter_json_emits_and_embeds_activity_log(tmp_path):
     """JSON reporter should emit + embed `activity_log` in the saved file."""
     from wpsecscan import activity
-    from wpsecscan.reporters import json_out as _j
     from wpsecscan.models import ScanReport
+    from wpsecscan.reporters import json_out as _j
     activity.clear()
     activity.emit("threat_intel", "synthetic kev hit")
     rep = ScanReport(target="https://x.com", scanned_at="now", duration_ms=0)
@@ -115,7 +114,7 @@ def test_reporter_json_emits_and_embeds_activity_log(tmp_path):
 
 
 def test_check_health_emits_on_auto_disable():
-    from wpsecscan import check_health, activity
+    from wpsecscan import activity, check_health
     activity.clear()
     check_health.reset_run()
     # Below threshold — no event
@@ -131,9 +130,10 @@ def test_check_health_emits_on_auto_disable():
 
 
 def test_incremental_emits_on_skip(tmp_path, monkeypatch):
-    from datetime import datetime
     import json as _json
-    from wpsecscan import incremental, activity, history
+    from datetime import datetime
+
+    from wpsecscan import activity, history, incremental
     monkeypatch.setattr(history, "_home", lambda: tmp_path)
     activity.clear()
     # Create a fresh snapshot so should_skip_check returns True
@@ -170,7 +170,7 @@ def test_demo_activity_covers_every_category():
 
 
 def test_demo_run_unpaced_completes():
-    from wpsecscan import demo, activity
+    from wpsecscan import activity, demo
     activity.clear()
     rep = demo.run_demo(paced=False)
     assert rep is not None
@@ -193,6 +193,7 @@ def test_demo_write_artifacts_creates_files(tmp_path):
 def test_console_live_constructs_without_terminal():
     """LiveDashboard must be constructible even when the Console isn't a TTY."""
     from rich.console import Console
+
     from wpsecscan.console_live import LiveDashboard
     c = Console(file=open("nul" if __import__("sys").platform == "win32" else "/dev/null", "w"),
                 force_terminal=False)
@@ -205,6 +206,7 @@ def test_console_live_constructs_without_terminal():
 def test_console_live_callback_routes_events():
     """on_progress callback must update internal counters."""
     from rich.console import Console
+
     from wpsecscan.console_live import LiveDashboard
     from wpsecscan.models import CheckResult, Finding
     c = Console(file=open("nul" if __import__("sys").platform == "win32" else "/dev/null", "w"),
@@ -224,11 +226,13 @@ def test_console_live_callback_routes_events():
 
 def test_what_ran_panel_renders():
     """The new What-ran block in console reporter must render without crashing."""
-    from rich.console import Console
     from io import StringIO
-    from wpsecscan.reporters.console import render, _render_what_ran
-    from wpsecscan.models import ScanReport, CheckResult, Finding
+
+    from rich.console import Console
+
     from wpsecscan import activity
+    from wpsecscan.models import CheckResult, Finding, ScanReport
+    from wpsecscan.reporters.console import _render_what_ran, render
     activity.clear()
     activity.emit("threat_intel", "KEV: 1 enriched")
     activity.emit("reporter", "HTML: r.html (47 KB)")

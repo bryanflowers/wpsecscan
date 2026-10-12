@@ -12,6 +12,6 @@ the daemon's per-cron concurrency) instead.
 """
 from ._legacy import (  # noqa: F401
     BloomFilter,
-    memoize_check,
     lookup_memo,
+    memoize_check,
 )

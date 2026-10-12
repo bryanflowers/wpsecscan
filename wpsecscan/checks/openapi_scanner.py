@@ -27,7 +27,6 @@ import json
 from ..http import Client
 from ..models import Finding
 
-
 SPEC_PATHS = (
     "/openapi.json", "/openapi.yaml",
     "/swagger.json", "/swagger.yaml",

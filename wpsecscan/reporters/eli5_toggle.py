@@ -7,7 +7,6 @@ order of urgency".
 """
 from __future__ import annotations
 
-
 _SEVERITY_DESCRIPTIONS = {
     "critical": "extremely urgent — fix today",
     "high":     "urgent — fix this week",

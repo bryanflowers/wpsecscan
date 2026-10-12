@@ -7,10 +7,11 @@ A debug log containing real customer PII is a GDPR/PCI-DSS reportable
 incident, not just an "info disclosure" finding.
 """
 from __future__ import annotations
+
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 _EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
 # Credit-card-ish: 13-19 digits possibly separated. Bound to avoid CSS hashes.
@@ -54,7 +55,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         severity=sev,
         title=f"/wp-content/debug.log contains personal data ({', '.join(findings_in_log)})",
         evidence=(
-            f"Public-readable debug.log has identifiable content in the first 4 KB:\n"
+            "Public-readable debug.log has identifiable content in the first 4 KB:\n"
             + (f"  - {len(emails)} email(s): {sorted(emails)[0][:5]}*** + others\n" if emails else "")
             + (f"  - {len(cc_candidates)} 13-19 digit string(s): {cc_candidates[0][:6]}***\n" if cc_candidates else "")
             + (f"  - {len(ips)} IP address(es)\n" if ips else "")

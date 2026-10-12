@@ -19,7 +19,6 @@ from urllib.parse import urlparse
 from ..http import Client
 from ..models import Finding
 
-
 _LINK_RE = re.compile(r"<([^>]+)>\s*;\s*rel=[\"']?([a-zA-Z0-9._:/\-]+)", re.IGNORECASE)
 
 

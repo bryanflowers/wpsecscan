@@ -15,7 +15,6 @@ from datetime import datetime, timezone
 from ..http import Client
 from ..models import Finding
 
-
 # https://www.php.net/supported-versions.php — security-fix end-of-life dates.
 # Update annually. Anything earlier than 7.0 is folded into a single "ancient"
 # bucket because it's been EOL for so long.
@@ -104,7 +103,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         findings.append(Finding(
             severity="info",
             title=f"PHP {php} appears to be a supported release",
-            evidence=f"Detected via response header; latest EOL data through 8.4.",
+            evidence="Detected via response header; latest EOL data through 8.4.",
             remediation="No action — but verify against https://www.php.net/supported-versions.php.",
             url=ctx["target"],
             extra={"php_version": php},

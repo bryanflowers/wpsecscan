@@ -14,7 +14,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-
 _SEV_COLOR = {
     "critical": "#67000d",
     "high":     "#c0392b",

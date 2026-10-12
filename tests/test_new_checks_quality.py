@@ -6,7 +6,6 @@ refactors can't silently regress the "no findings" vs "real finding" cases.
 from __future__ import annotations
 
 import asyncio
-
 import importlib
 
 server_timing = importlib.import_module("wpsecscan.checks.server_timing")

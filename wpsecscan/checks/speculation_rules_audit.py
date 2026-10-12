@@ -20,7 +20,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 _BLOCK_RE = re.compile(
     r'<script\s[^>]*type\s*=\s*["\']speculationrules["\'][^>]*>(.*?)</script>',
     re.IGNORECASE | re.DOTALL,

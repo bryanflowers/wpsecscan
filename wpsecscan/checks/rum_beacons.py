@@ -6,10 +6,11 @@ sensitive identifiers like ?email=, ?reset_key=, ?token= that the
 site owner thought were transient. Privacy inventory item.
 """
 from __future__ import annotations
+
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 # (vendor name, regex matching the loader/init pattern)
 _RUM_VENDORS = (

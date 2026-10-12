@@ -7,10 +7,11 @@ the rendered phpinfo() table for dangerous `allow_url_include=On`,
 Each merits a separate finding because the remediation is different.
 """
 from __future__ import annotations
+
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 _PHPINFO_PATHS = ("/phpinfo.php", "/info.php", "/test.php", "/php-info.php")
 

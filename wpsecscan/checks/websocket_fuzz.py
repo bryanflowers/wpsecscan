@@ -24,7 +24,6 @@ from urllib.parse import urlparse
 from ..http import Client
 from ..models import Finding
 
-
 _WS_URL_RE = re.compile(r'(?:new\s+WebSocket\s*\(\s*["\']|wss?://)([^"\'\s)]+)', re.IGNORECASE)
 
 

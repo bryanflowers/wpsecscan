@@ -17,6 +17,7 @@ from pathlib import Path
 from ..http import Client
 from ..models import Finding
 
+
 # When bundled by PyInstaller, data files live under sys._MEIPASS.
 def _data_dir() -> Path:
     base = getattr(sys, "_MEIPASS", None)

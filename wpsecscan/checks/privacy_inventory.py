@@ -23,9 +23,9 @@ from __future__ import annotations
 
 import re
 from urllib.parse import urlparse
+
 from ..http import Client
 from ..models import Finding
-
 
 PII_PATTERNS = {
     "email":  re.compile(r'\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b'),
@@ -167,7 +167,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         findings.append(Finding(
             severity="medium",
             title="Right-to-be-erased admin page reachable unauthenticated",
-            evidence=f"GET /wp-admin/erase-personal-data.php -> 200 (looks like the form rendered).",
+            evidence="GET /wp-admin/erase-personal-data.php -> 200 (looks like the form rendered).",
             remediation="WordPress core gates this with `manage_options`. If you see the form anonymously, your `is_super_admin()` plugin or proxy strips auth — investigate.",
             url=target + "/wp-admin/erase-personal-data.php",
         ))

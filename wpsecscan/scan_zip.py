@@ -31,7 +31,6 @@ from pathlib import Path
 
 from .models import CheckResult, Finding, ScanReport
 
-
 # (regex, severity, title, remediation) tuples. Compiled lazily.
 _PATTERNS = [
     (r"\beval\s*\(\s*(?:gzinflate|base64_decode|str_rot13)", "high",

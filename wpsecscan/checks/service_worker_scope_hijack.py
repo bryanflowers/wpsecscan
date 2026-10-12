@@ -18,7 +18,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 _SW_PATHS = (
     "/wp-content/plugins/super-progressive-web-apps/sw.js",
     "/wp-content/plugins/pwa-for-wp/sw.js",

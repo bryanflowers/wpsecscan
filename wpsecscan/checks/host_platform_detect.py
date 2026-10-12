@@ -18,7 +18,6 @@ from urllib.parse import urlparse
 from ..http import Client
 from ..models import Finding
 
-
 # (header-name, header-substring-match, platform-name)
 _HEADER_SIGS = (
     ("server", "wpe", "WP Engine"),

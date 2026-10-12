@@ -22,8 +22,10 @@ def test_dwell_time_note_parses_cve_year():
 
 
 def test_dwell_time_note_handles_current_year():
+    from datetime import datetime as _dt
+    from datetime import timezone as _tz
+
     from wpsecscan.checks.plugin_cves import _dwell_time_note
-    from datetime import datetime as _dt, timezone as _tz
     note, yrs = _dwell_time_note(f"CVE-{_dt.now(_tz.utc).year}-9999")
     assert yrs == 0
     assert "this year" in note
@@ -61,7 +63,8 @@ def test_plugin_cemetery_flags_long_stale(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     # The `from .plugin_cemetery import check as plugin_cemetery` line in
     # checks/__init__.py shadows the submodule, so we reach it via sys.modules.
-    import importlib, sys
+    import importlib
+    import sys
     importlib.import_module("wpsecscan.checks.plugin_cemetery")
     pc = sys.modules["wpsecscan.checks.plugin_cemetery"]
 
@@ -69,7 +72,8 @@ def test_plugin_cemetery_flags_long_stale(monkeypatch, tmp_path):
         if slug == "abandoned-plugin":
             return {"last_updated": "2020-08-14 11:34am GMT", "active_installs": 1000, "tested": "5.5"}
         if slug == "fresh-plugin":
-            from datetime import datetime as _dt, timezone as _tz
+            from datetime import datetime as _dt
+            from datetime import timezone as _tz
             return {"last_updated": _dt.now(_tz.utc).strftime("%Y-%m-%d %I:%M%p GMT"),
                     "active_installs": 50000, "tested": "6.4"}
         return None
@@ -93,7 +97,8 @@ def test_plugin_cemetery_flags_delisted(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     # The `from .plugin_cemetery import check as plugin_cemetery` line in
     # checks/__init__.py shadows the submodule, so we reach it via sys.modules.
-    import importlib, sys
+    import importlib
+    import sys
     importlib.import_module("wpsecscan.checks.plugin_cemetery")
     pc = sys.modules["wpsecscan.checks.plugin_cemetery"]
     monkeypatch.setattr(pc, "_fetch_wporg_sync", lambda slug, timeout=8.0: {"_delisted": True})
@@ -110,7 +115,8 @@ def test_plugin_cemetery_skips_plugins_with_cves(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     # The `from .plugin_cemetery import check as plugin_cemetery` line in
     # checks/__init__.py shadows the submodule, so we reach it via sys.modules.
-    import importlib, sys
+    import importlib
+    import sys
     importlib.import_module("wpsecscan.checks.plugin_cemetery")
     pc = sys.modules["wpsecscan.checks.plugin_cemetery"]
     calls = []
@@ -148,8 +154,9 @@ def test_plugin_cemetery_year_parser():
 
 def test_cmd_compare_exits_64_when_no_snapshots(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    from wpsecscan.__main__ import _cmd_compare
     import pytest as _pytest
+
+    from wpsecscan.__main__ import _cmd_compare
     with _pytest.raises(SystemExit) as exc:
         _cmd_compare(["https://nonexistent.example.com"])
     assert exc.value.code == 64
@@ -159,9 +166,12 @@ def test_cmd_compare_exits_64_when_no_snapshots(monkeypatch, tmp_path, capsys):
 
 def test_cmd_compare_diffs_two_snapshots(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    from wpsecscan.__main__ import _cmd_compare
+    import time as _time
+
+    import pytest as _pytest
+
     from wpsecscan import history as _h
-    import time as _time, pytest as _pytest
+    from wpsecscan.__main__ import _cmd_compare
     # Snapshot 1: clean
     _h.save_report_snapshot("https://x.example.com",
         '{"target":"https://x.example.com","scanned_at":"2026-01-01","results":[]}')
@@ -182,8 +192,9 @@ def test_cmd_compare_diffs_two_snapshots(monkeypatch, tmp_path, capsys):
 
 def test_cmd_badge_no_snapshot_exits_64(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    from wpsecscan.__main__ import _cmd_badge
     import pytest as _pytest
+
+    from wpsecscan.__main__ import _cmd_badge
     with _pytest.raises(SystemExit) as exc:
         _cmd_badge(["https://no-snapshot.example.com"])
     assert exc.value.code == 64
@@ -191,8 +202,8 @@ def test_cmd_badge_no_snapshot_exits_64(monkeypatch, tmp_path, capsys):
 
 def test_cmd_badge_emits_svg_from_snapshot(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    from wpsecscan.__main__ import _cmd_badge
     from wpsecscan import history as _h
+    from wpsecscan.__main__ import _cmd_badge
     _h.save_report_snapshot("https://x.example.com",
         '{"target":"https://x.example.com","summary":{"critical":0,"high":1,"medium":2,"low":3,"info":0}}')
     _cmd_badge(["https://x.example.com"])
@@ -202,8 +213,8 @@ def test_cmd_badge_emits_svg_from_snapshot(monkeypatch, tmp_path, capsys):
 
 def test_cmd_badge_writes_to_out_file(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    from wpsecscan.__main__ import _cmd_badge
     from wpsecscan import history as _h
+    from wpsecscan.__main__ import _cmd_badge
     _h.save_report_snapshot("https://x.example.com",
         '{"target":"https://x.example.com","summary":{"critical":0,"high":0,"medium":0,"low":0,"info":0}}')
     out_file = tmp_path / "badge.svg"
@@ -217,9 +228,10 @@ def test_cmd_badge_writes_to_out_file(monkeypatch, tmp_path):
 
 def test_users_embed_author_leak_detected():
     """REST _embed exposes author slugs even when /users endpoint is locked."""
-    from wpsecscan.checks.users import check
-    from tests.conftest import FakeClient, FakeResponse
     import json as _json
+
+    from tests.conftest import FakeClient, FakeResponse
+    from wpsecscan.checks.users import check
     body = _json.dumps([{"id": 1, "title": {"rendered": "Hi"},
                          "_embedded": {"author": [{"id": 1, "slug": "admin"}]}}])
     client = FakeClient(responses={
@@ -233,9 +245,10 @@ def test_users_embed_author_leak_detected():
 
 def test_users_embed_no_authors_no_finding():
     """If _embedded is missing, the _embed branch must not fire a finding."""
-    from wpsecscan.checks.users import check
-    from tests.conftest import FakeClient, FakeResponse
     import json as _json
+
+    from tests.conftest import FakeClient, FakeResponse
+    from wpsecscan.checks.users import check
     body = _json.dumps([{"id": 1, "title": {"rendered": "Hi"}}])  # no _embedded
     client = FakeClient(responses={
         "/wp-json/wp/v2/posts?per_page=20&_embed=1": FakeResponse(
@@ -277,8 +290,8 @@ def test_auth_pass_stdin_aborts_on_eof(monkeypatch, capsys):
 def test_notion_payloads_shape():
     """notion_payloads emits Notion-API page-create dicts with a title in the
     configured title property + per-finding markdown body."""
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters.issue_export import notion_payloads
-    from wpsecscan.models import Finding, CheckResult, ScanReport
     r = ScanReport(
         target="https://x.com", scanned_at="2026-01-01T00:00:00Z", duration_ms=1,
         results=[CheckResult(check_id="sqli", check_name="SQLi", findings=[
@@ -298,8 +311,8 @@ def test_notion_payloads_shape():
 
 def test_notion_curl_commands_use_bearer_token():
     """Token must come from $NOTION_TOKEN, never embedded literally."""
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters.issue_export import notion_curl_commands
-    from wpsecscan.models import Finding, CheckResult, ScanReport
     r = ScanReport(
         target="https://x.com", scanned_at="2026-01-01", duration_ms=1,
         results=[CheckResult(check_id="x", check_name="x",
@@ -316,8 +329,9 @@ def test_notion_curl_commands_use_bearer_token():
 
 def test_cmd_watch_help_exits_zero(capsys):
     """`wpsecscan watch --help` prints usage and exits 0."""
-    from wpsecscan.__main__ import _cmd_watch
     import pytest
+
+    from wpsecscan.__main__ import _cmd_watch
     with pytest.raises(SystemExit) as ei:
         _cmd_watch(["--help"])
     assert ei.value.code == 0
@@ -329,8 +343,9 @@ def test_cmd_watch_help_exits_zero(capsys):
 
 def test_cmd_refix_unknown_check_id_exits_two(capsys):
     """`wpsecscan refix bad_id https://x` exits 2 with a helpful error."""
-    from wpsecscan.__main__ import _cmd_refix
     import pytest
+
+    from wpsecscan.__main__ import _cmd_refix
     with pytest.raises(SystemExit) as ei:
         _cmd_refix(["wpsecscan_completely_unknown_check_id_xyz", "https://example.com"])
     assert ei.value.code == 2
@@ -350,7 +365,9 @@ def test_cmd_portfolio_no_sites_exits_two(monkeypatch, capsys):
 
 def test_tray_start_returns_none_when_pystray_missing(monkeypatch):
     """If pystray isn't importable, start_tray returns None cleanly."""
-    import sys, builtins
+    import builtins
+    import sys
+
     from wpsecscan import tray
     real_import = builtins.__import__
     def _stub_import(name, *args, **kw):
@@ -386,6 +403,7 @@ def test_scan_honours_is_paused_then_resumes(monkeypatch):
     without deadlock and respects the pause."""
     import asyncio as _asyncio
     import time as _time
+
     from wpsecscan import scanner
     # Stub out the actual checks: select_checks returns a single fake that
     # records its call-time so we can verify pause delayed it.
@@ -438,8 +456,8 @@ def test_redact_jwt_and_session_cookie():
 
 
 def test_redact_report_in_place_counts(monkeypatch):
-    from wpsecscan.models import Finding, CheckResult, ScanReport
     from wpsecscan import ai_safety
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     f = Finding(severity="high", title="leaked",
                   evidence="Bearer eyJabcdefghijklm.eyJsdfg.signaturepart111111",
                   remediation="contact admin@example.com")
@@ -480,7 +498,9 @@ def test_exec_pdf_trend_svg_empty_when_no_snapshots(monkeypatch, tmp_path):
 
 def test_exec_pdf_trend_svg_renders_polyline(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    import json as _json, time as _t
+    import json as _json
+    import time as _t
+
     from wpsecscan import history as _h
     url = "https://trendsvg.example"
     for s in (40, 55, 70):
@@ -495,6 +515,7 @@ def test_exec_pdf_trend_svg_renders_polyline(monkeypatch, tmp_path):
 def test_cmd_publish_writes_signed_pages(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import json as _json
+
     from wpsecscan import history as _h
     url = "https://publish.example"
     _h.save_report_snapshot(url, _json.dumps({
@@ -512,7 +533,8 @@ def test_cmd_publish_writes_signed_pages(monkeypatch, tmp_path, capsys):
     assert receipt["risk_score"] == 78
     assert receipt["signature"].startswith("sha256=")
     # Verify the signature is genuine: recompute with the secret on disk.
-    import hmac as _hmac, hashlib as _h2
+    import hashlib as _h2
+    import hmac as _hmac
     secret = _json.loads((tmp_path / "publish-secret.json").read_text())["secret"]
     canonical = _json.dumps({k: v for k, v in receipt.items() if k != "signature"},
                               sort_keys=True).encode("utf-8")
@@ -558,8 +580,8 @@ def test_remediation_videos_lookup():
 def test_docx_report_rtf_fallback_writes_valid_rtf(monkeypatch, tmp_path):
     """When python-docx isn't installed, we fall back to an .rtf file with
     a valid RTF header."""
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters import docx_report as _dx
-    from wpsecscan.models import Finding, CheckResult, ScanReport
     # Force the ImportError path: monkeypatch _write_docx to raise ImportError
     def _explode(*a, **kw): raise ImportError("python-docx not installed (test stub)")
     monkeypatch.setattr(_dx, "_write_docx", _explode)
@@ -610,8 +632,8 @@ def test_policy_severity_overrides(monkeypatch, tmp_path):
     (tmp_path / "policy.json").write_text(_json.dumps({
         "severity_overrides": {"headers": {"Missing CSP": "critical"}},
     }), encoding="utf-8")
-    from wpsecscan.models import Finding, CheckResult, ScanReport
     from wpsecscan import policy as _p
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     report = ScanReport(target="x", scanned_at="t", duration_ms=1, results=[
         CheckResult(check_id="headers", check_name="x", findings=[
             Finding(severity="medium", title="Missing CSP header"),
@@ -636,8 +658,8 @@ def test_policy_suppression(monkeypatch, tmp_path):
             ],
         },
     }), encoding="utf-8")
-    from wpsecscan.models import Finding, CheckResult, ScanReport
     from wpsecscan import policy as _p
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     report = ScanReport(target="https://x.com", scanned_at="t", duration_ms=1, results=[
         CheckResult(check_id="cors", check_name="x", findings=[
             Finding(severity="high", title="Wildcard CORS origin"),
@@ -718,8 +740,9 @@ def test_push_jira_skips_cached(monkeypatch, tmp_path):
 
 def test_cmd_diff_tree_too_few_snapshots(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    from wpsecscan.__main__ import _cmd_diff_tree
     import pytest
+
+    from wpsecscan.__main__ import _cmd_diff_tree
     with pytest.raises(SystemExit) as ei:
         _cmd_diff_tree(["https://no-snapshots.example"])
     assert ei.value.code == 64
@@ -731,8 +754,9 @@ def test_cmd_diff_tree_renders_added_and_removed(monkeypatch, tmp_path, capsys):
     """Two snapshots, second introduces one finding and removes one — the
     tree should print + and - lines."""
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    from wpsecscan import history as _h
     import json as _json
+
+    from wpsecscan import history as _h
     url = "https://difftree.example"
     snap_a = {
         "scanned_at": "2026-05-25T10:00:00Z",
@@ -802,7 +826,7 @@ def test_client_summarize_report_attaches_extra(monkeypatch):
     """client_summarize_report attaches extra['client_summary'] to high+critical
     findings only, calls LLM the right number of times, ignores low/medium."""
     from wpsecscan import ai_assist
-    from wpsecscan.models import Finding, CheckResult, ScanReport
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     monkeypatch.setattr(ai_assist, "is_configured", lambda: True)
     calls = []
     def fake_llm(prompt, *, system="", max_tokens=600):
@@ -830,7 +854,7 @@ def test_client_summarize_report_attaches_extra(monkeypatch):
 
 def test_client_summarize_report_no_llm_returns_zero(monkeypatch):
     from wpsecscan import ai_assist
-    from wpsecscan.models import Finding, CheckResult, ScanReport
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     monkeypatch.setattr(ai_assist, "is_configured", lambda: False)
     r = ScanReport(
         target="https://x.com", scanned_at="2026-01-01", duration_ms=1,
@@ -842,8 +866,8 @@ def test_client_summarize_report_no_llm_returns_zero(monkeypatch):
 
 def test_csv_reporter_adds_client_summary_column_when_present():
     """csv_out adds a client_summary column only when at least one finding has one."""
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters import csv_out
-    from wpsecscan.models import Finding, CheckResult, ScanReport
     base = ScanReport(
         target="https://x.com", scanned_at="2026-01-01", duration_ms=1,
         results=[CheckResult(check_id="x", check_name="x",
@@ -859,8 +883,8 @@ def test_csv_reporter_adds_client_summary_column_when_present():
 
 
 def test_markdown_reporter_renders_client_summary():
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters import markdown as md
-    from wpsecscan.models import Finding, CheckResult, ScanReport
     f = Finding(severity="critical", title="t", evidence="e", remediation="r")
     f.extra["client_summary"] = "Your checkout could be down for hours."
     f.extra["client_summary_audience"] = "client"
@@ -875,8 +899,9 @@ def test_markdown_reporter_renders_client_summary():
 
 def test_parse_rdap_expiry_high_severity_under_30d():
     """The full _whois_expiry_finding pipeline emits 'high' < 30 days."""
+    from datetime import datetime, timedelta, timezone
+
     from wpsecscan.checks.dns_security import _parse_rdap_expiry
-    from datetime import datetime, timezone, timedelta
     future = (datetime.now(timezone.utc) + timedelta(days=20)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
     _, days = _parse_rdap_expiry({"events": [{"eventAction": "expiration", "eventDate": future}]})
     assert days is not None

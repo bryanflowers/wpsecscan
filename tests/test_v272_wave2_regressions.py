@@ -15,7 +15,6 @@ import sys
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # C3 — audit-log HMAC key is created atomically with 0o600
 # ---------------------------------------------------------------------------
@@ -45,7 +44,7 @@ def test_audit_log_key_created_atomically_at_0o600(tmp_path, monkeypatch):
 
 def _build_test_payload(monkeypatch, tmp_path, ttl=3600):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
-    from wpsecscan.models import Finding, CheckResult, ScanReport
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters import share_link
     f = Finding(severity="high", title="x", evidence="y")
     cr = CheckResult(check_id="demo", check_name="d", findings=[f])
@@ -73,8 +72,8 @@ def test_share_link_verify_rejects_expired(monkeypatch, tmp_path):
     from wpsecscan.reporters import share_link
     p = _build_test_payload(monkeypatch, tmp_path, ttl=3600)
     # Re-sign with a back-dated expires_at to simulate an expired link.
-    import hmac as _hmac
     import hashlib
+    import hmac as _hmac
     import json as _json
     body = {k: v for k, v in p.items() if k not in ("signature", "share_id")}
     body["issued_at"] = body["issued_at"] - 4000
@@ -91,8 +90,8 @@ def test_share_link_verify_rejects_pre_v272_payload(monkeypatch, tmp_path):
     from wpsecscan.reporters import share_link
     p = _build_test_payload(monkeypatch, tmp_path, ttl=3600)
     # Strip the TTL fields and re-sign as if produced by v2.7.1.
-    import hmac as _hmac
     import hashlib
+    import hmac as _hmac
     import json as _json
     body = {k: v for k, v in p.items()
               if k not in ("signature", "share_id", "issued_at", "expires_at")}

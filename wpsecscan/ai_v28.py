@@ -186,9 +186,9 @@ def sandboxed_exec(cmd: list[str], *, timeout_s: int = 30) -> dict:
       macOS  → sandbox-exec
       Windows → not supported; returns skipped.
     """
-    import sys
     import shutil
     import subprocess
+    import sys
     if sys.platform.startswith("linux"):
         bwrap = shutil.which("bwrap")
         if not bwrap:

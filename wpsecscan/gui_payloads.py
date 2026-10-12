@@ -7,14 +7,13 @@ Result can be saved as a finding into the main app's current report.
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import queue
 import threading
 import time
 import tkinter as tk
-from tkinter import StringVar, END, NORMAL, DISABLED, messagebox, ttk
+from tkinter import DISABLED, END, NORMAL, StringVar, messagebox, ttk
 from urllib.parse import urlparse
-
-import ipaddress
 
 import httpx
 
@@ -56,8 +55,8 @@ def _validate_target_url(url: str) -> tuple[bool, str]:
         pass
     return True, ""
 from .payloads import (
-    Payload,
     VALID_CATEGORIES,
+    Payload,
     by_category,
     evaluate_response,
     load_payloads,

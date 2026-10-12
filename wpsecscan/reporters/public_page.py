@@ -11,7 +11,6 @@ from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
 
-
 _TEMPLATE = """<!doctype html>
 <html lang="en">
 <head>

@@ -10,8 +10,8 @@ import socket
 from urllib.parse import urlparse
 
 from ..http import Client
-from ..models import Finding
 from ..integrations import osint as _osint
+from ..models import Finding
 
 
 async def check(client: Client, ctx: dict) -> list[Finding]:

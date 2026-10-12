@@ -38,8 +38,9 @@ def _headless_screens_dir() -> Path:
 
 
 async def _run_headless_template(template: dict, ctx: dict) -> list[Finding]:
-    from playwright.async_api import async_playwright
     import re as _re
+
+    from playwright.async_api import async_playwright
 
     info = template.get("info") or {}
     sev = ({"critical": "critical", "high": "high", "medium": "medium",

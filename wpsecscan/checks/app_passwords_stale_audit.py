@@ -105,13 +105,13 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
                         + (f" ({last} days ago)" if last is not None else "")
                     ),
                     remediation=(
-                        f"1. Confirm with the user that this AP is still needed.\n"
-                        f"2. If not, revoke at /wp-admin/profile.php → "
-                        f"Application Passwords → Revoke.\n"
-                        f"3. If still needed, rotate the token (revoke + reissue) "
-                        f"and update the integration that uses it.\n"
-                        f"4. Set an organisation policy: any AP unused for >90d "
-                        f"is auto-revoked via wp-cron."
+                        "1. Confirm with the user that this AP is still needed.\n"
+                        "2. If not, revoke at /wp-admin/profile.php → "
+                        "Application Passwords → Revoke.\n"
+                        "3. If still needed, rotate the token (revoke + reissue) "
+                        "and update the integration that uses it.\n"
+                        "4. Set an organisation policy: any AP unused for >90d "
+                        "is auto-revoked via wp-cron."
                     ),
                     url=client.url(f"/wp-json/wp/v2/users/{uid}/application-passwords"),
                     extra={"user_id": uid, "user_name": name,

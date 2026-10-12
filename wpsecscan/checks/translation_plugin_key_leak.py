@@ -21,7 +21,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 # Conservative key patterns:
 #   Google Cloud API keys: AIzaSy + 33 chars
 #   DeepL: 36 chars + ":fx" for free plans

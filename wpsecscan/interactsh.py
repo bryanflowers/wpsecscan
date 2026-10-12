@@ -23,7 +23,6 @@ import time
 import urllib.request
 from urllib.error import HTTPError, URLError
 
-
 DEFAULT_SERVER = "oast.live"
 POLL_INTERVAL_S = 3
 DEFAULT_WAIT_S = 30

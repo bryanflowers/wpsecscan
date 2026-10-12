@@ -22,7 +22,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 _INLINE_SCRIPT_RE = re.compile(
     r'<script\b([^>]*)>',
     re.IGNORECASE,

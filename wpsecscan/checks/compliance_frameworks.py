@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+
 from ..http import Client
 from ..models import Finding
 

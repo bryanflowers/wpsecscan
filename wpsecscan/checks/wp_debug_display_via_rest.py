@@ -9,10 +9,11 @@ Distinct from `debug_leaks.py` which probes /?p[]=1 — this hits the
 REST router specifically, which uses different error machinery.
 """
 from __future__ import annotations
+
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 _PHP_TRACE_RE = re.compile(
     r"(?:Fatal error|Stack trace:|Uncaught\s+(?:Error|Exception)|"

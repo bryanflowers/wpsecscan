@@ -6,13 +6,12 @@ import os
 import queue
 import re
 import threading
+import tkinter
+import tkinter as _tk_mod
 import webbrowser
 from datetime import datetime
 from pathlib import Path
-import tkinter
-import tkinter as _tk_mod
-from tkinter import Tk, StringVar, BooleanVar, IntVar, DoubleVar, END, NORMAL, DISABLED, messagebox
-from tkinter import ttk
+from tkinter import DISABLED, END, NORMAL, BooleanVar, DoubleVar, IntVar, StringVar, Tk, messagebox, ttk
 from urllib.parse import urlparse
 
 from . import __version__
@@ -225,9 +224,21 @@ class App:
         self.deep_throttle_var = BooleanVar(value=False)
         from .checks.login_throttle_deep import (
             DEFAULT_ATTEMPTS as _DT_ATTEMPTS_DEFAULT,
+        )
+        from .checks.login_throttle_deep import (
             DEFAULT_PACING_SECONDS as _DT_PACING_DEFAULT,
-            MIN_ATTEMPTS as _DT_MIN_A, MAX_ATTEMPTS as _DT_MAX_A,
-            MIN_PACING_SECONDS as _DT_MIN_P, MAX_PACING_SECONDS as _DT_MAX_P,
+        )
+        from .checks.login_throttle_deep import (
+            MAX_ATTEMPTS as _DT_MAX_A,
+        )
+        from .checks.login_throttle_deep import (
+            MAX_PACING_SECONDS as _DT_MAX_P,
+        )
+        from .checks.login_throttle_deep import (
+            MIN_ATTEMPTS as _DT_MIN_A,
+        )
+        from .checks.login_throttle_deep import (
+            MIN_PACING_SECONDS as _DT_MIN_P,
         )
         self._DT_BOUNDS = (_DT_MIN_A, _DT_MAX_A, _DT_MIN_P, _DT_MAX_P)
         self.deep_throttle_attempts_var = IntVar(value=_DT_ATTEMPTS_DEFAULT)
@@ -1452,6 +1463,7 @@ class App:
             messagebox.showinfo(APP_NAME, "Run a scan first.")
             return
         from tkinter import filedialog
+
         from .reporters import markdown as _md
         path = filedialog.asksaveasfilename(defaultextension=".md", filetypes=[("Markdown", "*.md"), ("Text", "*.txt")])
         if not path:
@@ -1959,8 +1971,8 @@ class App:
         except Exception:  # noqa: BLE001
             pass
         # Risk score badge
-        from .risk import risk_tier, risk_label, risk_grade
         from . import history as _history
+        from .risk import risk_grade, risk_label, risk_tier
         score = report.risk_score
         tier = risk_tier(score)
         tier_fg = {"green": "#6cc474", "yellow": "#f0c674",
@@ -2019,8 +2031,9 @@ class App:
                 token = (self.github_token_var.get() or "").strip()
                 threshold = self.github_threshold_var.get() or "high"
                 if repo and token:
-                    from .integrations import github_issues as _gh
                     import threading as _t
+
+                    from .integrations import github_issues as _gh
                     def _gh_worker(report=report, repo=repo, token=token, threshold=threshold, _self=self):
                         summary = _gh.create_issues_for_report(report, repo, token, threshold=threshold)
                         msg = (f"✓ {summary['ok']} GitHub issue(s) created"
@@ -2240,8 +2253,8 @@ class App:
         Pre-fix Linux/macOS users saw a confusing
         `module 'os' has no attribute 'startfile'` error.
         """
-        import sys as _sys
         import subprocess as _sp
+        import sys as _sys
         target = None
         for cand in (self._last_html_path, self._last_json_path):
             if cand and cand.exists():
@@ -2351,8 +2364,8 @@ class App:
         """v2.8.4 P3 — start the mobile_api PWA server in a background
         thread, then show a dialog with the LAN URL + a QR-encoded
         token URL the user can scan with their phone."""
-        import socket as _s
         import secrets as _sec
+        import socket as _s
         # Generate a fresh token if none set in env; surface it in dialog.
         token = os.environ.get("WPSECSCAN_MOBILE_TOKEN") or _sec.token_urlsafe(24)
         os.environ["WPSECSCAN_MOBILE_TOKEN"] = token
@@ -2403,6 +2416,7 @@ class App:
         # proxy logs that intercepted the navigation.
         try:
             import base64 as _b64
+
             import qrcode as _qr  # type: ignore[import-not-found]
             qr_url = url  # base URL only; user enters token in the PWA
             qr = _qr.QRCode(version=1, box_size=4, border=2)
@@ -2725,8 +2739,9 @@ class App:
             self._toast("✗ No scan to star yet", duration_ms=4000)
             return
         try:
-            from . import history as _h
             from datetime import datetime as _dt
+
+            from . import history as _h
             star_dir = Path(_h._home()) / "starred"
             star_dir.mkdir(parents=True, exist_ok=True)
             ts = _dt.now().strftime("%Y%m%d-%H%M%S")
@@ -2993,9 +3008,11 @@ class App:
             return
         if not target.startswith(("http://", "https://")):
             target = "https://" + target
-        from . import history as _h
         import json as _json
-        import tempfile, webbrowser
+        import tempfile
+        import webbrowser
+
+        from . import history as _h
         snaps = _h.snapshot_history(target)[-12:]
         if len(snaps) < 2:
             messagebox.showinfo(APP_NAME,
@@ -3081,8 +3098,9 @@ class App:
 
     def _open_saved_report(self) -> None:
         """#55: open a saved JSON report from disk into the current view."""
-        from tkinter import filedialog
         import json as _json
+        from tkinter import filedialog
+
         from .reporters import json_out as _jo  # noqa: PLC0415
 
         path = filedialog.askopenfilename(
@@ -3107,7 +3125,7 @@ class App:
             report = None
         if report is None:
             # Fallback: build it manually.
-            from .models import Finding, CheckResult, ScanReport
+            from .models import CheckResult, Finding, ScanReport
             results = []
             for r in data.get("results", []) or []:
                 findings = []
@@ -3146,7 +3164,7 @@ class App:
         self.status_var.set(f"Opened: {Path(path).name} — {len(report.all_findings)} findings.")
         self._toast(f"✓ Loaded {Path(path).name}", duration_ms=4000)
 
-    def _populate_tree(self, report: "ScanReport") -> None:
+    def _populate_tree(self, report: ScanReport) -> None:
         """v2.8.4 L8 — rebuild the findings Treeview from a ScanReport.
         Mirrors the per-scan completion path. Clears any prior tree,
         rebuilds per-check rows, refreshes summary + risk badge."""
@@ -3215,8 +3233,8 @@ class App:
             pass
 
         try:
-            from . import demo as _demo
             from . import activity as _act
+            from . import demo as _demo
         except ImportError:
             return
 
@@ -3231,8 +3249,9 @@ class App:
                 _act.emit(cat, msg)
                 _tm.sleep(0.06)
             # Write artifacts to the demo dir
-            from .history import _home as _h_home
             from pathlib import Path as _Path
+
+            from .history import _home as _h_home
             out_dir = _Path(_h_home()) / "demo"
             try:
                 _demo.write_artifacts(report, out_dir)
@@ -3318,6 +3337,7 @@ class App:
 
     def _save_profile_prompt(self) -> None:
         from tkinter import simpledialog
+
         from . import history as _history
         name = simpledialog.askstring(APP_NAME, "Profile name:")
         if not name or not name.strip():
@@ -3424,10 +3444,11 @@ class App:
     def _on_diff_last(self) -> None:
         if self._current_report is None:
             return
+        import tempfile
+        from pathlib import Path
+
         from . import history as _history
         from .diff import diff as _diff_fn
-        from pathlib import Path
-        import tempfile
 
         prior_path = _history.previous_report_path(self._current_report.target)
         if not prior_path or not prior_path.exists():
@@ -3497,8 +3518,9 @@ class App:
         tts_enabled, locale, filters, sash, etc.). API tokens live in
         settings.json (owned by gui_windows.py)."""
         try:
-            from . import history as _h
             import json as _j
+
+            from . import history as _h
             p = Path(_h._home()) / "prefs.json"
             if not p.exists():
                 return default
@@ -3517,8 +3539,9 @@ class App:
         different Lock instance, defeating serialisation.
         """
         try:
-            from . import history as _h
             import json as _j
+
+            from . import history as _h
             with _PREF_SAVE_LOCK:
                 p = Path(_h._home()) / "prefs.json"
                 blob = {}
@@ -3806,8 +3829,8 @@ class App:
 
         force=True bypasses the 24-hour cache (used by Help → Check for updates)."""
         try:
-            from . import auto_update as _au
             from . import __version__ as _ver
+            from . import auto_update as _au
             rel = _au.check_for_update(_ver, channel="stable", force=force)
         except Exception:  # noqa: BLE001
             return
@@ -3935,7 +3958,8 @@ class App:
                     wants_ack = True
             if is_first_run and wants_ack:
                 try:
-                    import json as _j, time as _t
+                    import json as _j
+                    import time as _t
                     self._defender_ack_path().parent.mkdir(parents=True, exist_ok=True)
                     self._defender_ack_path().write_text(_j.dumps({"ts": _t.time()}), encoding="utf-8")
                 except OSError:
@@ -3962,7 +3986,8 @@ class App:
         if is_first_run:
             def _skip_all_first_run():
                 try:
-                    import json as _j, time as _t
+                    import json as _j
+                    import time as _t
                     self._defender_ack_path().parent.mkdir(parents=True, exist_ok=True)
                     self._defender_ack_path().write_text(_j.dumps({"ts": _t.time()}), encoding="utf-8")
                 except OSError:
@@ -4012,8 +4037,8 @@ class App:
 
         Tries the bundled scripts\ path first, falls back to an inline command
         if the script isn't where we expect."""
-        import sys as _sys
         import subprocess
+        import sys as _sys
         try:
             if getattr(_sys, "frozen", False):
                 exe_path = _sys.executable
@@ -4249,8 +4274,9 @@ class App:
         cid = self._selected_finding_check_id()
         if f is None or cid is None or self._current_report is None:
             return
-        from . import history as _h
         from tkinter import simpledialog
+
+        from . import history as _h
         note = ""
         if status:
             note = simpledialog.askstring(
@@ -4292,8 +4318,9 @@ class App:
         cid = self._selected_finding_check_id()
         if f is None or cid is None or self._current_report is None:
             return
-        from . import history as _h
         from tkinter import simpledialog
+
+        from . import history as _h
         current = _h.get_assignee(self._current_report.target, cid, f.title) or ""
         from tkinter import simpledialog as _sd
         new = _sd.askstring(
@@ -4734,7 +4761,7 @@ class App:
             return
         _cfg.save(mode=new)
         messagebox.showinfo("Mode saved",
-                              f"Saved. Restart the GUI for the new layout to take effect.")
+                              "Saved. Restart the GUI for the new layout to take effect.")
 
     def _open_bug_report(self) -> None:
         try:

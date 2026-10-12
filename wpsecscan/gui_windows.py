@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import json
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
 from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
 
 # Tiny re-imports — keep this module independent of the main GUI module load order.
 BG = "#1c1f24"
@@ -316,8 +316,9 @@ def _mt_worker(app, urls: list[str], results_tv: ttk.Treeview, start_btn=None, w
     unhandled TclError in the Tk event loop.
     """
     import asyncio
-    from .scanner import scan as _scan
+
     from . import history as _h
+    from .scanner import scan as _scan
 
     def _safe_after(fn):
         """Schedule fn() on the main thread only if the Toplevel still exists."""
@@ -496,6 +497,7 @@ def open_trend(app) -> None:
     # would duplicate the latest data point in the sparkline (it's just an alias
     # for the most recent timestamped file).
     import glob as _glob
+
     from . import history as _h
     safe = _h._safe_filename(url)
     reports_dir = Path.home() / ".wpsecscan" / "reports"
@@ -1197,6 +1199,7 @@ def open_diff_viewer(app) -> None:
     open it in the default browser."""
     import tempfile
     import webbrowser
+
     from .reporters import diff_viewer as _dv
     fp = Path(tempfile.gettempdir()) / "wpsecscan_diff_viewer.html"
     _dv.write(fp)
@@ -1212,7 +1215,9 @@ def open_snapshot_diff_pane(app) -> None:
     fallback (Tk has no native browser — we re-use the system default via
     a `file://` URL but inside an explicit Toplevel-managed lifecycle so it
     feels integrated rather than a random browser tab)."""
-    import tempfile, webbrowser
+    import tempfile
+    import webbrowser
+
     from .reporters import snapshot_compare as _sc
 
     win = tk.Toplevel(app.root)

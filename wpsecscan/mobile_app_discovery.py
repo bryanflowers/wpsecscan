@@ -23,7 +23,6 @@ import json
 
 from .http import Client
 
-
 ASSOC_PATHS = (
     "/.well-known/apple-app-site-association",
     "/apple-app-site-association",

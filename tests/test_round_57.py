@@ -99,8 +99,9 @@ def test_interactsh_id_format():
 
 
 def test_template_signature_no_manifest():
-    from wpsecscan.template_signature import filter_verified
     from pathlib import Path
+
+    from wpsecscan.template_signature import filter_verified
     verified, tampered = filter_verified(Path("/nonexistent"), [Path("a"), Path("b")])
     assert len(verified) == 2 and tampered == []
 
@@ -135,7 +136,7 @@ def test_openapi_scanner_no_spec():
 
 
 def test_js_plugin_list_empty(tmp_path, monkeypatch):
-    from wpsecscan import js_plugin, history
+    from wpsecscan import history, js_plugin
     monkeypatch.setattr(history, "_home", lambda: tmp_path)
     assert js_plugin.list_js_plugins() == []
 
@@ -168,8 +169,9 @@ def test_attack_checkpoint_persistence(tmp_path, monkeypatch):
 # ---------- Wave E: cross-cutting ----------
 
 def test_burp_import_missing_file():
-    from wpsecscan.burp_import import import_burp_project
     import pytest
+
+    from wpsecscan.burp_import import import_burp_project
     with pytest.raises(FileNotFoundError):
         import_burp_project(Path("/nonexistent/foo.burp"))
 

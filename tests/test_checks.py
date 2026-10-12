@@ -20,8 +20,9 @@ def test_core_version_meta_generator(ctx):
 
 
 def test_users_rest_enumeration(ctx):
-    from wpsecscan.checks.users import check
     import json as _json
+
+    from wpsecscan.checks.users import check
     rest_body = _json.dumps([{"id": 1, "slug": "admin"}, {"id": 2, "slug": "editor"}])
     client = FakeClient(responses={
         "/wp-json/wp/v2/users": FakeResponse(text=rest_body, headers={"content-type": "application/json"}),
@@ -40,8 +41,9 @@ def test_users_no_indicators(ctx):
 def test_users_rest_embed_author_leak(ctx):
     """_embed pulls author objects into /posts even when /users is locked down.
     This is the standard WordPress REST API behaviour."""
-    from wpsecscan.checks.users import check
     import json as _json
+
+    from wpsecscan.checks.users import check
     posts_body = _json.dumps([
         {"id": 1, "title": {"rendered": "Hello"},
          "_embedded": {"author": [{"id": 1, "slug": "admin", "name": "Site Admin"}]}},
@@ -60,8 +62,9 @@ def test_users_rest_embed_author_leak(ctx):
 def test_users_rest_users_endpoint_with_only_null_entries_skips(ctx):
     """A REST route that returns [null] or [{}] must NOT fire a user-disclosure
     finding — that was a false-positive on plugins overriding the route."""
-    from wpsecscan.checks.users import check
     import json as _json
+
+    from wpsecscan.checks.users import check
     junk_body = _json.dumps([None, {}])
     client = FakeClient(responses={
         "/wp-json/wp/v2/users": FakeResponse(text=junk_body, headers={"content-type": "application/json"}),
@@ -282,6 +285,7 @@ def test_baseline_calibration_stable(ctx):
 
 def test_diff_mode_picks_new(tmp_path):
     import json
+
     from wpsecscan.diff import diff
     old = {"target": "x", "scanned_at": "t1", "results": [
         {"check_id": "c1", "check_name": "C1", "findings": [

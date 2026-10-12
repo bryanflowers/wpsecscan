@@ -263,6 +263,7 @@ async def scan(
         if checkpoint_path.exists():
             try:
                 import json as _json
+
                 from .models import CheckResult, Finding
                 blob = _json.loads(checkpoint_path.read_text(encoding="utf-8"))
                 if blob.get("target") == target:

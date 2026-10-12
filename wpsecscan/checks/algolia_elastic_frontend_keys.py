@@ -21,7 +21,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 _KEY_RES = (
     re.compile(r'algoliaApiKey["\']?\s*[:=]\s*["\']([A-Za-z0-9+/=]{16,})["\']', re.IGNORECASE),
     re.compile(r'algoliasearch[^"]*apiKey["\']?\s*:\s*["\']([A-Za-z0-9+/=]{16,})["\']', re.IGNORECASE),

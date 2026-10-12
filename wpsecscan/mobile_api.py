@@ -420,9 +420,10 @@ class _Handler(BaseHTTPRequestHandler):
         def _bg_scan():
             try:
                 import asyncio as _asyncio
-                from .scanner import scan as _scan
+
                 from . import history as _h
                 from .reporters import json_out as _jr
+                from .scanner import scan as _scan
                 report = _asyncio.run(_scan(target, timeout=15.0,
                                               aggressive=False, sequential=True))
                 _h.save_report_snapshot(target, _jr.render(report))

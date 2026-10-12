@@ -84,8 +84,9 @@ _SHARE_DEFAULT_TTL_S = 30 * 24 * 3600
 def build_share_payload(report: ScanReport, check_id: str, index: int,
                           *, ttl_seconds: int = _SHARE_DEFAULT_TTL_S) -> dict[str, Any]:
     """Build the JSON-LD payload for one finding."""
-    from .. import __version__
     import time as _time
+
+    from .. import __version__
 
     target_check = next((r for r in report.results if r.check_id == check_id), None)
     if not target_check:

@@ -52,7 +52,7 @@ class SharedClientPool:
                     await c.aclose()
             self._clients.clear()
 
-    async def __aenter__(self) -> "SharedClientPool":
+    async def __aenter__(self) -> SharedClientPool:
         return self
 
     async def __aexit__(self, *_) -> None:

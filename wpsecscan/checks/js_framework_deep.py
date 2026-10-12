@@ -8,10 +8,10 @@ versions against a minimum-safe-version pin list.
 from __future__ import annotations
 
 import re
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urljoin, urlparse
+
 from ..http import Client
 from ..models import Finding
-
 
 # Markers in HTML / inline JS / chunk URLs
 DETECTORS = [

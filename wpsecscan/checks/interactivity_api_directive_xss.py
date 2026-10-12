@@ -19,7 +19,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 _CANARY = "WPSECSCAN_XX_77"
 _DIRECTIVE_RE = re.compile(
     r'data-wp-(?:on|bind|context|class|style|text|each|init|run|key)'

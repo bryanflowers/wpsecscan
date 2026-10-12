@@ -96,11 +96,12 @@ Signed for {_html.escape(vendor)}: ____________________________________________
 
 
 def _reportlab_pdf(report: ScanReport, path: Path, *, vendor: str, customer: str | None) -> None:
-    from reportlab.lib.pagesizes import letter
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import inch
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
     from reportlab.lib.colors import HexColor
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
     from ..risk import risk_grade
 
     score = report.risk_score

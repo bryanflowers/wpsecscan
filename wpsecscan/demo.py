@@ -23,7 +23,6 @@ from pathlib import Path
 from . import activity as _act
 from .models import CheckResult, Finding, ScanReport
 
-
 DEMO_TARGET = "https://wpsecscan-demo.invalid"
 
 
@@ -217,8 +216,11 @@ def write_artifacts(report: ScanReport, out_dir: Path) -> dict[str, Path]:
         except Exception:  # noqa: BLE001
             pass
 
-    from .reporters import html as _h, json_out as _j, csv_out as _c
-    from .reporters import sarif as _s, markdown as _m
+    from .reporters import csv_out as _c
+    from .reporters import html as _h
+    from .reporters import json_out as _j
+    from .reporters import markdown as _m
+    from .reporters import sarif as _s
     _try("html",     ".html",     lambda p: _h.write(report, p))
     _try("json",     ".json",     lambda p: _j.write(report, p))
     _try("csv",      ".csv",      lambda p: _c.write(report, p))

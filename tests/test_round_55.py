@@ -85,8 +85,8 @@ def test_header_smuggling_case_skips_passive():
 
 
 def test_issue_export_payloads():
-    from wpsecscan.reporters.issue_export import jira_payloads, github_payloads, linear_payloads
-    from wpsecscan.models import ScanReport, CheckResult, Finding
+    from wpsecscan.models import CheckResult, Finding, ScanReport
+    from wpsecscan.reporters.issue_export import github_payloads, jira_payloads, linear_payloads
     rep = ScanReport(target="https://x.com", scanned_at="now", duration_ms=0,
                      results=[CheckResult(check_id="cors", check_name="CORS",
                                           findings=[Finding(severity="high", title="X")])])
@@ -96,7 +96,7 @@ def test_issue_export_payloads():
 
 
 def test_risk_weights_load_defaults():
-    from wpsecscan.risk_weights import load_weights, DEFAULT_WEIGHTS, reset_to_defaults
+    from wpsecscan.risk_weights import DEFAULT_WEIGHTS, load_weights, reset_to_defaults
     reset_to_defaults()
     load_weights.cache_clear()
     w = load_weights()
@@ -145,8 +145,9 @@ def test_sbom_build():
 # ----- Wave D — perf -----
 
 def test_incremental_skip_logic(tmp_path, monkeypatch):
-    from wpsecscan import incremental
     from datetime import datetime
+
+    from wpsecscan import incremental
     # No snapshot -> always scan (returns False, i.e. don't skip)
     assert incremental.should_skip_check("subdomains", "https://x.com", datetime.now()) is False
 
@@ -154,8 +155,8 @@ def test_incremental_skip_logic(tmp_path, monkeypatch):
 # ----- Wave E — extension -----
 
 def test_report_query_parsing():
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.report_query import query
-    from wpsecscan.models import ScanReport, CheckResult, Finding
     rep = ScanReport(target="https://x.com", scanned_at="now", duration_ms=0,
                      results=[CheckResult(check_id="cors", check_name="CORS",
                                           findings=[
@@ -184,8 +185,8 @@ def test_region_egress_noop_when_unset(monkeypatch):
 
 
 def test_auto_pr_fixes_for_empty_report():
-    from wpsecscan.models import ScanReport
     from wpsecscan import auto_pr
+    from wpsecscan.models import ScanReport
     rep = ScanReport(target="https://x.com", scanned_at="now", duration_ms=0)
     assert auto_pr.fixes_for(rep) == []
 
@@ -251,6 +252,7 @@ def test_round55_compliance_entries_present():
 def test_bug1_api_server_bearer_uses_compare_digest():
     """B1: the bearer-token comparison must use hmac.compare_digest."""
     import inspect
+
     from wpsecscan import api_server
     src = inspect.getsource(api_server)
     assert "hmac.compare_digest" in src, \
@@ -295,8 +297,8 @@ def test_bug6_gui_windows_defines_app_name():
 
 def test_bug7_report_query_tilde_operator_now_tokenizes():
     """B7: the `~` regex operator was unreachable because of \\b boundaries."""
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.report_query import query
-    from wpsecscan.models import ScanReport, CheckResult, Finding
     rep = ScanReport(target="https://x.com", scanned_at="now", duration_ms=0,
                      results=[CheckResult(check_id="cors", check_name="CORS",
                                           findings=[Finding(severity="high", title="ABC123 found"),
@@ -322,6 +324,7 @@ def test_bug9_completion_flags_match_argparse():
 def test_bug10_hostname_collision_no_unused_parts():
     """B10: the `parts = host.split('.')` line was dead code; removed."""
     import inspect
+
     from wpsecscan.checks import hostname_collision
     src = inspect.getsource(hostname_collision)
     assert "parts = host.split" not in src
@@ -333,6 +336,7 @@ def test_c1_should_skip_check_is_actually_called_by_scanner():
     """C1: the K26 incremental-skip helper was dead — verify scanner.py
     imports it inside the per-check loops."""
     import inspect
+
     from wpsecscan import scanner
     src = inspect.getsource(scanner)
     assert "incremental" in src and "should_skip_check" in src, \
@@ -342,6 +346,7 @@ def test_c1_should_skip_check_is_actually_called_by_scanner():
 def test_c1b_scan_signature_accepts_since():
     """C1: scanner.scan() must accept the `since=` kwarg from __main__.py."""
     import inspect
+
     from wpsecscan.scanner import scan
     params = inspect.signature(scan).parameters
     assert "since" in params, "scan() must accept since= for K26 incremental mode"
@@ -351,6 +356,7 @@ def test_c2_reset_run_called_per_target_in_main():
     """C2: __main__.py must call check_health.reset_run() inside the
     multi-target loop so J20 auto-disable state doesn't leak across targets."""
     import inspect
+
     from wpsecscan import __main__ as _m
     src = inspect.getsource(_m)
     # Either the explicit import inside the loop, or a top-level import + the call
@@ -361,7 +367,8 @@ def test_c3_record_duration_skipped_on_error(tmp_path, monkeypatch):
     """C3: record_duration must NOT be called when the check raised
     (exception-aborted durations distort the rolling-window baseline)."""
     import asyncio
-    from wpsecscan import scanner, check_health
+
+    from wpsecscan import check_health, scanner
     from wpsecscan.models import CheckResult
 
     # Track every record_duration call
@@ -382,6 +389,7 @@ def test_c4_onboarding_wizard_has_first_run_hook():
     """C4: FEATURES.md claimed first-run onboarding wizard; gui.py must
     schedule `_maybe_show_onboarding_wizard_first_run` from __init__."""
     import inspect
+
     from wpsecscan import gui
     src = inspect.getsource(gui)
     assert "_maybe_show_onboarding_wizard_first_run" in src, \
@@ -400,7 +408,7 @@ def test_c5_risk_score_falls_back_when_weights_load_raises(monkeypatch):
         raise RuntimeError("corrupted weights file")
 
     monkeypatch.setattr(rw, "load_weights", _boom)
-    from wpsecscan.models import ScanReport, CheckResult, Finding
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     rep = ScanReport(target="https://x.com", scanned_at="now", duration_ms=0,
                      results=[CheckResult(check_id="cors", check_name="CORS",
                                           findings=[Finding(severity="high", title="X")])])
@@ -412,6 +420,7 @@ def test_c6_completion_short_circuits_before_logging():
     """C6: --completion must be checked BEFORE logmod.configure to avoid
     contaminating the output when the user pipes it."""
     import inspect
+
     from wpsecscan import __main__ as _m
     src = inspect.getsource(_m)
     # Locate the first occurrence of each

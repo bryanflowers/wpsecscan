@@ -14,7 +14,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _PROBES = (
     "/wp-admin/site-health.php?tab=debug",
     "/wp-json/wp-site-health/v1/debug-data",

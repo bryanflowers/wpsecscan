@@ -10,10 +10,11 @@ Bundle, etc). Two problems:
   3. Screen readers break on obfuscated `mailto:` links → a11y regression.
 """
 from __future__ import annotations
+
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 # Detection patterns for popular obfuscation libraries.
 _OBFUSCATORS = (
