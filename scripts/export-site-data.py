@@ -42,9 +42,9 @@ sys.path.insert(0, str(ROOT))
 # Importing the package must never touch the network.
 os.environ.setdefault("WPSECSCAN_NO_LIVE", "1")
 
-# Measured from the last release assets (wpsecscan.exe / wpsecscan-gui.exe are
-# ~31 MB each); not derivable from source. Update when the assets change size.
-EXE_SIZE_MB = 31
+# Measured from the v2.9.0 release assets (wpsecscan.exe / wpsecscan-gui.exe are
+# ~22 MB each); not derivable from source. Update when the assets change size.
+EXE_SIZE_MB = 22
 LICENSE_ID = "AGPL-3.0-or-later"
 REPO_SLUG = "bryanflowers/wpsecscan"
 
