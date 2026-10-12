@@ -15,6 +15,7 @@ BG = "#1c1f24"
 FG = "#e6edf3"
 MUTED = "#8b949e"
 PANEL = "#22262d"
+ACCENT = "#2f81f7"
 APP_NAME = "WPSecScan"  # B6: previously read but never defined → onboarding wizard crashed.
 
 

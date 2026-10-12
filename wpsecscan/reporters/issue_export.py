@@ -14,11 +14,10 @@ import html as _html
 import json
 from pathlib import Path
 
-from ..models import ScanReport, SEVERITY_RANK
+from ..models import Finding, ScanReport, SEVERITY_RANK
 
 
-def _top_findings(report: ScanReport, min_sev: str = "medium") -> list[tuple[str, "Finding"]]:
-    from ..models import Finding
+def _top_findings(report: ScanReport, min_sev: str = "medium") -> list[tuple[str, Finding]]:
     threshold = SEVERITY_RANK.get(min_sev, 2)
     out: list[tuple[str, Finding]] = []
     for r in report.results:
