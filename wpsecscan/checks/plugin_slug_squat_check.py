@@ -23,7 +23,6 @@ from pathlib import Path
 from ..http import Client
 from ..models import Finding
 
-
 MAX_PLUGINS_PER_SCAN = 20
 CACHE_TTL_SECONDS = 24 * 3600
 

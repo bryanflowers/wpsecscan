@@ -8,8 +8,8 @@ page generator + pentest engagement-letter generator.
 from __future__ import annotations
 
 from pathlib import Path
-from ..models import ScanReport
 
+from ..models import ScanReport
 
 HACKERONE_TEMPLATE = """**Summary**: {title}
 

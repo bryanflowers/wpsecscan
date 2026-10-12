@@ -9,9 +9,9 @@
 from __future__ import annotations
 
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 COMMERCE_ALT = (
     ("Easy Digital Downloads", "/wp-content/plugins/easy-digital-downloads/easy-digital-downloads.php",

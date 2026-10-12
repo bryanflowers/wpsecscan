@@ -12,7 +12,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 INJECTION_PROBES = (
     # (name, param, value, expected_marker_in_response)
     ("LDAP", "q", "*)(uid=*))(|(uid=*", "LDAP filter"),

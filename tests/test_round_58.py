@@ -1,8 +1,10 @@
 """Round-58 — 117-feature smoke tests."""
 from __future__ import annotations
+
 import asyncio
 import json
 from pathlib import Path
+
 from tests.conftest import FakeClient, FakeResponse
 
 
@@ -114,15 +116,15 @@ def test_osint_module_imports():
 
 
 def test_bounty_format_h1():
-    from wpsecscan.reporters.bounty_format import format_for_hackerone
     from wpsecscan.models import Finding
+    from wpsecscan.reporters.bounty_format import format_for_hackerone
     out = format_for_hackerone(Finding(severity="high", title="Test", evidence="e", remediation="r"))
     assert "Test" in out and "**Severity**" in out
 
 
 def test_trust_center_html():
-    from wpsecscan.reporters.bounty_format import trust_center_html
     from wpsecscan.models import ScanReport
+    from wpsecscan.reporters.bounty_format import trust_center_html
     rep = ScanReport(target="https://x.com", scanned_at="now", duration_ms=0)
     html = trust_center_html(rep, brand="Acme")
     assert "<title>Acme" in html
@@ -134,8 +136,8 @@ def test_trust_center_html():
 # ---- Wave V: exec pack ----
 
 def test_executive_pack_costs():
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters.executive_pack import cost_estimates, priority_queue
-    from wpsecscan.models import ScanReport, CheckResult, Finding
     rep = ScanReport(target="https://x.com", scanned_at="now", duration_ms=0,
                      results=[CheckResult(check_id="sqli", check_name="SQLi",
                                           findings=[Finding(severity="high", title="X")])])

@@ -229,8 +229,9 @@ def test_epss_failure_serves_previous_cache_even_if_stale(monkeypatch, tmp_path)
 
 
 def test_epss_poisoned_empty_entry_is_refetched(monkeypatch, tmp_path):
-    from wpsecscan import threat_intel_v2 as ti
     import time
+
+    from wpsecscan import threat_intel_v2 as ti
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     ti._cache_path().write_text(
         json.dumps({"epss:CVE-2024-0001": {"ts": int(time.time()), "value": {}}}), encoding="utf-8")

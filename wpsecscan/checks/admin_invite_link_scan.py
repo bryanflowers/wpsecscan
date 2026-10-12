@@ -15,7 +15,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 _INVITE_PATTERNS = (
     (re.compile(r"discord\.gg/[A-Za-z0-9-]{4,32}"), "Discord"),
     (re.compile(r"discord\.com/invite/[A-Za-z0-9-]{4,32}"), "Discord"),

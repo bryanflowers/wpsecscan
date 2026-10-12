@@ -10,6 +10,7 @@ We probe wp-cron.php directly (no DOING_CRON header) and time the response.
 from __future__ import annotations
 
 import time
+
 from ..http import Client
 from ..models import Finding
 

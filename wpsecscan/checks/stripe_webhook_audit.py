@@ -20,7 +20,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _WEBHOOK_PATHS = (
     "/wp-json/wc/v3/webhooks",
     "/wc-api/wc_stripe",

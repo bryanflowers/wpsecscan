@@ -11,7 +11,6 @@ import json
 from html import escape
 from pathlib import Path
 
-
 _SEVERITY_RANK = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 
 
@@ -43,7 +42,7 @@ def render(old_report: dict, new_report: dict) -> str:
 
     def _col(keys: list[str], src: dict, kind: str) -> str:
         if not keys:
-            return f"<p class=empty>none</p>"
+            return "<p class=empty>none</p>"
         rows = []
         for k in keys:
             f = src[k]

@@ -155,8 +155,10 @@ def save_report_snapshot(url: str, report_json_text: str) -> None:
     """
     if not url or not report_json_text:
         return
-    from datetime import datetime as _dt, timezone as _tz
-    import hmac as _hmac, hashlib as _h
+    import hashlib as _h
+    import hmac as _hmac
+    from datetime import datetime as _dt
+    from datetime import timezone as _tz
     safe = _safe_filename(url)
     ts = _dt.now(_tz.utc).strftime("%Y%m%d-%H%M%S")
     try:
@@ -242,7 +244,8 @@ def verify_snapshot(snap_path: Path) -> tuple[bool, str]:
         body = snap_path.read_text(encoding="utf-8")
     except OSError as e:
         return False, str(e)
-    import hmac as _hmac, hashlib as _h
+    import hashlib as _h
+    import hmac as _hmac
     secret = _snapshot_signing_secret()
     actual = _hmac.new(secret.encode("utf-8"), body.encode("utf-8"), _h.sha256).hexdigest()
     if _hmac.compare_digest(expected, actual):

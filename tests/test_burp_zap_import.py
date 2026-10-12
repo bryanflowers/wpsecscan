@@ -5,7 +5,6 @@ import pytest
 
 from wpsecscan.importers import burp_zap
 
-
 _BURP_XML = """<?xml version="1.0"?>
 <issues>
   <issue>

@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import json
 import sys
-from pathlib import Path
 from functools import lru_cache
+from pathlib import Path
 
 
 def _tutorial_path() -> Path:

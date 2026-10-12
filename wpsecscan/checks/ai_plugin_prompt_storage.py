@@ -22,7 +22,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 # Fingerprints (response-body substring → human-readable plugin name).
 _PLUGIN_SIGS = [
     ("ai-engine", "AI Engine"),

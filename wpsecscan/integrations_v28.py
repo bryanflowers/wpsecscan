@@ -26,7 +26,6 @@ from typing import Any
 
 import httpx
 
-
 _TIMEOUT = 10.0
 
 

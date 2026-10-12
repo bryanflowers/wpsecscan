@@ -58,7 +58,7 @@ def _render_plain(report: ScanReport) -> None:
         f"Summary:  {s.get('critical',0)} critical · {s.get('high',0)} high · "
         f"{s.get('medium',0)} medium · {s.get('low',0)} low · {s.get('info',0)} info"
     )
-    from ..risk import risk_label, risk_grade
+    from ..risk import risk_grade, risk_label
     print(f"Risk score: {report.risk_score}/100  (grade {risk_grade(report.risk_score)}, {risk_label(report.risk_score)})")
     print(line)
 
@@ -155,7 +155,7 @@ def render(report: ScanReport, console=None) -> None:
                             pb_lines.append(f"  {line}")
                 console.print(Panel("\n".join(pb_lines), title="[bold cyan]Exploit playbook[/bold cyan]", border_style="cyan", title_align="left"))
 
-    from ..risk import risk_tier, risk_label, risk_grade
+    from ..risk import risk_grade, risk_label, risk_tier
     s = report.summary
     score = report.risk_score
     tier = risk_tier(score)

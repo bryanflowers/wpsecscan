@@ -19,7 +19,6 @@ from typing import Any
 
 from . import __version__ as _SCANNER_VERSION  # v2.8.2 M2 — frozen-exe-safe
 
-
 # ---------------------------------------------------------------------------
 # F49 — HIPAA technical-safeguards mapping
 # ---------------------------------------------------------------------------

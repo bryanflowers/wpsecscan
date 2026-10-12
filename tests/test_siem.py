@@ -4,7 +4,7 @@ Covers the pure helpers (_build_events, _redact) and stub-out tests for
 the four forwarders so we exercise the success/failure code paths
 without needing real Splunk/Datadog/Loki/Logstash endpoints.
 """
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest

@@ -15,6 +15,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
+
 from tests.conftest import FakeClient, FakeResponse
 
 
@@ -267,8 +268,9 @@ def test_ai_safety_no_ai_env_blocks_cost():
 # ============================================================
 
 def test_ux_extras_quiet_hours():
-    from wpsecscan import ux_extras
     import datetime
+
+    from wpsecscan import ux_extras
     assert ux_extras.is_quiet(datetime.datetime(2026, 1, 1, 23, 0)) is True
     assert ux_extras.is_quiet(datetime.datetime(2026, 1, 1, 12, 0)) is False
 

@@ -24,7 +24,6 @@ from urllib.parse import urlparse
 from ..http import Client
 from ..models import Finding
 
-
 _PROVIDERS = (
     ("s3.amazonaws.com", "S3", "NoSuchBucket"),
     ("storage.googleapis.com", "GCS", "The specified bucket does not exist"),

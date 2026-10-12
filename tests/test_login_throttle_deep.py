@@ -4,12 +4,18 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import patch
 
-from wpsecscan.checks.login_throttle_deep import (
-    DEFAULT_ATTEMPTS, DEFAULT_PACING_SECONDS, WRONG_PASSWORD,
-    MIN_ATTEMPTS, MAX_ATTEMPTS, MIN_PACING_SECONDS, MAX_PACING_SECONDS,
-    _clamp_attempts, _clamp_pacing,
-)
 from tests.conftest import FakeClient, FakeResponse
+from wpsecscan.checks.login_throttle_deep import (
+    DEFAULT_ATTEMPTS,
+    DEFAULT_PACING_SECONDS,
+    MAX_ATTEMPTS,
+    MAX_PACING_SECONDS,
+    MIN_ATTEMPTS,
+    MIN_PACING_SECONDS,
+    WRONG_PASSWORD,
+    _clamp_attempts,
+    _clamp_pacing,
+)
 
 
 async def _no_sleep(_s):

@@ -12,8 +12,8 @@ reported as high. One GET plus one socket handshake.
 from __future__ import annotations
 
 import asyncio
-import ssl
 import socket
+import ssl
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 

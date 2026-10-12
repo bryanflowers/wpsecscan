@@ -17,7 +17,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 # (pattern, what-it-belongs-to)
 LICENSE_PATTERNS = (
     (re.compile(r'"license_key"\s*:\s*"([A-Z0-9-]{20,64})"'),  "generic plugin license_key field"),

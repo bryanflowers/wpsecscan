@@ -11,7 +11,6 @@ from pathlib import Path
 
 import pytest
 
-
 _GUI = Path("wpsecscan/gui.py")
 _GUI_WIN = Path("wpsecscan/gui_windows.py")
 _MOBILE = Path("wpsecscan/mobile_api.py")

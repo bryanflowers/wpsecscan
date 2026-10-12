@@ -19,9 +19,9 @@ from __future__ import annotations
 
 import json
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 WPGRAPHQL_INTROSPECTION_QUERY = ("query{__schema{types{name fields{name}}}}")
 
@@ -115,7 +115,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
             findings.append(Finding(
                 severity="critical",
                 title="wp-config.php served as text from /wp-config.php",
-                evidence=f"GET /wp-config.php -> 200 returning PHP source. Catastrophic creds leak.",
+                evidence="GET /wp-config.php -> 200 returning PHP source. Catastrophic creds leak.",
                 remediation="PHP processing is broken. Re-enable PHP-FPM, or in a Bedrock setup move wp-config.php out of the web root.",
                 url=target + "/wp-config.php",
             ))

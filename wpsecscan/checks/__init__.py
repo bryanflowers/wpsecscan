@@ -1,334 +1,352 @@
-from .waf import check as waf
-from .core_version import check as core_version
-from .plugins import check as plugins
-from .themes import check as themes
-from .users import check as users
-from .exposed_files import check as exposed_files
-from .login import check as login
-from .login_throttle import check as login_throttle
-from .login_throttle_deep import check as login_throttle_deep
-from .tls_headers import check as tls_headers
-from .csp import check as csp
-from .directory_listing import check as directory_listing
-from .debug_leaks import check as debug_leaks
-from .robots_sitemap import check as robots_sitemap
-from .cookies import check as cookies
-from .http_methods import check as http_methods
-from .subdomains import check as subdomains
-from .hibp import check as hibp
-from .rest_api import check as rest_api
-from .cors import check as cors
-from .js_libraries import check as js_libraries
-from .secret_leak import check as secret_leak
-from .wpgraphql import check as wpgraphql
-from .ajax_surface import check as ajax_surface
-from .backup_exposure import check as backup_exposure
-from .core_tampering import check as core_tampering
-from .csrf_nonce import check as csrf_nonce
-from .app_passwords import check as app_passwords
-from .mixed_content import check as mixed_content
-from .tls_deep import check as tls_deep
-from .multisite import check as multisite
-from .webhooks import check as webhooks
-from .sendmail_injection import check as sendmail_injection
-from .cache_headers import check as cache_headers
-from .xmlrpc_deep import check as xmlrpc_deep
-from .redirect_chain import check as redirect_chain
-from .error_pages import check as error_pages
-from .xss_dom_sinks import check as xss_dom_sinks
-from .nonce_freshness import check as nonce_freshness
-from .security_txt import check as security_txt
-from .favicon_fingerprint import check as favicon_fingerprint
-from .admin_ajax_brute_surface import check as admin_ajax_brute_surface
-from .dns_security import check as dns_security
-from .source_maps import check as source_maps
-from .js_supply_chain import check as js_supply_chain
-from .server_timing import check as server_timing
-from .wp_rest_methods import check as wp_rest_methods
-# New 20 (passive part)
-from .gdpr_dsr import check as gdpr_dsr
-from .wp_engine_misconfig import check as wp_engine_misconfig
-from .oauth_redirect import check as oauth_redirect
-from .cache_poisoning import check as cache_poisoning
-from .upload_path_predictable import check as upload_path_predictable
-from .http2_settings import check as http2_settings
-from .a11y_lite import check as a11y_lite
-from .smuggling_probe import check as smuggling_probe
-from .cookie_consent import check as cookie_consent
-from .websocket_audit import check as websocket_audit
-from .woocommerce_audit import check as woocommerce_audit
-from .graphql_dos import check as graphql_dos
-# Round-Q 24-feature batch
-from .well_known import check as well_known
-from .login_timing import check as login_timing
-from .sitemap_cve_probe import check as sitemap_cve_probe
-# Round-54 (waves 1-9): new checks
-from .webdav import check as webdav
-from .dev_params import check as dev_params
-from .abuseipdb_lookup import check as abuseipdb_lookup
-from .jwt_audit import check as jwt_audit
-from .ssti import check as ssti
-from .nosql_injection import check as nosql_injection
-from .s3_bucket_discovery import check as s3_bucket_discovery
-from .referenced_buckets import check as referenced_buckets
-from .cloudflare_origin_leak import check as cloudflare_origin_leak
-from .crlf_location_injection import check as crlf_location_injection
-from .host_header_validation import check as host_header_validation
-from .woocommerce_storefront import check as woocommerce_storefront
-from .page_builder_cve import check as page_builder_cve
-from .wp_fork_detection import check as wp_fork_detection
-from .tls_modern import check as tls_modern
-from .companion_advanced import check as companion_advanced
-from .waf_lockout_guard import check as waf_lockout_guard
-from .github_leak_search import check as github_leak_search
-from .path_bypass import check as path_bypass
-from .race_condition import check as race_condition
-from .waf_ruleset import check as waf_ruleset
-from .oauth_oidc import check as oauth_oidc
-from .saml_xsw import check as saml_xsw
-from .dom_xss_headless import check as dom_xss_headless
-# Round-55 (waves A-H): 10 new checks
-from .cloud_metadata_ssrf import check as cloud_metadata_ssrf
-from .dns_rebinding import check as dns_rebinding
-from .http3_fingerprint import check as http3_fingerprint
-from .session_fixation import check as session_fixation
-from .csrf_entropy import check as csrf_entropy
-from .hpp import check as hpp
-from .backup_file_fuzz import check as backup_file_fuzz
-from .hostname_collision import check as hostname_collision
-from .plugin_route_fuzz import check as plugin_route_fuzz
-from .header_smuggling_case import check as header_smuggling_case
-# Round-57 (40 features): new checks
-from .timthumb import check as timthumb
-from .plugin_hash_fingerprint import check as plugin_hash_fingerprint
-from .users_deep import check as users_deep
-from .plugin_archive_fuzz import check as plugin_archive_fuzz
-from .premium_license_leak import check as premium_license_leak
-from .xmlrpc_method_brute import check as xmlrpc_method_brute
-from .yaml_templates import check as yaml_templates
-from .yaml_workflows import check as yaml_workflows
-from .dns_templates import check as dns_templates
-from .headless_templates import check as headless_templates
-from .spider_crawl import check as spider_crawl
-from .forced_browse import check as forced_browse
-from .websocket_fuzz import check as websocket_fuzz
-from .openapi_scanner import check as openapi_scanner
-from .mobile_app_endpoints import check as mobile_app_endpoints
-from .host_recon import check as host_recon
-# Round-58 (117 features): new checks
-from .gutenberg_blocks import check as gutenberg_blocks
-from .wp_cron_dos import check as wp_cron_dos
-from .rest_permission_audit import check as rest_permission_audit
-from .wp_query_sqli import check as wp_query_sqli
-from .wp_salts_age import check as wp_salts_age
-from .heartbeat_abuse import check as heartbeat_abuse
-from .woocommerce_deep import check as woocommerce_deep
-from .plugin_specific_audit import check as plugin_specific_audit
-from .hosting_platform_audit import check as hosting_platform_audit
-from .origin_ip_discovery import check as origin_ip_discovery
-from .upload_bypass_deep import check as upload_bypass_deep
-from .misc_injection_audit import check as misc_injection_audit
-from .tls_reneg_dos import check as tls_reneg_dos
-from .cache_poisoning_v2 import check as cache_poisoning_v2
-from .osint_enrich import check as osint_enrich
-# Round-59 (111 features): new checks
-from .wp_builder_audit import check as wp_builder_audit
-from .wp_form_audit import check as wp_form_audit
-from .wp_membership_lms_audit import check as wp_membership_lms_audit
-from .wp_commerce_alt_audit import check as wp_commerce_alt_audit
-from .wp_plugin_ecosystem_audit import check as wp_plugin_ecosystem_audit
-from .privacy_inventory import check as privacy_inventory
-from .email_security_deep import check as email_security_deep
-from .dns_deep import check as dns_deep
-from .auth_modernisation import check as auth_modernisation
-from .crypto_agility import check as crypto_agility
-from .cdn_edge_audit import check as cdn_edge_audit
-from .payment_commerce_deep import check as payment_commerce_deep
-from .compliance_frameworks import check as compliance_frameworks
-from .headless_wp_audit import check as headless_wp_audit
-# Round-60 (28 features): new checks
-from .wp_multisite_deep import check as wp_multisite_deep
-from .honeypot_admin import check as honeypot_admin
 from .a11y_deep import check as a11y_deep
-from .perf_budget import check as perf_budget
-# Round-62 (B21-B38): new checks
-from .server_stack_reveal import check as server_stack_reveal
-from .waf_brand_deep import check as waf_brand_deep
-from .sri_audit import check as sri_audit
-from .service_exposure import check as service_exposure
-from .js_framework_deep import check as js_framework_deep
-from .sri_pwa_misc import check as sri_pwa_misc
-from .wp_cli_inject import check as wp_cli_inject
-
-# CVE matching (uses the Wordfence DB; runs whenever DB is present)
-from .core_cves import check as core_cves
-from .plugin_cves import check as plugin_cves
-from .plugin_cemetery import check as plugin_cemetery
-from .theme_cves import check as theme_cves
-
-# Audit-extras-v1 (FEAT-001/021/032/035/037/040) — six small detection wins
-from .php_eol import check as php_eol
-from .permissions_policy import check as permissions_policy
-from .heartbeat_frontend import check as heartbeat_frontend
-from .users_me_capability_leak import check as users_me_capability_leak
-from .rest_link_header import check as rest_link_header
-from .csp_report_endpoint import check as csp_report_endpoint
-# Audit-extras-v2 (FEAT-004/008/013/023/033/041)
-from .wp_cron_disabled import check as wp_cron_disabled
-from .rest_fields_dos import check as rest_fields_dos
-from .woocommerce_order_idor import check as woocommerce_order_idor
-from .rest_namespace_leak import check as rest_namespace_leak
-from .gtm_inventory import check as gtm_inventory
-from .uploads_year_listing import check as uploads_year_listing
-# Audit-extras-v3 (FEAT-031/047/049)
-from .wp_cron_cpu import check as wp_cron_cpu
-from .rum_beacons import check as rum_beacons
-from .email_obfuscation_audit import check as email_obfuscation_audit
-# Audit-extras-v4 (FEAT-016/018/026/030/046)
-from .phpinfo_dangerous_directives import check as phpinfo_dangerous_directives
-from .db_admin_login_probe import check as db_admin_login_probe
-from .debug_log_pii_sniff import check as debug_log_pii_sniff
-from .wp_debug_display_via_rest import check as wp_debug_display_via_rest
-from .object_cache_dropin import check as object_cache_dropin
-# Audit-extras-v5 (FEAT-009/014/017/029/044)
-from .xmlrpc_amplification import check as xmlrpc_amplification
-from .open_registration import check as open_registration
-from .hsts_preload_eligibility import check as hsts_preload_eligibility
-from .ct_log_recent_certs import check as ct_log_recent_certs
-from .login_redirect_http_hop import check as login_redirect_http_hop
-# Audit-extras-v6 (FEAT-011/020/027/007)
-from .webhook_signing_secrets import check as webhook_signing_secrets
-from .ai_chatbot_endpoint_leak import check as ai_chatbot_endpoint_leak
-from .oauth_redirect_misconfig import check as oauth_redirect_misconfig
-from .core_checksums import check as core_checksums
-
-# Aggressive (active payloads) — opt-in
-from .sqli import check as sqli
-from .xss_reflected import check as xss_reflected
-from .open_redirect import check as open_redirect
-from .ssrf import check as ssrf
-from .path_traversal import check as path_traversal
-from .file_upload import check as file_upload
-from .default_creds import check as default_creds
-# Aggressive new ones
-from .prototype_pollution import check as prototype_pollution
-from .csv_export_csp import check as csv_export_csp
-from .waf_bypass_probe import check as waf_bypass_probe
-from .xxe_upload import check as xxe_upload
-
-# Round-64 Group F — Modern WP attack-surface (#51-70)
-from .ai_prompt_injection_passive import check as ai_prompt_injection_passive
-from .wpconfig_hardening_audit import check as wpconfig_hardening_audit
-from .db_trigger_audit import check as db_trigger_audit
-from .postmeta_stored_xss_scan import check as postmeta_stored_xss_scan
-from .vendor_backdoor_patterns import check as vendor_backdoor_patterns
-from .cryptominer_js_injection import check as cryptominer_js_injection
-from .magecart_skimmer_patterns import check as magecart_skimmer_patterns
-from .plugin_typosquat_detection import check as plugin_typosquat_detection
-from .composer_lock_audit import check as composer_lock_audit
-from .package_lock_audit import check as package_lock_audit
-from .yarn_pnpm_lock_audit import check as yarn_pnpm_lock_audit
-from .rest_app_passwords_enum import check as rest_app_passwords_enum
-from .mfa_priv_account_audit import check as mfa_priv_account_audit
-from .wpcron_suspicious_jobs import check as wpcron_suspicious_jobs
-from .webhook_url_fingerprint import check as webhook_url_fingerprint
-from .git_dir_deep_scan import check as git_dir_deep_scan
-from .env_file_enum import check as env_file_enum
-from .helm_compose_leak import check as helm_compose_leak
-from .tailwind_css_comment_leak import check as tailwind_css_comment_leak
-from .graphql_field_authz_deep import check as graphql_field_authz_deep
-
-# Round-64 Group G — Web3/NFT/payment (#71-76)
-from .web3_wallet_connector_audit import check as web3_wallet_connector_audit
-from .nft_mint_pubapi import check as nft_mint_pubapi
-from .crypto_payment_callback_audit import check as crypto_payment_callback_audit
-from .solidity_abi_leak import check as solidity_abi_leak
-from .wallet_seed_phrase_leak import check as wallet_seed_phrase_leak
-from .payment_gateway_test_keys import check as payment_gateway_test_keys
+from .a11y_lite import check as a11y_lite
 
 # Round-64 Group J — Accessibility AAA (#99)
 from .a11y_wcag_aaa import check as a11y_wcag_aaa
-
-# Round-64 Wild card — Brand monitor (#170)
-from .brand_monitor import check as brand_monitor
+from .abuseipdb_lookup import check as abuseipdb_lookup
+from .activitypub_data_leak import check as activitypub_data_leak
+from .admin_ajax_brute_surface import check as admin_ajax_brute_surface
+from .admin_invite_link_scan import check as admin_invite_link_scan
+from .ai_agent_tool_injection import check as ai_agent_tool_injection
+from .ai_agent_webhook_leak import check as ai_agent_webhook_leak
+from .ai_chatbot_endpoint_leak import check as ai_chatbot_endpoint_leak
 
 # ---- v2.6.0 — modern threats (A1-A35 + O141-O145) ----
 from .ai_plugin_prompt_storage import check as ai_plugin_prompt_storage
-from .ai_agent_webhook_leak import check as ai_agent_webhook_leak
-from .mcp_endpoint_exposure import check as mcp_endpoint_exposure
-from .wp_playground_sqlite import check as wp_playground_sqlite
-from .block_bindings_exposure import check as block_bindings_exposure
-from .interactivity_api_state_leak import check as interactivity_api_state_leak
-from .wp_cli_http_exposure import check as wp_cli_http_exposure
-from .app_passwords_stale_audit import check as app_passwords_stale_audit
-from .woo_blocks_checkout_drift import check as woo_blocks_checkout_drift
-from .woo_subscriptions_renewal_race import check as woo_subscriptions_renewal_race
-from .stripe_webhook_audit import check as stripe_webhook_audit
-from .lead_gen_list_id_enum import check as lead_gen_list_id_enum
-from .multisite_sso_key_reuse import check as multisite_sso_key_reuse
+
+# Round-64 Group F — Modern WP attack-surface (#51-70)
+from .ai_prompt_injection_passive import check as ai_prompt_injection_passive
+from .ajax_surface import check as ajax_surface
 from .algolia_elastic_frontend_keys import check as algolia_elastic_frontend_keys
-from .bucket_shadow_takeover import check as bucket_shadow_takeover
-from .vercel_preview_url_leak import check as vercel_preview_url_leak
-from .jwt_auth_plugin_audit import check as jwt_auth_plugin_audit
-from .pwa_service_worker_cache import check as pwa_service_worker_cache
 from .amp_transitional_redirect import check as amp_transitional_redirect
-from .cookie_consent_desync import check as cookie_consent_desync
-from .gdpr_dsr_endpoint_enum import check as gdpr_dsr_endpoint_enum
-from .plugin_install_rest_race import check as plugin_install_rest_race
-from .form_builder_upload_bypass import check as form_builder_upload_bypass
-from .theme_json_font_ssrf import check as theme_json_font_ssrf
-from .search_highlight_xss import check as search_highlight_xss
-from .wp_mail_smtp_site_health_leak import check as wp_mail_smtp_site_health_leak
-from .translation_plugin_key_leak import check as translation_plugin_key_leak
-from .wc_api_key_escalation import check as wc_api_key_escalation
-from .service_worker_scope_hijack import check as service_worker_scope_hijack
-from .hsts_preload_mismatch import check as hsts_preload_mismatch
-from .ct_log_shadow_cert import check as ct_log_shadow_cert
-from .turnstile_sitekey_reuse import check as turnstile_sitekey_reuse
-from .admin_invite_link_scan import check as admin_invite_link_scan
-from .composer_npm_typosquat import check as composer_npm_typosquat
-from .github_actions_workflow_leak import check as github_actions_workflow_leak
-from .speculation_rules_audit import check as speculation_rules_audit
-from .html_api_csp_nonce import check as html_api_csp_nonce
-from .font_library_api_ssrf import check as font_library_api_ssrf
-from .rest_schema_field_leak import check as rest_schema_field_leak
-from .block_style_variations_url import check as block_style_variations_url
-from .companion_v13 import check as companion_v13
-from .host_platform_detect import check as host_platform_detect
-from .companion_v14 import check as companion_v14
-from .trellis_yaml_audit import check as trellis_yaml_audit
-from .headless_vercel_netlify_detect import check as headless_vercel_netlify_detect
-from .perf_of_target import check as perf_of_target
-# F1 + F12 (v2.8.0) — new check modules
-from .wc_coupon_enum import check as wc_coupon_enum
-from .headless_cors_lockdown import check as headless_cors_lockdown
-# F2-F23 (v2.8.1) — 17 new defensive check modules
-from .wc_cart_abandonment_xss import check as wc_cart_abandonment_xss
-from .wc_draft_order_escalation import check as wc_draft_order_escalation
-from .wc_payment_link_replay import check as wc_payment_link_replay
-from .stripe_connect_state_csrf import check as stripe_connect_state_csrf
-from .plugin_update_server_integrity import check as plugin_update_server_integrity
-from .wp_auto_update_filter_exposure import check as wp_auto_update_filter_exposure
-from .activitypub_data_leak import check as activitypub_data_leak
-from .synced_pattern_leak import check as synced_pattern_leak
-from .global_styles_css_injection import check as global_styles_css_injection
-from .multisite_network_option_idor import check as multisite_network_option_idor
-from .multisite_super_admin_rbac import check as multisite_super_admin_rbac
-from .rest_only_admin_probe import check as rest_only_admin_probe
-from .nextjs_env_var_exposure import check as nextjs_env_var_exposure
-from .ai_agent_tool_injection import check as ai_agent_tool_injection
-from .wc_multivendor_idor import check as wc_multivendor_idor
-from .webauthn_rp_id_audit import check as webauthn_rp_id_audit
-from .wc_refund_flow_idor import check as wc_refund_flow_idor
-# F66-F70 (v2.8.3) — 5 new defensive check modules
-from .interactivity_api_directive_xss import check as interactivity_api_directive_xss
-from .wc_stores_api_rate_limit_oracle import check as wc_stores_api_rate_limit_oracle
-from .wc_hpos_namespace_drift import check as wc_hpos_namespace_drift
-from .cookie_banner_cosmetic_vs_blocking import check as cookie_banner_cosmetic_vs_blocking
-from .plugin_slug_squat_check import check as plugin_slug_squat_check
+from .app_passwords import check as app_passwords
+from .app_passwords_stale_audit import check as app_passwords_stale_audit
+from .auth_modernisation import check as auth_modernisation
 
 # Authenticated — only when creds are provided
 from .authenticated import check as authenticated
+from .backup_exposure import check as backup_exposure
+from .backup_file_fuzz import check as backup_file_fuzz
+from .block_bindings_exposure import check as block_bindings_exposure
+from .block_style_variations_url import check as block_style_variations_url
+
+# Round-64 Wild card — Brand monitor (#170)
+from .brand_monitor import check as brand_monitor
+from .bucket_shadow_takeover import check as bucket_shadow_takeover
+from .cache_headers import check as cache_headers
+from .cache_poisoning import check as cache_poisoning
+from .cache_poisoning_v2 import check as cache_poisoning_v2
+from .cdn_edge_audit import check as cdn_edge_audit
+
+# Round-55 (waves A-H): 10 new checks
+from .cloud_metadata_ssrf import check as cloud_metadata_ssrf
+from .cloudflare_origin_leak import check as cloudflare_origin_leak
+from .companion_advanced import check as companion_advanced
+from .companion_v13 import check as companion_v13
+from .companion_v14 import check as companion_v14
+from .compliance_frameworks import check as compliance_frameworks
+from .composer_lock_audit import check as composer_lock_audit
+from .composer_npm_typosquat import check as composer_npm_typosquat
+from .cookie_banner_cosmetic_vs_blocking import check as cookie_banner_cosmetic_vs_blocking
+from .cookie_consent import check as cookie_consent
+from .cookie_consent_desync import check as cookie_consent_desync
+from .cookies import check as cookies
+from .core_checksums import check as core_checksums
+
+# CVE matching (uses the Wordfence DB; runs whenever DB is present)
+from .core_cves import check as core_cves
+from .core_tampering import check as core_tampering
+from .core_version import check as core_version
+from .cors import check as cors
+from .crlf_location_injection import check as crlf_location_injection
+from .crypto_agility import check as crypto_agility
+from .crypto_payment_callback_audit import check as crypto_payment_callback_audit
+from .cryptominer_js_injection import check as cryptominer_js_injection
+from .csp import check as csp
+from .csp_report_endpoint import check as csp_report_endpoint
+from .csrf_entropy import check as csrf_entropy
+from .csrf_nonce import check as csrf_nonce
+from .csv_export_csp import check as csv_export_csp
+from .ct_log_recent_certs import check as ct_log_recent_certs
+from .ct_log_shadow_cert import check as ct_log_shadow_cert
+from .db_admin_login_probe import check as db_admin_login_probe
+from .db_trigger_audit import check as db_trigger_audit
+from .debug_leaks import check as debug_leaks
+from .debug_log_pii_sniff import check as debug_log_pii_sniff
+from .default_creds import check as default_creds
+from .dev_params import check as dev_params
+from .directory_listing import check as directory_listing
+from .dns_deep import check as dns_deep
+from .dns_rebinding import check as dns_rebinding
+from .dns_security import check as dns_security
+from .dns_templates import check as dns_templates
+from .dom_xss_headless import check as dom_xss_headless
+from .email_obfuscation_audit import check as email_obfuscation_audit
+from .email_security_deep import check as email_security_deep
+from .env_file_enum import check as env_file_enum
+from .error_pages import check as error_pages
+from .exposed_files import check as exposed_files
+from .favicon_fingerprint import check as favicon_fingerprint
+from .file_upload import check as file_upload
+from .font_library_api_ssrf import check as font_library_api_ssrf
+from .forced_browse import check as forced_browse
+from .form_builder_upload_bypass import check as form_builder_upload_bypass
+
+# New 20 (passive part)
+from .gdpr_dsr import check as gdpr_dsr
+from .gdpr_dsr_endpoint_enum import check as gdpr_dsr_endpoint_enum
+from .git_dir_deep_scan import check as git_dir_deep_scan
+from .github_actions_workflow_leak import check as github_actions_workflow_leak
+from .github_leak_search import check as github_leak_search
+from .global_styles_css_injection import check as global_styles_css_injection
+from .graphql_dos import check as graphql_dos
+from .graphql_field_authz_deep import check as graphql_field_authz_deep
+from .gtm_inventory import check as gtm_inventory
+
+# Round-58 (117 features): new checks
+from .gutenberg_blocks import check as gutenberg_blocks
+from .header_smuggling_case import check as header_smuggling_case
+from .headless_cors_lockdown import check as headless_cors_lockdown
+from .headless_templates import check as headless_templates
+from .headless_vercel_netlify_detect import check as headless_vercel_netlify_detect
+from .headless_wp_audit import check as headless_wp_audit
+from .heartbeat_abuse import check as heartbeat_abuse
+from .heartbeat_frontend import check as heartbeat_frontend
+from .helm_compose_leak import check as helm_compose_leak
+from .hibp import check as hibp
+from .honeypot_admin import check as honeypot_admin
+from .host_header_validation import check as host_header_validation
+from .host_platform_detect import check as host_platform_detect
+from .host_recon import check as host_recon
+from .hosting_platform_audit import check as hosting_platform_audit
+from .hostname_collision import check as hostname_collision
+from .hpp import check as hpp
+from .hsts_preload_eligibility import check as hsts_preload_eligibility
+from .hsts_preload_mismatch import check as hsts_preload_mismatch
+from .html_api_csp_nonce import check as html_api_csp_nonce
+from .http2_settings import check as http2_settings
+from .http3_fingerprint import check as http3_fingerprint
+from .http_methods import check as http_methods
+
+# F66-F70 (v2.8.3) — 5 new defensive check modules
+from .interactivity_api_directive_xss import check as interactivity_api_directive_xss
+from .interactivity_api_state_leak import check as interactivity_api_state_leak
+from .js_framework_deep import check as js_framework_deep
+from .js_libraries import check as js_libraries
+from .js_supply_chain import check as js_supply_chain
+from .jwt_audit import check as jwt_audit
+from .jwt_auth_plugin_audit import check as jwt_auth_plugin_audit
+from .lead_gen_list_id_enum import check as lead_gen_list_id_enum
+from .login import check as login
+from .login_redirect_http_hop import check as login_redirect_http_hop
+from .login_throttle import check as login_throttle
+from .login_throttle_deep import check as login_throttle_deep
+from .login_timing import check as login_timing
+from .magecart_skimmer_patterns import check as magecart_skimmer_patterns
+from .mcp_endpoint_exposure import check as mcp_endpoint_exposure
+from .mfa_priv_account_audit import check as mfa_priv_account_audit
+from .misc_injection_audit import check as misc_injection_audit
+from .mixed_content import check as mixed_content
+from .mobile_app_endpoints import check as mobile_app_endpoints
+from .multisite import check as multisite
+from .multisite_network_option_idor import check as multisite_network_option_idor
+from .multisite_sso_key_reuse import check as multisite_sso_key_reuse
+from .multisite_super_admin_rbac import check as multisite_super_admin_rbac
+from .nextjs_env_var_exposure import check as nextjs_env_var_exposure
+from .nft_mint_pubapi import check as nft_mint_pubapi
+from .nonce_freshness import check as nonce_freshness
+from .nosql_injection import check as nosql_injection
+from .oauth_oidc import check as oauth_oidc
+from .oauth_redirect import check as oauth_redirect
+from .oauth_redirect_misconfig import check as oauth_redirect_misconfig
+from .object_cache_dropin import check as object_cache_dropin
+from .open_redirect import check as open_redirect
+from .open_registration import check as open_registration
+from .openapi_scanner import check as openapi_scanner
+from .origin_ip_discovery import check as origin_ip_discovery
+from .osint_enrich import check as osint_enrich
+from .package_lock_audit import check as package_lock_audit
+from .page_builder_cve import check as page_builder_cve
+from .path_bypass import check as path_bypass
+from .path_traversal import check as path_traversal
+from .payment_commerce_deep import check as payment_commerce_deep
+from .payment_gateway_test_keys import check as payment_gateway_test_keys
+from .perf_budget import check as perf_budget
+from .perf_of_target import check as perf_of_target
+from .permissions_policy import check as permissions_policy
+
+# Audit-extras-v1 (FEAT-001/021/032/035/037/040) — six small detection wins
+from .php_eol import check as php_eol
+
+# Audit-extras-v4 (FEAT-016/018/026/030/046)
+from .phpinfo_dangerous_directives import check as phpinfo_dangerous_directives
+from .plugin_archive_fuzz import check as plugin_archive_fuzz
+from .plugin_cemetery import check as plugin_cemetery
+from .plugin_cves import check as plugin_cves
+from .plugin_hash_fingerprint import check as plugin_hash_fingerprint
+from .plugin_install_rest_race import check as plugin_install_rest_race
+from .plugin_route_fuzz import check as plugin_route_fuzz
+from .plugin_slug_squat_check import check as plugin_slug_squat_check
+from .plugin_specific_audit import check as plugin_specific_audit
+from .plugin_typosquat_detection import check as plugin_typosquat_detection
+from .plugin_update_server_integrity import check as plugin_update_server_integrity
+from .plugins import check as plugins
+from .postmeta_stored_xss_scan import check as postmeta_stored_xss_scan
+from .premium_license_leak import check as premium_license_leak
+from .privacy_inventory import check as privacy_inventory
+
+# Aggressive new ones
+from .prototype_pollution import check as prototype_pollution
+from .pwa_service_worker_cache import check as pwa_service_worker_cache
+from .race_condition import check as race_condition
+from .redirect_chain import check as redirect_chain
+from .referenced_buckets import check as referenced_buckets
+from .rest_api import check as rest_api
+from .rest_app_passwords_enum import check as rest_app_passwords_enum
+from .rest_fields_dos import check as rest_fields_dos
+from .rest_link_header import check as rest_link_header
+from .rest_namespace_leak import check as rest_namespace_leak
+from .rest_only_admin_probe import check as rest_only_admin_probe
+from .rest_permission_audit import check as rest_permission_audit
+from .rest_schema_field_leak import check as rest_schema_field_leak
+from .robots_sitemap import check as robots_sitemap
+from .rum_beacons import check as rum_beacons
+from .s3_bucket_discovery import check as s3_bucket_discovery
+from .saml_xsw import check as saml_xsw
+from .search_highlight_xss import check as search_highlight_xss
+from .secret_leak import check as secret_leak
+from .security_txt import check as security_txt
+from .sendmail_injection import check as sendmail_injection
+
+# Round-62 (B21-B38): new checks
+from .server_stack_reveal import check as server_stack_reveal
+from .server_timing import check as server_timing
+from .service_exposure import check as service_exposure
+from .service_worker_scope_hijack import check as service_worker_scope_hijack
+from .session_fixation import check as session_fixation
+from .sitemap_cve_probe import check as sitemap_cve_probe
+from .smuggling_probe import check as smuggling_probe
+from .solidity_abi_leak import check as solidity_abi_leak
+from .source_maps import check as source_maps
+from .speculation_rules_audit import check as speculation_rules_audit
+from .spider_crawl import check as spider_crawl
+
+# Aggressive (active payloads) — opt-in
+from .sqli import check as sqli
+from .sri_audit import check as sri_audit
+from .sri_pwa_misc import check as sri_pwa_misc
+from .ssrf import check as ssrf
+from .ssti import check as ssti
+from .stripe_connect_state_csrf import check as stripe_connect_state_csrf
+from .stripe_webhook_audit import check as stripe_webhook_audit
+from .subdomains import check as subdomains
+from .synced_pattern_leak import check as synced_pattern_leak
+from .tailwind_css_comment_leak import check as tailwind_css_comment_leak
+from .theme_cves import check as theme_cves
+from .theme_json_font_ssrf import check as theme_json_font_ssrf
+from .themes import check as themes
+
+# Round-57 (40 features): new checks
+from .timthumb import check as timthumb
+from .tls_deep import check as tls_deep
+from .tls_headers import check as tls_headers
+from .tls_modern import check as tls_modern
+from .tls_reneg_dos import check as tls_reneg_dos
+from .translation_plugin_key_leak import check as translation_plugin_key_leak
+from .trellis_yaml_audit import check as trellis_yaml_audit
+from .turnstile_sitekey_reuse import check as turnstile_sitekey_reuse
+from .upload_bypass_deep import check as upload_bypass_deep
+from .upload_path_predictable import check as upload_path_predictable
+from .uploads_year_listing import check as uploads_year_listing
+from .users import check as users
+from .users_deep import check as users_deep
+from .users_me_capability_leak import check as users_me_capability_leak
+from .vendor_backdoor_patterns import check as vendor_backdoor_patterns
+from .vercel_preview_url_leak import check as vercel_preview_url_leak
+from .waf import check as waf
+from .waf_brand_deep import check as waf_brand_deep
+from .waf_bypass_probe import check as waf_bypass_probe
+from .waf_lockout_guard import check as waf_lockout_guard
+from .waf_ruleset import check as waf_ruleset
+from .wallet_seed_phrase_leak import check as wallet_seed_phrase_leak
+from .wc_api_key_escalation import check as wc_api_key_escalation
+
+# F2-F23 (v2.8.1) — 17 new defensive check modules
+from .wc_cart_abandonment_xss import check as wc_cart_abandonment_xss
+
+# F1 + F12 (v2.8.0) — new check modules
+from .wc_coupon_enum import check as wc_coupon_enum
+from .wc_draft_order_escalation import check as wc_draft_order_escalation
+from .wc_hpos_namespace_drift import check as wc_hpos_namespace_drift
+from .wc_multivendor_idor import check as wc_multivendor_idor
+from .wc_payment_link_replay import check as wc_payment_link_replay
+from .wc_refund_flow_idor import check as wc_refund_flow_idor
+from .wc_stores_api_rate_limit_oracle import check as wc_stores_api_rate_limit_oracle
+
+# Round-64 Group G — Web3/NFT/payment (#71-76)
+from .web3_wallet_connector_audit import check as web3_wallet_connector_audit
+from .webauthn_rp_id_audit import check as webauthn_rp_id_audit
+
+# Round-54 (waves 1-9): new checks
+from .webdav import check as webdav
+
+# Audit-extras-v6 (FEAT-011/020/027/007)
+from .webhook_signing_secrets import check as webhook_signing_secrets
+from .webhook_url_fingerprint import check as webhook_url_fingerprint
+from .webhooks import check as webhooks
+from .websocket_audit import check as websocket_audit
+from .websocket_fuzz import check as websocket_fuzz
+
+# Round-Q 24-feature batch
+from .well_known import check as well_known
+from .woo_blocks_checkout_drift import check as woo_blocks_checkout_drift
+from .woo_subscriptions_renewal_race import check as woo_subscriptions_renewal_race
+from .woocommerce_audit import check as woocommerce_audit
+from .woocommerce_deep import check as woocommerce_deep
+from .woocommerce_order_idor import check as woocommerce_order_idor
+from .woocommerce_storefront import check as woocommerce_storefront
+from .wp_auto_update_filter_exposure import check as wp_auto_update_filter_exposure
+
+# Round-59 (111 features): new checks
+from .wp_builder_audit import check as wp_builder_audit
+from .wp_cli_http_exposure import check as wp_cli_http_exposure
+from .wp_cli_inject import check as wp_cli_inject
+from .wp_commerce_alt_audit import check as wp_commerce_alt_audit
+
+# Audit-extras-v3 (FEAT-031/047/049)
+from .wp_cron_cpu import check as wp_cron_cpu
+
+# Audit-extras-v2 (FEAT-004/008/013/023/033/041)
+from .wp_cron_disabled import check as wp_cron_disabled
+from .wp_cron_dos import check as wp_cron_dos
+from .wp_debug_display_via_rest import check as wp_debug_display_via_rest
+from .wp_engine_misconfig import check as wp_engine_misconfig
+from .wp_fork_detection import check as wp_fork_detection
+from .wp_form_audit import check as wp_form_audit
+from .wp_mail_smtp_site_health_leak import check as wp_mail_smtp_site_health_leak
+from .wp_membership_lms_audit import check as wp_membership_lms_audit
+
+# Round-60 (28 features): new checks
+from .wp_multisite_deep import check as wp_multisite_deep
+from .wp_playground_sqlite import check as wp_playground_sqlite
+from .wp_plugin_ecosystem_audit import check as wp_plugin_ecosystem_audit
+from .wp_query_sqli import check as wp_query_sqli
+from .wp_rest_methods import check as wp_rest_methods
+from .wp_salts_age import check as wp_salts_age
+from .wpconfig_hardening_audit import check as wpconfig_hardening_audit
+from .wpcron_suspicious_jobs import check as wpcron_suspicious_jobs
+from .wpgraphql import check as wpgraphql
+
+# Audit-extras-v5 (FEAT-009/014/017/029/044)
+from .xmlrpc_amplification import check as xmlrpc_amplification
+from .xmlrpc_deep import check as xmlrpc_deep
+from .xmlrpc_method_brute import check as xmlrpc_method_brute
+from .xss_dom_sinks import check as xss_dom_sinks
+from .xss_reflected import check as xss_reflected
+from .xxe_upload import check as xxe_upload
+from .yaml_templates import check as yaml_templates
+from .yaml_workflows import check as yaml_workflows
+from .yarn_pnpm_lock_audit import check as yarn_pnpm_lock_audit
 
 # (check_id, display_name, fn, aggressive)
 # WAF runs first so downstream checks can read ctx['shared']['waf'].
@@ -678,9 +696,9 @@ def _load_disabled_checks() -> set[str]:
     and the next scan picks them up without a restart.
     """
     import json
+    import os
     import sys
     from pathlib import Path
-    import os
     home = os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan")
     f = Path(home) / "disabled_checks.json"
     if not f.exists():
@@ -722,6 +740,7 @@ def _load_custom_checks() -> None:
         import importlib.util
         import os
         from pathlib import Path
+
         # Q9: single source of truth for custom-check search paths.
         from .._util import custom_check_dirs
         search_dirs = custom_check_dirs()

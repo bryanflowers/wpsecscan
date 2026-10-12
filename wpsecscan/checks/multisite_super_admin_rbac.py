@@ -12,7 +12,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _SUSPECT_PATHS = (
     "/wp-json/user-role-editor/v1/roles",
     "/wp-json/members/v1/roles",

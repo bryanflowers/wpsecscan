@@ -26,7 +26,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 # Bindings JSON literal in serialised block markup:
 #   <!-- wp:paragraph {"metadata":{"bindings":{"content":{"source":"foo/bar","args":{...}}}}} -->
 _BINDING_RE = re.compile(

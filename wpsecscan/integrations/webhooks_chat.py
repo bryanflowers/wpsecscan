@@ -10,8 +10,8 @@ from __future__ import annotations
 import json
 import os
 import urllib.request
-from urllib.error import HTTPError, URLError
 from typing import Any
+from urllib.error import HTTPError, URLError
 
 
 def _post_json(url: str, body: dict, *, timeout: float = 10.0,

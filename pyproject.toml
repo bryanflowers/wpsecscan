@@ -8,8 +8,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wpsecscan"
-version = "2.9.0"
-description = "Defensive WordPress security scanner. 294 checks, CVE feed aggregated nightly from up to 8 public sources, AI-assisted remediation (BYO key), check-level compliance mappings for 12 frameworks, Sigstore-signed releases with GitHub build-provenance attestations, 9 report formats plus 14 export formats, multi-tenant RBAC/SSO/audit-log modules. Authorized testing only."
+version = "2.9.1"
+description = "Defensive WordPress security scanner. 294 checks, CVE feed aggregated nightly from up to 8 public sources, AI-assisted remediation (BYO key), check-level compliance mappings for 12 frameworks, Sigstore-signed releases with GitHub build-provenance attestations, 9 report formats plus 14 export formats, a managed-sites registry, batch scans from a URL file, a cron-style --daemon scheduler, a token-protected --api-server with a target allowlist, and an HMAC-chained audit log for credential-vault and marketplace actions. Authorized testing only."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
@@ -66,7 +66,7 @@ pdf = ["reportlab>=4.0,<5"]
 browser = ["playwright>=1.40,<2"]
 # Daemon mode YAML config
 yaml = ["pyyaml>=6.0,<7"]
-# Distributed CVE-DB cache + RBAC bcrypt hashing
+# Distributed CVE-DB cache (redis). bcrypt is declared here but no module imports it.
 ops = ["redis>=5.0,<7", "bcrypt>=4.0,<5"]
 # Optional Pillow for GUI image rendering + pystray for minimize-to-tray (#56).
 # (keyring moved to default `dependencies` in v2.5.1 because the `wpsecscan
@@ -149,6 +149,9 @@ line-length = 120
 extend-exclude = ["build", "dist", "wpsecscan.egg-info"]
 
 [tool.ruff.lint]
-# Gating set: undefined names, redefinitions, loop-var closures, syntax errors.
-# The style rules (I, E7xx, F401, UP*) are a separate non-gating sweep (W9).
-select = ["E9", "F63", "F7", "F82", "F823", "F811", "F402", "B023"]
+# Gating set: undefined names, redefinitions, loop-var closures, syntax errors
+# (E9/F6/F7/F8/F823/F811/F402/B023), plus the style rules cleaned and held
+# clean by the v2.9.1 sweep (I import-sort, E401, F541, UP037). Not gated:
+# F401 (the package re-exports through __init__.py) and E701/E702 (left as-is).
+select = ["E9", "F63", "F7", "F82", "F823", "F811", "F402", "B023",
+          "I", "E401", "F541", "UP037"]

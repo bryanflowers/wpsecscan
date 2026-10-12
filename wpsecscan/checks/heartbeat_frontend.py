@@ -14,7 +14,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 _HEARTBEAT_SCRIPT_RE = re.compile(r"wp-heartbeat|wp/v1/heartbeat", re.IGNORECASE)
 
 

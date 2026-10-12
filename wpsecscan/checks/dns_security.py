@@ -22,7 +22,6 @@ import httpx
 from ..http import Client
 from ..models import Finding
 
-
 # DNS labels must match RFC 1035 letters/digits/hyphen. Validated before
 # passing to nslookup/dig so a hostname like `-v` can't be misinterpreted
 # as a flag, and so a label containing shell metacharacters can't be
@@ -400,7 +399,7 @@ async def _bimi_findings(apex: str, step) -> list[Finding]:
             title=f"BIMI record published on default._bimi.{apex}",
             evidence=f"TXT record: {records[0]}",
             remediation="No action needed.",
-            url=f"https://bimigroup.org/",
+            url="https://bimigroup.org/",
         )]
     return []  # absence is not actionable; don't add noise
 
@@ -414,8 +413,8 @@ async def _dnssec_findings(apex: str, step) -> list[Finding]:
     skip if it's not installed (rather than a noisy info-finding)."""
     step(f"checking DNSSEC chain for {apex}...")
     try:
+        import dns.dnssec  # noqa: PLC0415 — available in dnspython 2.x
         import dns.resolver  # noqa: PLC0415
-        import dns.dnssec    # noqa: PLC0415 — available in dnspython 2.x
     except ImportError:
         return [Finding(
             severity="info",

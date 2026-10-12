@@ -20,7 +20,6 @@ import urllib.request
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 
-
 _MARKER = "<!-- wpsecscan-pr-comment -->"
 
 _PLUGIN_RE = re.compile(r"^wp-content/plugins/([a-z0-9][a-z0-9\-_]+)/", re.IGNORECASE)

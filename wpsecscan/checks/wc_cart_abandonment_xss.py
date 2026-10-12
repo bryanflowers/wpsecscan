@@ -10,7 +10,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _FINGERPRINTS = (
     "/wp-content/plugins/woo-cart-abandonment-recovery/",
     "/wp-content/plugins/cartflows-ca/",

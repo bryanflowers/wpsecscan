@@ -7,9 +7,9 @@ handler + verifies the docstring is non-empty.
 """
 from __future__ import annotations
 
-import sys
-from contextlib import redirect_stdout, redirect_stderr
 import io
+import sys
+from contextlib import redirect_stderr, redirect_stdout
 
 import pytest
 

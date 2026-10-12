@@ -8,8 +8,8 @@ as a path component, so `/api/report/../../etc/passwd` could escape
 import json
 import threading
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 from http.server import HTTPServer
 from pathlib import Path
 

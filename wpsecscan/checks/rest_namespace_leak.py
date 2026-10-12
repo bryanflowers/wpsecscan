@@ -7,9 +7,9 @@ identifiers in namespace strings (e.g. `prod-east-1/v1`,
 `staging-api/v2`, `my-internal-service/v1`) — leaks topology info.
 """
 from __future__ import annotations
+
 from ..http import Client
 from ..models import Finding
-
 
 _SUSPECT_TOKENS = (
     "staging", "stage", "-dev", "_dev", ".dev",

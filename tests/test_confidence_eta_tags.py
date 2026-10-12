@@ -1,9 +1,8 @@
 """Tests for confidence.py, eta.py, tags.py, and history annotations."""
 from __future__ import annotations
 
-from wpsecscan import confidence, eta, tags, history
+from wpsecscan import confidence, eta, history, tags
 from wpsecscan.models import Finding
-
 
 # ============================== confidence ==============================
 
@@ -167,9 +166,10 @@ def test_annotation_fingerprint_distinguishes_check_id(tmp_path, monkeypatch):
 
 def test_json_reporter_includes_confidence_and_tags():
     """Regression: JSON output must surface the same enrichment HTML gets."""
-    from wpsecscan.reporters import json_out
-    from wpsecscan.models import CheckResult, ScanReport
     import json as _j
+
+    from wpsecscan.models import CheckResult, ScanReport
+    from wpsecscan.reporters import json_out
     r = ScanReport(
         target="https://example.com",
         scanned_at="2026-05-23T00:00:00Z",

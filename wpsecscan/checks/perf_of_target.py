@@ -29,7 +29,6 @@ import httpx
 from ..http import Client
 from ..models import Finding
 
-
 _CACHE_HIT_HEADERS = ("cf-cache-status", "x-cache", "x-vercel-cache", "x-served-by")
 
 

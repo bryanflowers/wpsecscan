@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 _HTML = r"""<!doctype html>
 <html lang="en">
 <head>

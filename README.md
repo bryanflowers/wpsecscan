@@ -76,9 +76,12 @@ Ships as two standalone Windows binaries — no Python required on the machine y
 - **Threat-intel helpers**: CISA KEV and EPSS enrichment, plus wrappers
   for Exploit-DB links, Metasploit module mapping, ATT&CK Navigator and
   STIX export, MISP, OpenCTI, OTX and GreyNoise (`threat_intel_v2.py`).
-- **Enterprise-oriented modules** in the package: OIDC and SAML SSO, RBAC,
-  audit log, approval workflow, multi-tenant, quotas. These are library
-  modules, not a hosted service.
+- **Multi-site and team use**: a `sites` registry (`wpsecscan sites
+  add|list|scan|remove`), batch scans from a file of URLs (`--file`), a
+  cron-style `--daemon` scheduler, and an `--api-server` that needs a bearer
+  token and can restrict scan targets with `WPSECSCAN_API_ALLOWED_TARGETS`.
+  An HMAC-chained audit log records credential-vault and marketplace
+  actions. There is no SSO, role-based access control or hosted service.
 - **AI-assisted remediation** with PII masking + prompt-injection guard +
   per-backend cost tracking (7 `wpsecscan ai` helpers). Bring your own
   OpenAI / Anthropic / Ollama / llama.cpp key. **`WPSECSCAN_NO_AI=1` to
@@ -112,7 +115,7 @@ pip install "wpsecscan[ui]"
 
 Other optional extras: `[pdf]` (reportlab for true PDF exec reports),
 `[browser]` (playwright for headless DOM-XSS), `[yaml]` (pyyaml for
-daemon config), `[ops]` (redis + bcrypt for enterprise mode), or
+daemon config), `[ops]` (redis for the shared CVE-DB cache), or
 `[all]` to install everything.
 
 ### Option B — pre-built Windows binaries
@@ -268,7 +271,7 @@ Round fifty-four added the checks and non-check tooling below (the current regis
 | **Active probes** | `ssti`, `nosql_injection`, `path_bypass`, `race_condition`, `dom_xss_headless` (Playwright optional) |
 | **Passive / intel checks** | `webdav`, `dev_params`, `abuseipdb_lookup` (`--abuseipdb-token`), `waf_ruleset`, `oauth_oidc`, `saml_xsw`, `s3_bucket_discovery`, `github_leak_search` (`--github-search-token`), `jwt_audit` |
 | **Modified checks** | `subdomains` (B7 cookie-tossing chain), `cors` (B8 preflight matrix incl. `Origin: null`), `sqli` (A3 time-blind escalator), `smuggling_probe` (A6 active CL.TE/TE.CL) |
-| **Threat-intel integrations** | CISA KEV, EPSS, VirusTotal, Sucuri SiteCheck, NVD/Wordfence CVE explainer |
+| **Threat-intel integrations** | CISA KEV, EPSS, VirusTotal, NVD/Wordfence CVE explainer |
 | **Per-check tags** | new `cwe` (e.g. `CWE-79`) + `d3fend` (e.g. `D3-IVA`) fields in `data/check_tags.json` |
 | **Reporters** | one-page executive PDF (`--exec-pdf`, uses reportlab or HTML fallback) · two-report drag-and-drop HTML diff viewer · Burp Suite scope XML (`--burp-export`) · severity × OWASP-category SVG heatmap embedded in HTML report |
 | **CLI flags** | `--fail-on`, `--diff-against`, `--shell`, `--replay-har`, `--daemon`, `--abuseipdb-token`, `--vt-token`, `--github-search-token`, `--burp-export`, `--exec-pdf` |

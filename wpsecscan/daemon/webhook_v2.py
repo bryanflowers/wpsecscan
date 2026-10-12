@@ -16,7 +16,6 @@ import time
 from collections import deque
 from dataclasses import dataclass
 
-
 REPLAY_WINDOW_SECONDS = 300  # 5 min
 NONCE_CACHE_SIZE = 4096
 
@@ -29,7 +28,7 @@ class SignedWebhook:
     body: bytes
 
     @classmethod
-    def sign(cls, body: bytes, secret: str) -> "SignedWebhook":
+    def sign(cls, body: bytes, secret: str) -> SignedWebhook:
         ts = int(time.time())
         nonce = secrets.token_urlsafe(16)
         signed = f"{ts}.{nonce}.".encode("ascii") + body

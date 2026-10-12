@@ -27,7 +27,6 @@ from typing import Any
 
 from ._util import home_dir, load_home_json
 
-
 _WORD_RE = re.compile(r"[a-z0-9]{3,}")
 
 

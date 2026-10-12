@@ -14,7 +14,6 @@ from pathlib import Path
 
 from ._util import home_dir, load_home_json
 
-
 # ---------------------------------------------------------------------------
 # D61 — wpsecscan compare-portfolios
 # ---------------------------------------------------------------------------
@@ -211,8 +210,9 @@ def cmd_freeze(args: list[str]) -> None:
     for i, a in enumerate(args[1:]):
         if a == "--out" and i + 2 <= len(args[1:]):
             out_path = Path(args[i + 2]).expanduser()
-    from . import history as _h
     from urllib.parse import urlparse
+
+    from . import history as _h
     snaps = _h.snapshot_history(url)
     if not snaps:
         print(f"no saved snapshots for {url}", file=sys.stderr); sys.exit(2)
@@ -465,7 +465,8 @@ def cmd_ai_agent(args: list[str]) -> None:
     url = args[0]
     if "://" not in url:
         url = "https://" + url
-    from . import history as _h, ai_assist as _ai
+    from . import ai_assist as _ai
+    from . import history as _h
     snaps = _h.snapshot_history(url)
     if not snaps:
         print("run a passive scan first: wpsecscan " + url, file=sys.stderr)

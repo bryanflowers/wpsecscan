@@ -39,7 +39,6 @@ from rich.text import Text
 from . import activity as _act
 from .models import CheckResult, Finding
 
-
 _SEV_STYLE = {
     "critical": "bold red",
     "high":     "red",
@@ -72,8 +71,8 @@ class LiveDashboard:
         self.target = target
         self.total_checks = total_checks
         self._started = time.time()
-        self._findings_buf: "deque[Finding]" = deque(maxlen=12)
-        self._activity_buf: "deque[dict]" = deque(maxlen=15)
+        self._findings_buf: deque[Finding] = deque(maxlen=12)
+        self._activity_buf: deque[dict] = deque(maxlen=15)
         self._done_count = 0
         self._current_label = "starting…"
         self._lock = threading.Lock()

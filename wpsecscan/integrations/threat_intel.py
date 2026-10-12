@@ -17,7 +17,6 @@ import urllib.request
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 
-
 _TTL = 86400  # 24h
 
 

@@ -5,7 +5,7 @@ The pre-fix code built mutations via f-string with `chr(34)→chr(39)`
 substitution. A title containing `\\` + `"` survives the substitution
 and breaks out of the GraphQL string literal.
 """
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest

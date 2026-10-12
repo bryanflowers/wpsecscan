@@ -23,7 +23,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _BLOCK_MARKERS = (
     "access denied",
     "you have been blocked",

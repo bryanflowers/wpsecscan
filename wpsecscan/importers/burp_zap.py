@@ -42,7 +42,6 @@ except ImportError:
 
 from ..models import CheckResult, Finding, ScanReport
 
-
 _SEV_MAP = {
     # Burp severities
     "information": "info", "info": "info",

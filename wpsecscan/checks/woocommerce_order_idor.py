@@ -9,6 +9,7 @@ Probes /wc/v3/orders/1..3. Fires critical if any returns 200 with
 billing-shaped fields. Light probe — exactly 3 requests.
 """
 from __future__ import annotations
+
 from ..http import Client
 from ..models import Finding
 

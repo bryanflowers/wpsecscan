@@ -10,9 +10,9 @@
 from __future__ import annotations
 
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 CK_RE = re.compile(r"\b(ck_[a-f0-9]{40})\b")
 CS_RE = re.compile(r"\b(cs_[a-f0-9]{40})\b")

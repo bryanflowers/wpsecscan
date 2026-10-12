@@ -13,7 +13,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 _SECRET_PATTERNS = (
     (re.compile(r"NEXT_PUBLIC_[A-Z0-9_]*(SECRET|KEY|TOKEN|PASSWORD)"),
      "env var name labelled SECRET/KEY/TOKEN/PASSWORD but with NEXT_PUBLIC_ prefix"),

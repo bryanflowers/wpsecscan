@@ -19,7 +19,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _ENDPOINT = "/wp-json/jwt-auth/v1/token"
 
 

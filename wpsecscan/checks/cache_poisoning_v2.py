@@ -11,6 +11,7 @@ Aggressive only.
 from __future__ import annotations
 
 import asyncio
+
 from ..http import Client
 from ..models import Finding
 

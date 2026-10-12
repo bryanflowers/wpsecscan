@@ -16,10 +16,10 @@ from __future__ import annotations
 
 import re
 import time
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urljoin, urlparse
+
 from ..http import Client
 from ..models import Finding
-
 
 CSS_LINK_RE = re.compile(r'<link\b[^>]*rel\s*=\s*[\"\']?stylesheet[\"\']?[^>]*>', re.IGNORECASE)
 SCRIPT_SRC_RE = re.compile(r'<script[^>]+src=[\"\']([^\"\']+)[\"\']', re.IGNORECASE)

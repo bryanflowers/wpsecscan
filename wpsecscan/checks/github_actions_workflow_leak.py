@@ -16,7 +16,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _PROBES = (
     "/.github/workflows/",
     "/.github/workflows/ci.yml",

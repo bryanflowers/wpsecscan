@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import re
 from urllib.parse import urlparse
+
 from ..http import Client
 from ..models import Finding
-
 
 SCRIPT_TAG_RE = re.compile(r"<script\b([^>]*)>", re.IGNORECASE)
 LINK_STYLE_RE = re.compile(r"<link\b([^>]*\brel\s*=\s*[\"\']?stylesheet[\"\']?[^>]*)>", re.IGNORECASE)

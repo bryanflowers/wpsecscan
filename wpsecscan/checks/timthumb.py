@@ -16,7 +16,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 PROBE_PATHS = (
     "/wp-content/themes/timthumb.php",
     "/wp-content/scripts/timthumb.php",

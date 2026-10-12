@@ -10,6 +10,7 @@ to /wp-json/?_fields=* and check the response size against a 500 KB
 threshold.
 """
 from __future__ import annotations
+
 from ..http import Client
 from ..models import Finding
 

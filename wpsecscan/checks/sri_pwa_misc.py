@@ -9,10 +9,10 @@
 from __future__ import annotations
 
 import re
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urljoin, urlparse
+
 from ..http import Client
 from ..models import Finding
-
 
 COLOR_RE = re.compile(r"(?:#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))")
 PWA_MANIFEST_RE = re.compile(r'<link\s+[^>]*rel\s*=\s*[\"\']?manifest[\"\']?\s+[^>]*href\s*=\s*[\"\']([^\"\']+)[\"\']', re.IGNORECASE)

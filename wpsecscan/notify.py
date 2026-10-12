@@ -88,7 +88,8 @@ def _post_json(url: str, payload: dict, timeout: float = 4.0,
         headers = {"Content-Type": "application/json",
                    "User-Agent": "WPSecScan/notify"}
         if signing_secret:
-            import hmac as _hmac, hashlib as _h
+            import hashlib as _h
+            import hmac as _hmac
             sig = _hmac.new(signing_secret.encode("utf-8"), data, _h.sha256).hexdigest()
             headers["X-WPSecScan-Signature"] = f"sha256={sig}"
             headers["X-WPSecScan-Timestamp"] = str(int(__import__("time").time()))

@@ -22,7 +22,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _DB_PATHS = (
     "/wp-content/database/.ht.sqlite",
     "/wp-content/database/.ht.sqlite.bak",
@@ -78,7 +77,19 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
             ))
             return findings  # one critical is enough
 
-        if r.status_code == 200 and len(r.content or b"") < 5000:
+        body_bytes = r.content or b""
+        ctype = ""
+        hdrs = getattr(r, "headers", None)
+        if hdrs is not None:
+            try:
+                ctype = (hdrs.get("content-type", "") or "").lower()
+            except Exception:  # noqa: BLE001
+                ctype = ""
+        looks_html = "html" in ctype or body_bytes.lstrip()[:1] == b"<"
+        # Only a non-empty, small, non-HTML body is a plausible (obfuscated) DB
+        # file. An empty 200 or a catch-all HTML page is NOT — guarding against
+        # both avoids a false "reachable" finding on soft-404 / homepage echoes.
+        if r.status_code == 200 and body_bytes and len(body_bytes) < 5000 and not looks_html:
             # Some hosts return the file but with an obfuscated header.
             findings.append(Finding(
                 severity="high",

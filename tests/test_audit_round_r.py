@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import importlib
 
-
 # ============================== Backdoor-marker obfuscation regression ==============================
 
 def test_backdoor_markers_decode_to_real_webshell_strings():
@@ -59,8 +58,10 @@ def test_har_redacts_authorization_header():
     tokens / Basic auth visible in any HAR file users shared in bug reports.
     """
     import asyncio
-    from wpsecscan.http import Client
+
     import httpx
+
+    from wpsecscan.http import Client
 
     class FakeResp:
         status_code = 200
@@ -101,8 +102,10 @@ def test_har_caps_response_body_at_8kb_without_full_decode():
     """Bug fix: response.text used to materialise the FULL body as a Python str
     before truncating to 8 KB — wasted memory on large responses."""
     import asyncio
-    from wpsecscan.http import Client
+
     import httpx
+
+    from wpsecscan.http import Client
 
     huge = b"a" * 50000
 
@@ -149,7 +152,7 @@ def test_powershell_single_quote_escape_doubles_apostrophe():
 def test_github_long_titles_get_truncation_marker():
     """Bug fix: titles >200 chars are now suffixed with '...' so users can tell."""
     from wpsecscan.integrations import github_issues as gh
-    from wpsecscan.models import Finding, CheckResult, ScanReport
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     long_title = "x" * 300
     r = ScanReport(
         target="https://example.com", scanned_at="t", duration_ms=0,
@@ -180,7 +183,7 @@ def test_github_long_titles_get_truncation_marker():
 def test_github_short_titles_are_not_modified():
     """Short titles should not get a spurious '...' suffix."""
     from wpsecscan.integrations import github_issues as gh
-    from wpsecscan.models import Finding, CheckResult, ScanReport
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     r = ScanReport(
         target="https://example.com", scanned_at="t", duration_ms=0,
         results=[CheckResult(check_id="sqli", check_name="x",

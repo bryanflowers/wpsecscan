@@ -11,10 +11,11 @@ common signal), read the first 2 KB to fingerprint the installer, and
 emit a finding the user can cross-reference against the CVE DB.
 """
 from __future__ import annotations
+
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 _VENDOR_PATTERNS = (
     ("Redis Object Cache",  re.compile(r"@package\s+Redis_Object_Cache|class\s+WP_Object_Cache\s*{.*Redis", re.IGNORECASE | re.DOTALL)),

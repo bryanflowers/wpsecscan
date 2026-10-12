@@ -12,9 +12,9 @@ unauthenticated readability — the most common bug class.
 from __future__ import annotations
 
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 MEMBERSHIP = (
     ("MemberPress",          "/wp-content/plugins/memberpress/memberpress.php",

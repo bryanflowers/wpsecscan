@@ -11,7 +11,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ============================================================
 # aggregate-cve-feed.py — basic shape + skip logic
 # ============================================================

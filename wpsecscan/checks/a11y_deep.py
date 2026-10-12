@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import re
 from urllib.parse import urlparse
+
 from ..http import Client
 from ..models import Finding
-
 
 IMG_RE   = re.compile(r"<img\b([^>]*)>", re.IGNORECASE)
 ALT_RE   = re.compile(r"\balt\s*=\s*[\"']([^\"']*)[\"']", re.IGNORECASE)

@@ -7,10 +7,11 @@ endpoints don't authenticate, visitor PII (names, emails, message
 content) leaks. GDPR/CCPA reportable.
 """
 from __future__ import annotations
+
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 _PROBES = (
     "/wp-json/tidio/v1/messages",

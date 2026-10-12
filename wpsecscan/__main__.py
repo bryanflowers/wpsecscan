@@ -190,8 +190,8 @@ async def _scan_one(target: str, args, console: Console):
     on_progress = None
     if use_live:
         try:
-            from .console_live import LiveDashboard
             from .checks import select_checks
+            from .console_live import LiveDashboard
             total = len(select_checks(args.aggressive,
                                        authenticated_enabled=bool(
                                            (args.auth_user and (args.auth_pass or args.auth_app_password))
@@ -923,8 +923,9 @@ async def _amain(args) -> int:
         batch_started_at = None
         if len(targets) > 1 and not getattr(args, "no_console", False):
             try:
-                from . import eta as _eta
                 import time as _time
+
+                from . import eta as _eta
                 per = _eta.estimate_scan_seconds(
                     aggressive=bool(args.aggressive),
                     prove=bool(args.prove),
@@ -948,8 +949,9 @@ async def _amain(args) -> int:
                 # U17 — show running ETA on each site header.
                 if batch_started_at is not None and i > 1:
                     try:
-                        from . import eta as _eta
                         import time as _time
+
+                        from . import eta as _eta
                         elapsed = _time.monotonic() - batch_started_at
                         avg_per = elapsed / (i - 1)
                         remaining = avg_per * (len(targets) - i + 1)
@@ -1006,10 +1008,14 @@ async def _amain(args) -> int:
     # baseline. Composes with normal scan flow.
     if getattr(args, "diff_since", None) and all_reports:
         try:
+            import json as _j_dur
+            import re as _re_dur
+            from datetime import datetime as _dt_dur
+            from datetime import timedelta as _td_dur
+            from datetime import timezone as _tz_dur
+
             from . import history as _hmod
             from .diff import diff_dicts as _diff_dicts2
-            import re as _re_dur, json as _j_dur
-            from datetime import datetime as _dt_dur, timedelta as _td_dur, timezone as _tz_dur
             m = _re_dur.match(r"^(\d+)([hdw])$", args.diff_since.strip())
             if not m:
                 # v2.8.2 U#3 — was print-and-continue (exit 0), confusing CI
@@ -1046,6 +1052,7 @@ async def _amain(args) -> int:
     if args.diff_against and all_reports:
         try:
             import json as _j
+
             from .diff import diff_dicts as _diff_dicts
             baseline = _j.loads(Path(args.diff_against).read_text(encoding="utf-8"))
             current = json_reporter._enrich(all_reports[-1][0])
@@ -1174,7 +1181,7 @@ def _apply_config_and_profile(parser, args) -> None:
                       file=sys.stderr)
                 sys.exit(2)
             if not isinstance(data, dict):
-                print(f"--config: top-level must be a mapping/dict", file=sys.stderr)
+                print("--config: top-level must be a mapping/dict", file=sys.stderr)
                 sys.exit(2)
             merged.update(data)
         except Exception as e:  # noqa: BLE001
@@ -1886,7 +1893,7 @@ def main() -> None:
             auth_summary = f"as {args.auth_user}"
         print(f"Auth:               {auth_summary}")
         print(f"Proxy:              {args.proxy or '(direct)'}")
-        print(f"Reports:            " + ", ".join(filter(None, [
+        print("Reports:            " + ", ".join(filter(None, [
             "HTML" if not args.json_only else None,
             "JSON" if not args.html_only else None,
             "CSV" if args.csv else None,
@@ -2302,8 +2309,8 @@ def _cmd_kev(args: list[str]) -> None:
         url = "https://" + url
     # Build a minimal argv and re-invoke the scan with --no-console + JSON-only,
     # then filter. Simplest implementation: just call into the scan pipeline.
-    import subprocess
     import json as _j
+    import subprocess
     cmd = [sys.executable, "-m", "wpsecscan", url, "--json-only", "--no-console",
            "--no-update-check"]
     print(f"[kev] scanning {url}…", file=sys.stderr)
@@ -2315,7 +2322,7 @@ def _cmd_kev(args: list[str]) -> None:
         print("[kev] scan produced no snapshot", file=sys.stderr); sys.exit(2)
     snap = snaps[-1]
     data = _j.loads(snap.read_text(encoding="utf-8"))
-    from .models import ScanReport, CheckResult, Finding
+    from .models import CheckResult, Finding, ScanReport
     results = [CheckResult(
         check_id=r["check_id"], check_name=r.get("check_name", ""),
         findings=[Finding(severity=f["severity"], title=f.get("title", ""),
@@ -2538,8 +2545,8 @@ def _cmd_check(args: list[str]) -> None:
         print(f"next: edit the file, then run `wpsecscan only {slug} https://your-site.test`")
         return
     if args[0] == "list-custom":
-        from .checks import ALL_CHECKS
         from ._util import custom_check_dirs
+        from .checks import ALL_CHECKS
         custom_ids: set[str] = set()
         for d in custom_check_dirs():
             if d.exists():
@@ -2630,8 +2637,8 @@ def _cmd_check(args: list[str]) -> None:
             i += 1
         else:
             i += 1
-    from .checks import ALL_CHECKS
     from . import tags as _tags
+    from .checks import ALL_CHECKS
     rows = []
     for cid, cname, _fn, agg in ALL_CHECKS:
         t = _tags.get_tags(cid) or {}
@@ -2708,7 +2715,7 @@ def _cmd_verify_release(args: list[str]) -> None:
     sig_path = sig_path or exe_path.with_suffix(exe_path.suffix + ".sig")
     cert_path = cert_path or exe_path.with_suffix(exe_path.suffix + ".pem")
 
-    print(f"Verifying release artifact:")
+    print("Verifying release artifact:")
     print(f"  exe:  {exe_path}")
     print(f"  sig:  {sig_path}")
     print(f"  cert: {cert_path}")
@@ -2854,13 +2861,14 @@ def _cmd_watch(args: list[str]) -> None:
         elif a == "--exit-on-new":
             exit_on_new = True
 
-    from . import history as _h
-    from . import json_io as _ji  # type: ignore[unused-import]  # may be json_out
     import asyncio as _asyncio
     import json as _json
     import time as _time
     import urllib.request as _ur
     from datetime import datetime, timezone
+
+    from . import history as _h
+    from . import json_io as _ji  # type: ignore[unused-import]  # may be json_out
 
     console = Console(no_color=False, legacy_windows=False)
     console.print(f"[bold]wpsecscan watch[/bold] {target} every {interval}s "
@@ -2869,8 +2877,8 @@ def _cmd_watch(args: list[str]) -> None:
 
     async def _one_pass() -> tuple[set[str], set[str], int, int]:
         # Run a passive scan, return (new_titles, fixed_titles, total, score)
-        from .scanner import scan
         from .reporters import json_out as _jo
+        from .scanner import scan
         report = await scan(target, timeout=15.0, aggressive=False, sequential=True)
         # Persist
         _h.save_report_snapshot(target, _jo.render(report))
@@ -2932,7 +2940,7 @@ def _cmd_watch(args: list[str]) -> None:
                     lines.append(f"• FIXED: {title}")
                 _post("\n".join(lines))
             if exit_on_new and new:
-                console.print(f"[red]exit-on-new tripwire fired[/red] — exiting")
+                console.print("[red]exit-on-new tripwire fired[/red] — exiting")
                 sys.exit(3)
         else:
             console.print(f"[{ts}] {target}: no change (total {total}, score {score}/100)")
@@ -3019,6 +3027,7 @@ def _cmd_refix(args: list[str]) -> None:
     import json as _json
     from datetime import datetime, timezone
     from urllib.parse import urlparse
+
     from . import scanner as _sc
 
     async def _refix_one() -> tuple[bool, list[dict]]:
@@ -3108,6 +3117,7 @@ def _cmd_only(args: list[str]) -> None:
             auth_pass = args[i + 1]
 
     import asyncio as _asyncio
+
     from .checks import ALL_CHECKS
     from .http import Client
     ours = [c for c in ALL_CHECKS if c[0] == check_id]
@@ -3235,7 +3245,7 @@ def _cmd_doctor(args: list[str]) -> None:
 
     # Files / dirs
     home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
-    rows.append(("✓" if home.exists() else "•", f"~/.wpsecscan/", str(home)))
+    rows.append(("✓" if home.exists() else "•", "~/.wpsecscan/", str(home)))
     rows.append(("✓" if (home / "reports").exists() else "•",
                   "~/.wpsecscan/reports/", "report snapshots"))
     rows.append(("✓" if (home / "policy.yml").exists() or (home / "policy.json").exists() else "•",
@@ -3686,9 +3696,9 @@ def _cmd_hwkey(args: list[str]) -> None:
         gate_path.write_text(json.dumps({"enabled": True,
                                            "enabled_at": int(time.time())}, indent=2),
                               encoding="utf-8")
-        print(f"hwkey gate ENABLED. --aggressive scans now require either "
-               f"$WPSECSCAN_AGGRESSIVE_HWKEY_TOKEN (mint via `wpsecscan hwkey grant`) "
-               f"or interactive YES confirmation.")
+        print("hwkey gate ENABLED. --aggressive scans now require either "
+               "$WPSECSCAN_AGGRESSIVE_HWKEY_TOKEN (mint via `wpsecscan hwkey grant`) "
+               "or interactive YES confirmation.")
         return
     if sub == "disable":
         if gate_path.exists():
@@ -4057,7 +4067,7 @@ def _cmd_pr_status(args: list[str]) -> None:
         sys.exit(2)
     data = json.loads(snaps[-1].read_text(encoding="utf-8"))
     # Rehydrate just enough into a ScanReport-shaped object for gh_check_run.
-    from .models import ScanReport, CheckResult, Finding
+    from .models import CheckResult, Finding, ScanReport
     results = [
         CheckResult(
             check_id=r["check_id"],
@@ -4267,11 +4277,12 @@ def _cmd_publish(args: list[str]) -> None:
         if a == "--out" and i + 1 < len(args):
             out_dir = args[i + 1]
 
-    from . import history as _h
-    import json as _json
-    import hmac as _hmac
     import hashlib as _hash
+    import hmac as _hmac
+    import json as _json
     from datetime import datetime, timezone
+
+    from . import history as _h
 
     snaps = _h.snapshot_history(target)
     if not snaps:
@@ -4371,7 +4382,7 @@ def _cmd_publish(args: list[str]) -> None:
                                               encoding="utf-8")
     print(f"published: {page_path}")
     print(f"           {out / 'scan-receipt.json'}")
-    print(f"upload both files to your site; link the .html from your footer.")
+    print("upload both files to your site; link the .html from your footer.")
 
 
 def _cmd_pr_comment(args: list[str]) -> None:
@@ -4437,8 +4448,9 @@ def _cmd_diff_tree(args: list[str]) -> None:
             except ValueError:
                 pass
 
-    from . import history as _h
     import json as _json
+
+    from . import history as _h
     snaps = _h.snapshot_history(target)
     if len(snaps) < 2:
         print(f"need at least 2 snapshots for {target}; found {len(snaps)}.")
@@ -4594,8 +4606,9 @@ def _load_report_for_subcommand(path_str: str):
     """v2.8.2 Phase 2 — shared helper for the new emit/push/ai subcommands.
     Reads a saved JSON report and reconstructs minimal ScanReport-like access.
     Raises CliError on failure."""
-    from .cli_error import CliError
     from pathlib import Path as _P
+
+    from .cli_error import CliError
     p = _P(path_str)
     if not p.exists():
         raise CliError(code="report-not-found",
@@ -4921,8 +4934,9 @@ def _cmd_benchmark(args: list[str]) -> None:
         aggressive = False
     import asyncio as _asyncio
     import time as _time
-    from .http import Client
+
     from .checks import select_checks
+    from .http import Client
 
     async def _bench():
         active = select_checks(aggressive=aggressive)
@@ -5013,8 +5027,8 @@ def _cmd_compare_pypi_version(args: list[str]) -> None:
     if args and args[0] in ("-h", "--help"):
         print("usage: wpsecscan compare-pypi-version [--force]\nPrints installed vs latest-PyPI version.")
         return
-    import urllib.request as _ur
     import time as _time
+    import urllib.request as _ur
     home = Path(os.environ.get("WPSECSCAN_HOME") or (Path.home() / ".wpsecscan"))
     home.mkdir(parents=True, exist_ok=True)
     cache_path = home / "pypi-version.json"
@@ -5210,7 +5224,7 @@ def _cmd_paths(args: list[str]) -> None:
     for name, desc in items:
         p = home / name
         print(f"  {name:36s}  {_size(p):>22s}  {desc}")
-    print(f"\nOverride the base directory with the WPSECSCAN_HOME env var.")
+    print("\nOverride the base directory with the WPSECSCAN_HOME env var.")
 
 
 def _cmd_compare(args: list[str]) -> None:

@@ -11,9 +11,9 @@ surface in WP. We:
 from __future__ import annotations
 
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 FORM_PLUGINS = (
     ("Contact Form 7", "/wp-content/plugins/contact-form-7/wp-contact-form-7.php"),

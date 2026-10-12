@@ -6,7 +6,6 @@ from pathlib import Path
 
 from wpsecscan import playbook
 
-
 DATA = json.loads(
     (Path(__file__).resolve().parent.parent / "wpsecscan" / "data" / "exploit_playbook.json").read_text(encoding="utf-8")
 )
@@ -101,7 +100,7 @@ def test_ordered_buckets_uses_canonical_order():
 
 def test_html_reporter_passes_playbooks_to_template(tmp_path):
     """End-to-end: a report with a finding for a playbook'd check renders the bucket."""
-    from wpsecscan.models import Finding, CheckResult, ScanReport
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters import html as html_reporter
 
     r = ScanReport(
@@ -127,7 +126,7 @@ def test_html_reporter_passes_playbooks_to_template(tmp_path):
 
 def test_html_reporter_does_not_render_playbook_for_unknown_check(tmp_path):
     """A check with no playbook entry shouldn't crash and shouldn't render an empty block."""
-    from wpsecscan.models import Finding, CheckResult, ScanReport
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters import html as html_reporter
 
     r = ScanReport(

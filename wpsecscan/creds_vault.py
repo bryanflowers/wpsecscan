@@ -51,10 +51,11 @@ def _fallback_path() -> Path:
 def _have_keyring() -> bool:
     try:
         import keyring  # noqa: F401
+        import keyring as _kr
+
         # Probe that a backend is actually available; some envs install the
         # package but have no functioning backend.
         from keyring.backends.fail import Keyring as FailBackend  # type: ignore
-        import keyring as _kr
         return not isinstance(_kr.get_keyring(), FailBackend)
     except ImportError:
         return False

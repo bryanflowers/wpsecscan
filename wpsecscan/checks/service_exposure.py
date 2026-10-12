@@ -19,6 +19,7 @@ import ipaddress
 import os
 import socket
 from urllib.parse import urlparse
+
 from ..http import Client
 from ..models import Finding
 

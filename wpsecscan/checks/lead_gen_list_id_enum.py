@@ -20,7 +20,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 _LIST_ID_RES = [
     re.compile(r'name=["\']?list_id["\']?\s*value=["\']?([\w-]{6,32})["\']?', re.IGNORECASE),
     re.compile(r'data-(?:list|audience|form)-id=["\']([\w-]{6,32})["\']', re.IGNORECASE),
@@ -49,7 +48,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         severity="low",
         title=f"Lead-gen plugin list/audience IDs visible in frontend HTML: {len(list_ids)} found",
         evidence=(
-            f"List IDs leaked into the rendered page:\n  "
+            "List IDs leaked into the rendered page:\n  "
             + "\n  ".join(sorted(list_ids)) + "\n\n"
             "These IDs are intentionally public, but the operator may want to "
             "audit:\n"

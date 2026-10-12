@@ -24,7 +24,6 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-
 DEFAULT_WEIGHTS = {
     "critical": {"per_finding": 25, "cap": 50},
     "high":     {"per_finding": 10, "cap": 30},

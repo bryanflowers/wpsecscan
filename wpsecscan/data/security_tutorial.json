@@ -19,7 +19,7 @@
     },
     {
       "title": "Threat intel sources",
-      "body": "WPSecScan integrates with CISA KEV (known-exploited CVEs), EPSS (exploitation probability), VirusTotal (URL reputation), Sucuri SiteCheck, and the Wordfence DB. The KEV badge on a finding means active in-the-wild exploitation."
+      "body": "WPSecScan integrates with CISA KEV (known-exploited CVEs), EPSS (exploitation probability), VirusTotal (URL reputation), and the Wordfence DB. The KEV badge on a finding means active in-the-wild exploitation."
     },
     {
       "title": "The exploit playbook",

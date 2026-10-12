@@ -6,7 +6,9 @@ compute response time. If wp-cron consistently takes > 2s, a low-rate
 DoS becomes very cheap (20 req/s saturates a 1-vCPU host).
 """
 from __future__ import annotations
+
 import time
+
 from ..http import Client
 from ..models import Finding
 

@@ -85,7 +85,7 @@ def test_s3_bucket_discovery_module_present():
 
 
 def test_dom_xss_headless_emits_install_hint_without_playwright():
-    from wpsecscan.checks.dom_xss_headless import check, _has_playwright
+    from wpsecscan.checks.dom_xss_headless import _has_playwright, check
     if _has_playwright():
         # Skip - if Playwright IS installed, the check would actually try to drive a browser
         return
@@ -129,7 +129,7 @@ def test_heatmap_renders_without_data():
 
 def test_heatmap_renders_with_data():
     from wpsecscan import heatmap
-    from wpsecscan.models import ScanReport, CheckResult, Finding
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     f1 = Finding(severity="critical", title="hi")
     f2 = Finding(severity="high", title="lo")
     rep = ScanReport(
@@ -153,8 +153,8 @@ def test_diff_viewer_writes_standalone_html(tmp_path):
 
 
 def test_exec_pdf_html_fallback(tmp_path):
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters import exec_pdf
-    from wpsecscan.models import ScanReport, CheckResult, Finding
     rep = ScanReport(
         target="https://x.com", scanned_at="now", duration_ms=0,
         results=[CheckResult(check_id="cors", check_name="CORS",
@@ -283,6 +283,7 @@ def test_bug3_cisa_kev_cache_survives_null_cves(tmp_path, monkeypatch):
     """{"cves": null} on disk used to crash with TypeError (set(None));
     after the fix the loader returns an empty set."""
     import json as _j
+
     from wpsecscan.integrations import cisa_kev as _kev
     cache = tmp_path / "kev.json"
     cache.write_text(_j.dumps({"cves": None, "fetched_at": 0}), encoding="utf-8")
@@ -297,6 +298,7 @@ def test_bug4_cron_field_rejects_out_of_range():
     """`32` is not a valid day-of-month; the parser used to silently accept
     it and the cron would never fire. Now it raises ValueError."""
     import pytest
+
     from wpsecscan.daemon import _parse_cron_field
     with pytest.raises(ValueError):
         _parse_cron_field("32", 1, 31)
@@ -313,8 +315,9 @@ def test_bug4_cron_field_rejects_out_of_range():
 def test_bug2_jwt_audit_does_not_persist_cracked_secret_in_extra():
     """The cracked HS256 secret was being duplicated into `extra` — pure
     review of the source asserts the key is gone."""
-    import wpsecscan.checks.jwt_audit as _src
     import inspect
+
+    import wpsecscan.checks.jwt_audit as _src
     body = inspect.getsource(_src)
     assert '"cracked_secret"' not in body, (
         "jwt_audit no longer persists the cracked secret value in finding.extra"
@@ -324,8 +327,8 @@ def test_bug2_jwt_audit_does_not_persist_cracked_secret_in_extra():
 def test_bug5_exec_pdf_fallback_always_writes_html_extension(tmp_path, monkeypatch):
     """When reportlab is absent, callers passing a no-extension path used to
     get HTML content under that exact name. Now they always get `.html`."""
-    from wpsecscan.reporters import exec_pdf
     from wpsecscan.models import ScanReport
+    from wpsecscan.reporters import exec_pdf
     monkeypatch.setattr(exec_pdf, "_has_reportlab", lambda: False)
     rep = ScanReport(target="https://x.com", scanned_at="now", duration_ms=0)
     out = tmp_path / "report"  # no extension

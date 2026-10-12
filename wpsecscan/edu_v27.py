@@ -15,7 +15,6 @@ import re
 import sys
 from pathlib import Path
 
-
 # ---------------------------------------------------------------------------
 # J116 — wpsecscan learn
 # ---------------------------------------------------------------------------
@@ -114,7 +113,7 @@ def cmd_audio_summary(args: list[str]) -> None:
     if not snaps:
         print(f"no saved scan for {url}", file=sys.stderr); sys.exit(2)
     data = json.loads(snaps[-1].read_text(encoding="utf-8"))
-    from .models import ScanReport, CheckResult, Finding
+    from .models import CheckResult, Finding, ScanReport
     results = [CheckResult(check_id=r["check_id"], check_name=r.get("check_name", ""),
                             findings=[Finding(severity=f["severity"], title=f.get("title", ""),
                                                 evidence=f.get("evidence", ""))

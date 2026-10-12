@@ -15,7 +15,6 @@ import httpx
 from ..http import Client
 from ..models import Finding
 
-
 _REPORT_URI_RE = re.compile(r"report-uri\s+([^;]+)", re.IGNORECASE)
 _REPORT_TO_RE = re.compile(r"report-to\s+([^;]+)", re.IGNORECASE)
 

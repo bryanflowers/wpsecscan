@@ -20,7 +20,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 # Each entry: (display_name, HTML-regex marker, known CVE families summary).
 # The regex matches the most stable marker each builder leaves in front-end
 # HTML; it deliberately does NOT match the dashboard.

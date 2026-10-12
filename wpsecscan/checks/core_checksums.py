@@ -8,6 +8,7 @@ core files via the public web tree (/wp-includes/version.php,
 matching SHA-256 = critical (webshell or backdoor in a core file).
 """
 from __future__ import annotations
+
 import hashlib
 import os
 import re
@@ -16,7 +17,6 @@ import httpx
 
 from ..http import Client
 from ..models import Finding
-
 
 # Files always present in core that are likely to be probable via the
 # web tree on a default WP install. NOT exhaustive — this is a fast

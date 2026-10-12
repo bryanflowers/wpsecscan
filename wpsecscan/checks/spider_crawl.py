@@ -36,7 +36,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
         severity="info",
         title=f"Spider crawled {len(result.urls)} URL(s) (max depth {deepest})",
         evidence=(
-            f"First 20 discovered URLs:\n  " + "\n  ".join(result.urls[:20])
+            "First 20 discovered URLs:\n  " + "\n  ".join(result.urls[:20])
             + (f"\n... and {len(result.urls) - 20} more" if len(result.urls) > 20 else "")
             + (f"\n\n{len(result.blocked_by_robots)} URL(s) skipped due to robots.txt Disallow."
                if result.blocked_by_robots else "")

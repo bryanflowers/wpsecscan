@@ -70,7 +70,8 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     for provider, meta_url, marker in METADATA_TARGETS:
         step(f"SSRF -> {provider}...")
         # Build the probe URL by replacing the SSRF-vulnerable parameter's value with meta_url
-        from urllib.parse import urlparse as _u, parse_qsl, urlencode, urlunparse
+        from urllib.parse import parse_qsl, urlencode, urlunparse
+        from urllib.parse import urlparse as _u
         u = _u(base_url)
         qs = dict(parse_qsl(u.query))
         qs[param] = meta_url

@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import asyncio
 
-from wpsecscan.checks.plugin_cves import check
 from tests.conftest import FakeClient, FakeResponse
+from wpsecscan.checks.plugin_cves import check
 
 
 def _run(coro):

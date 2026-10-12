@@ -11,7 +11,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _PATHS = (
     "/group_vars/all/vault.yml",
     "/group_vars/development/main.yml",

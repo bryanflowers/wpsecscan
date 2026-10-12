@@ -6,11 +6,10 @@ from __future__ import annotations
 
 import tkinter as tk
 from dataclasses import fields
-from tkinter import ttk, messagebox
+from tkinter import messagebox, ttk
 from typing import Any
 
 from . import ai_assist, ai_triage
-
 
 # ============================================================
 # GUI panel

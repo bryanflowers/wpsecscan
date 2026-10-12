@@ -155,6 +155,7 @@ def _acquire_pid_file() -> Path | None:
     Returns the PID-file Path on success, None on lock-conflict.
     """
     import os as _os
+
     from wpsecscan.history import _home as _wh_home
     pid_path = _wh_home() / "daemon.pid"
     try:
@@ -216,10 +217,11 @@ async def run_daemon(config_path: Path) -> None:
 
     # `from .scanner` resolved to wpsecscan.daemon.scanner (nonexistent) once
     # this module moved into the daemon/ package — use absolute imports.
-    from wpsecscan.scanner import scan
-    from wpsecscan.reporters import json_out, html as html_reporter
     from wpsecscan import notify as _n
     from wpsecscan.history import _atomic_write_text as _atomic
+    from wpsecscan.reporters import html as html_reporter
+    from wpsecscan.reporters import json_out
+    from wpsecscan.scanner import scan
 
     print(f"[daemon] loaded {len(targets)} target(s) from {config_path}")
     print(f"[daemon] output dir: {out_dir.resolve()}")

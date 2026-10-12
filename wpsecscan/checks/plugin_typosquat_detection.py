@@ -8,7 +8,6 @@ flag any near-but-not-exact match.
 """
 from __future__ import annotations
 
-
 from ..http import Client
 from ..models import Finding
 

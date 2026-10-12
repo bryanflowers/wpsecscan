@@ -19,7 +19,7 @@ sinks, doesn't auto-exfiltrate or chain to credential theft.
 from __future__ import annotations
 
 import asyncio
-from urllib.parse import urlparse, urlencode
+from urllib.parse import urlencode, urlparse
 
 from ..http import Client
 from ..models import Finding

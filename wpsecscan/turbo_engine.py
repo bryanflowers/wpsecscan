@@ -28,7 +28,6 @@ import struct
 import time
 from urllib.parse import urlparse
 
-
 # ---------- #30 high-RPS gather ----------
 
 async def burst(client_factory, requests: list[dict], *,

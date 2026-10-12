@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ============================================================
 # Group C — AI triage settings + availability
 # ============================================================
@@ -16,6 +15,7 @@ import pytest
 def test_ai_triage_settings_default_all_off(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import ai_triage
     importlib.reload(ai_triage)
     s = ai_triage.AITriageSettings()
@@ -25,6 +25,7 @@ def test_ai_triage_settings_default_all_off(monkeypatch, tmp_path):
 def test_ai_triage_settings_round_trip(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import ai_triage
     importlib.reload(ai_triage)
     s = ai_triage.AITriageSettings(severity_auto_tuner=True, fp_auto_hide_threshold=0.7)
@@ -40,6 +41,7 @@ def test_ai_triage_is_available_returns_false_without_backend(monkeypatch, tmp_p
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     import importlib
+
     from wpsecscan import ai_triage
     importlib.reload(ai_triage)
     # Patch ai_assist.is_configured to False
@@ -51,6 +53,7 @@ def test_ai_triage_is_available_returns_false_without_backend(monkeypatch, tmp_p
 def test_ai_triage_is_available_false_with_backend_but_no_toggles(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import ai_triage
     importlib.reload(ai_triage)
     monkeypatch.setattr(ai_triage.ai_assist, "is_configured", lambda: True)
@@ -62,6 +65,7 @@ def test_ai_triage_skips_when_disabled(monkeypatch, tmp_path):
     """Even with toggles off, calling features should not raise."""
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import ai_triage
     importlib.reload(ai_triage)
     # Stub ai_assist to count calls
@@ -78,6 +82,7 @@ def test_ai_triage_skips_when_disabled(monkeypatch, tmp_path):
 def test_ai_triage_cli_set_and_get(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import ai_triage, ai_triage_ui
     importlib.reload(ai_triage)
     importlib.reload(ai_triage_ui)
@@ -89,6 +94,7 @@ def test_ai_triage_cli_set_and_get(monkeypatch, tmp_path):
 def test_apply_all_returns_skipped_when_unavailable(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import ai_triage
     importlib.reload(ai_triage)
     monkeypatch.setattr(ai_triage.ai_assist, "is_configured", lambda: False)
@@ -104,6 +110,7 @@ def test_apply_all_returns_skipped_when_unavailable(monkeypatch, tmp_path):
 def test_analytics_default_disabled(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import analytics
     importlib.reload(analytics)
     s = analytics.AnalyticsSettings.load()
@@ -113,6 +120,7 @@ def test_analytics_default_disabled(monkeypatch, tmp_path):
 def test_analytics_record_is_noop_when_disabled(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import analytics
     importlib.reload(analytics)
     analytics.record("cli_command", subcommand="scan", duration_ms=100, exit_status="ok")
@@ -123,6 +131,7 @@ def test_analytics_record_is_noop_when_disabled(monkeypatch, tmp_path):
 def test_analytics_enable_disable_round_trip(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import analytics
     importlib.reload(analytics)
     out = analytics.enable()
@@ -138,6 +147,7 @@ def test_analytics_enable_disable_round_trip(monkeypatch, tmp_path):
 def test_analytics_records_event_when_enabled(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import analytics
     importlib.reload(analytics)
     analytics.enable()
@@ -155,6 +165,7 @@ def test_analytics_strips_disallowed_fields(monkeypatch, tmp_path):
     """Defence in depth — any extra field a caller might pass is dropped."""
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import analytics
     importlib.reload(analytics)
     analytics.enable()
@@ -171,6 +182,7 @@ def test_analytics_strips_disallowed_fields(monkeypatch, tmp_path):
 def test_analytics_unknown_event_type_dropped(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import analytics
     importlib.reload(analytics)
     analytics.enable()
@@ -181,6 +193,7 @@ def test_analytics_unknown_event_type_dropped(monkeypatch, tmp_path):
 def test_analytics_finding_count_bucketed(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import analytics
     importlib.reload(analytics)
     analytics.enable()
@@ -194,6 +207,7 @@ def test_analytics_finding_count_bucketed(monkeypatch, tmp_path):
 def test_analytics_forget_deletes_local_data(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import analytics
     importlib.reload(analytics)
     analytics.enable()
@@ -208,6 +222,7 @@ def test_analytics_forget_deletes_local_data(monkeypatch, tmp_path):
 def test_analytics_status_includes_path(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import analytics
     importlib.reload(analytics)
     st = analytics.status()
@@ -218,6 +233,7 @@ def test_analytics_status_includes_path(monkeypatch, tmp_path):
 def test_analytics_show_recent_empty(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import analytics
     importlib.reload(analytics)
     out = analytics.show_recent()
@@ -228,6 +244,7 @@ def test_analytics_time_block_records_duration(monkeypatch, tmp_path):
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
     import time
+
     from wpsecscan import analytics
     importlib.reload(analytics)
     analytics.enable()
@@ -242,6 +259,7 @@ def test_analytics_anon_id_quarterly(monkeypatch, tmp_path):
     """Same call returns same UUID within the quarter."""
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     import importlib
+
     from wpsecscan import analytics
     importlib.reload(analytics)
     id1 = analytics._get_or_make_anon_id()

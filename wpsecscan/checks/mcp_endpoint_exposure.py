@@ -23,7 +23,6 @@ import json
 from ..http import Client
 from ..models import Finding
 
-
 _MCP_ROUTES = (
     "/.well-known/mcp.json",
     "/wp-json/wp/v2/mcp",

@@ -16,7 +16,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # N1 — InteractshSession constructor sets all required attributes
 # ---------------------------------------------------------------------------

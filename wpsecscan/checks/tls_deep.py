@@ -35,7 +35,7 @@ _X509_MONTHS = {
 }
 
 
-def _parse_cert_date_en(not_after: str) -> "datetime | None":
+def _parse_cert_date_en(not_after: str) -> datetime | None:
     """Parse OpenSSL-style cert dates like `Jan 24 12:34:56 2026 GMT`
     using a locale-independent English month map. Returns None on
     any parse error."""

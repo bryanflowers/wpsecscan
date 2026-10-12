@@ -43,8 +43,7 @@ Most helpers are exposed via `wpsecscan emit`. The exceptions:
   per-tenant `~/.wpsecscan/tenants/<id>/`. Set `WPSECSCAN_HOME` to
   this path before invoking scans for that tenant.
 - **`scim_user_to_creds(scim_user)`** — translate a SCIM 2.0 User
-  object dict into a wpsecscan creds-vault entry. Used by enterprise
-  SSO/SCIM integrations.
+  object dict into a wpsecscan creds-vault entry.
 
 ## `wpsecscan.integrations_v28`
 

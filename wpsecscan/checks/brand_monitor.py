@@ -17,7 +17,6 @@ from urllib.parse import urlparse
 from ..http import Client
 from ..models import Finding
 
-
 # Common visual-substitution rules: pick one char in the domain
 # and swap it. Returns up to 12 candidates from a single domain.
 _SWAPS = (

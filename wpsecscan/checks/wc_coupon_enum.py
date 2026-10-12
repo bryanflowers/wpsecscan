@@ -21,7 +21,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _PROBE_CODES = (
     "wpsecscan-probe-aaaa-0001",
     "wpsecscan-probe-aaaa-0002",

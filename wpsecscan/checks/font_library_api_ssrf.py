@@ -18,7 +18,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _PATHS = (
     "/wp-json/wp/v2/font-families",
     "/wp-json/wp/v2/font-collections",

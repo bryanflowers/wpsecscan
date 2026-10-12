@@ -13,7 +13,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 _PROBES = (
     "/?amp=1&redirect_to=https://wpsecscan-probe.example/",
     "/?amp&redirect_to=//wpsecscan-probe.example/",

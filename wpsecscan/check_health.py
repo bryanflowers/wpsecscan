@@ -17,7 +17,6 @@ from collections import defaultdict
 from pathlib import Path
 from statistics import median
 
-
 # ----- J20 in-process self-healing -----
 
 _failures: dict[str, int] = defaultdict(int)

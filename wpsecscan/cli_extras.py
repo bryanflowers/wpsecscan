@@ -20,7 +20,6 @@ from pathlib import Path
 
 from ._util import home_dir, load_home_json
 
-
 # ---------------------------------------------------------------------------
 # F83 — enable VT mode on legacy Windows consoles
 # ---------------------------------------------------------------------------
@@ -163,7 +162,7 @@ def cmd_undo(args: list[str]) -> None:
     if a == "creds-set":
         print(f"# To revert: wpsecscan creds rm '{p.get('site_url','')}' --field '{p.get('field','')}'")
     elif a == "snooze-add":
-        print(f"# To revert: edit ~/.wpsecscan/snoozes.json and remove the matching entry")
+        print("# To revert: edit ~/.wpsecscan/snoozes.json and remove the matching entry")
     elif a == "policy-mutation":
         print(f"# To revert: edit ~/.wpsecscan/policy.yml — the mutation was in section: {p.get('section','?')}")
     elif a == "cron-schedule-add":

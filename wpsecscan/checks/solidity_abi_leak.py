@@ -68,8 +68,8 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
                     evidence=(
                         f"GET {path} -> 200 ({len(body)} bytes)\n  "
                         + (f"Admin-like methods: {admin_methods[:6]}\n  " if admin_methods else "")
-                        + (f"Source code embedded: yes\n  " if has_source else "")
-                        + (f"Directory listing: yes\n  " if is_listing else "")
+                        + ("Source code embedded: yes\n  " if has_source else "")
+                        + ("Directory listing: yes\n  " if is_listing else "")
                     ),
                     remediation=(
                         "Move the ABI out of /wp-content/uploads (which is world-readable) into a non-public dir, "

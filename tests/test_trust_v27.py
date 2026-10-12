@@ -16,7 +16,6 @@ import pytest
 from wpsecscan import trust_v27
 from wpsecscan.models import CheckResult, Finding, ScanReport
 
-
 # ---------------------------------------------------------------------------
 # K122 — reproducible_build_verify
 # ---------------------------------------------------------------------------

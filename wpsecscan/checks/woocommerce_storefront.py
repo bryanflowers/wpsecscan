@@ -17,7 +17,6 @@ import asyncio
 from ..http import Client
 from ..models import Finding
 
-
 # Common coupon-like terms we'll attempt. Each is single-shot; we count
 # attempts and look for rate-limit signals (429, slowdown, blocked).
 _COUPON_PROBES = (

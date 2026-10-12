@@ -47,7 +47,7 @@ def test_release_counts(site):
     assert rel["compliance_frameworks"] == 12 and len(rel["compliance_list"]) == 12
     assert rel["feed_sources_configured"] == 8
     assert rel["threat_intel_providers"] == 10
-    assert rel["exe_size_mb"] == 31
+    assert rel["exe_size_mb"] == 22
     assert rel["license"] == "AGPL-3.0-or-later"
 
 

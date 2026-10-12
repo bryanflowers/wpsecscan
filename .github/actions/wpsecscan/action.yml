@@ -9,7 +9,7 @@ inputs:
   version:
     description: wpsecscan version to install from PyPI (pinned so a new release cannot change CI behaviour)
     required: false
-    default: "2.9.0"
+    default: "2.9.1"
   aggressive:
     description: Enable aggressive (active payload) checks. Without `owned`, aggressive checks run passively only.
     required: false

@@ -11,9 +11,9 @@
 from __future__ import annotations
 
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 FSE_PROBES = (
     "/wp-content/themes/twentytwentyfour/theme.json",

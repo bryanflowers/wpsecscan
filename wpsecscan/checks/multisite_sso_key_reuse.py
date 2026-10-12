@@ -17,7 +17,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 _MS_FINGERPRINTS = (
     "/wp-admin/network/",
     "/wp-content/sunrise.php",

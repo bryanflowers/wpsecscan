@@ -78,8 +78,8 @@ def test_b9_tldr_exit_honours_fail_on_contract():
 # ---------------------------------------------------------------------------
 
 def test_b10_sarif_no_attribute_error_on_none_fields():
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters import sarif
-    from wpsecscan.models import Finding, CheckResult, ScanReport
     f = Finding(severity="high", title=None, evidence=None)  # type: ignore[arg-type]
     cr = CheckResult(check_id="x", check_name="x", findings=[f])
     rep = ScanReport(target="https://t", scanned_at="now", duration_ms=0, results=[cr])
@@ -104,8 +104,8 @@ def test_b11_console_no_typeerror_on_none_evidence():
 # ---------------------------------------------------------------------------
 
 def test_b12_json_reporter_sanitises_nan():
+    from wpsecscan.models import CheckResult, Finding, ScanReport
     from wpsecscan.reporters import json_out
-    from wpsecscan.models import Finding, CheckResult, ScanReport
     f = Finding(severity="high", title="t", evidence="e",
                   extra={"ai_score": float("nan"), "perf": float("inf")})
     cr = CheckResult(check_id="x", check_name="x", findings=[f])

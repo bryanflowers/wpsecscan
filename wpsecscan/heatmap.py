@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import html as _html
 
-from .models import ScanReport, SEVERITIES
+from .models import SEVERITIES, ScanReport
 
 # Stable ordering for the X-axis (OWASP 2021 categories the scanner produces).
 OWASP_ORDER = (

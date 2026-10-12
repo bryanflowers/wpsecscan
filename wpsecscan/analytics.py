@@ -46,11 +46,10 @@ import json
 import os
 import time
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
 
 # ============================================================
 # Storage paths
@@ -91,7 +90,7 @@ class AnalyticsSettings:
     last_upload_at: str | None = None
 
     @classmethod
-    def load(cls) -> "AnalyticsSettings":
+    def load(cls) -> AnalyticsSettings:
         p = _settings_path()
         if not p.exists():
             return cls()
@@ -376,7 +375,7 @@ def upload_now() -> str:
         p.write_text("", encoding="utf-8")
     except OSError:
         pass
-    return f"Uploaded ok. Local log truncated."
+    return "Uploaded ok. Local log truncated."
 
 
 # ============================================================

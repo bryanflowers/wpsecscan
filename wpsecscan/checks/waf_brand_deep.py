@@ -6,9 +6,9 @@ ModSecurity CRS version sniff, Citrix NetScaler, FortiWeb, Radware AppWall.
 from __future__ import annotations
 
 import re
+
 from ..http import Client
 from ..models import Finding
-
 
 # Each tuple: (vendor, [header-regexes], [body-substrings], [cookie-substrings])
 FINGERPRINTS = [

@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import socket
 from urllib.parse import urlparse
+
 from ..http import Client
 from ..models import Finding
 

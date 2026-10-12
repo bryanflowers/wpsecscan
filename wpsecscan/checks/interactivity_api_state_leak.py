@@ -24,7 +24,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 _PII_KEYS = (
     "email", "e-mail", "phone", "tel", "address", "ssn",
     "national_id", "passport", "api_key", "apikey", "token",

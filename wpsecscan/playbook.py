@@ -56,6 +56,7 @@ def _data_dir() -> Path:
 # Lock around the assignment is enough; the redundant read on a cache hit
 # is unlocked + fast.
 import threading as _threading
+
 _CACHE: dict | None = None
 _CACHE_LOCK = _threading.Lock()
 

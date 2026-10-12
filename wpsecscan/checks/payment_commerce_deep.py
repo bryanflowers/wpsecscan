@@ -15,9 +15,9 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+
 from ..http import Client
 from ..models import Finding
-
 
 PAYMENT_PLUGINS = (
     ("Stripe (official)",      "/wp-content/plugins/woocommerce-gateway-stripe/woocommerce-gateway-stripe.php"),

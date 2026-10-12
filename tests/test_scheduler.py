@@ -1,7 +1,7 @@
 """Wave 3 — tests for wpsecscan/scheduler.py beyond the cron-dow regression
 (test_scheduler_cron_dow.py covers the POSIX dow alignment in depth)."""
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 

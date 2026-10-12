@@ -16,16 +16,10 @@ from __future__ import annotations
 
 import json
 import os
-import secrets
-from pathlib import Path
-
-from ._util import home_dir
-
 
 # ---------------------------------------------------------------------------
 # M131 — Web Push registration
 # ---------------------------------------------------------------------------
-
 # B19 (v2.8.0) — Web Push endpoints MUST be one of the well-known
 # push services. Without this allow-list, a local caller (CLI or
 # future REST handler) could register an attacker-controlled HTTPS
@@ -36,6 +30,10 @@ from ._util import home_dir
 # 16+), and Microsoft (Edge legacy). Operators running their own
 # push-relay set $WPSECSCAN_WEB_PUSH_EXTRA_HOSTS to extend.
 import os as _os_for_push
+import secrets
+from pathlib import Path
+
+from ._util import home_dir
 
 _WEB_PUSH_ALLOWED_HOSTS = {
     "fcm.googleapis.com",
@@ -105,7 +103,7 @@ def web_push_send(title: str, body: str) -> tuple[int, list[str]]:
     pywebpush + VAPID keys at WPSECSCAN_VAPID_PRIVATE_KEY / _CLAIMS_SUB.
     Returns (sent_count, errors)."""
     try:
-        from pywebpush import webpush, WebPushException  # type: ignore[import-not-found]
+        from pywebpush import WebPushException, webpush  # type: ignore[import-not-found]
     except ImportError:
         return 0, ["pywebpush not installed: pip install pywebpush"]
     priv = os.environ.get("WPSECSCAN_VAPID_PRIVATE_KEY", "")

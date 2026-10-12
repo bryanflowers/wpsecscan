@@ -14,7 +14,6 @@ from __future__ import annotations
 from ..http import Client
 from ..models import Finding
 
-
 SENSITIVE_DIRECTIVES = (
     "camera", "microphone", "geolocation", "payment", "usb", "display-capture",
     "speaker-selection", "midi", "magnetometer", "accelerometer", "gyroscope",

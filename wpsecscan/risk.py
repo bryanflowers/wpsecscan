@@ -9,7 +9,6 @@ import ast
 
 from .models import ScanReport
 
-
 # Item #60 — node types allowed in a user-supplied risk formula. Anything
 # else (Call, Attribute, Import, etc.) is rejected to keep the expression
 # safe-by-default. Operators: +, -, *, /, //, %, **, unary -, comparisons,

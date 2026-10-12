@@ -34,7 +34,7 @@ CATEGORY_COLORS = {
 }
 
 _MAX_EVENTS = 200
-_events: "deque[dict]" = deque(maxlen=_MAX_EVENTS)
+_events: deque[dict] = deque(maxlen=_MAX_EVENTS)
 _subscribers: list[Callable[[dict], None]] = []
 _lock = threading.Lock()
 

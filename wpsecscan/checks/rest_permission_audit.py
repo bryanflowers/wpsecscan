@@ -9,6 +9,7 @@ usually need auth). Many plugins omit `permission_callback` or use
 from __future__ import annotations
 
 import asyncio
+
 from ..http import Client
 from ..models import Finding
 
@@ -71,7 +72,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
 
     if not suspicious:
         return [Finding(severity="info", title=f"REST permission audit — {len(privileged_paths)} privileged route(s) clean",
-                        evidence=f"All privileged routes correctly rejected unauth GET.",
+                        evidence="All privileged routes correctly rejected unauth GET.",
                         remediation="No action.", url=ctx["target"])]
     findings.append(Finding(
         severity="high",

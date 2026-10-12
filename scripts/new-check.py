@@ -72,15 +72,15 @@ def main() -> None:
         out.unlink()
     out.write_text(render(check_id, title, aggressive, description), encoding="utf-8")
     print(f"Wrote {out}")
-    print(f"")
-    print(f"Next steps:")
+    print("")
+    print("Next steps:")
     print(f"  1. Edit {out} — fill in the actual check logic")
-    print(f"  2. Add to wpsecscan/checks/__init__.py:")
+    print("  2. Add to wpsecscan/checks/__init__.py:")
     print(f"       from .{check_id} import check as {check_id}")
     print(f"       ALL_CHECKS.append((\"{check_id}\", \"{title}\", {check_id}, {aggressive}))")
-    print(f"  3. Add to wpsecscan/data/check_tags.json")
+    print("  3. Add to wpsecscan/data/check_tags.json")
     print(f"  4. Add tests in tests/test_{check_id}.py")
-    print(f"  5. Run: python scripts/lint-checks.py")
+    print("  5. Run: python scripts/lint-checks.py")
 
 
 if __name__ == "__main__":  # pragma: no cover

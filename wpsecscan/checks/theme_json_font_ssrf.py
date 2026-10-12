@@ -19,7 +19,6 @@ import json
 from ..http import Client
 from ..models import Finding
 
-
 _PATHS = (
     "/wp-json/wp/v2/global-styles",
     "/wp-json/wp/v2/global-styles/themes/",

@@ -9,6 +9,7 @@ exposes a search API. Looking for `*.target.com` issuances in the last
   - phishing-prep domains (typosquats issued under your name)
 """
 from __future__ import annotations
+
 import json
 import os
 from datetime import datetime, timedelta, timezone
@@ -101,7 +102,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
               "validate apex ownership, but worth a sanity check)."
         ),
         remediation=(
-            f"Audit each entry against your records of intentional subdomain "
+            "Audit each entry against your records of intentional subdomain "
             "creation. Any unrecognised name should be investigated immediately. "
             "Set up an automated CT-monitor (Cert Spotter, Facebook CT API, or "
             "self-hosted crt.sh polling) to alert on new entries in near-real-time."

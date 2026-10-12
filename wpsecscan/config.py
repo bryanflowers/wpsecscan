@@ -27,7 +27,6 @@ import os
 from pathlib import Path
 from typing import Any
 
-
 _DEFAULTS: dict[str, Any] = {
     "theme":           "dark",
     "follow_os_theme": True,

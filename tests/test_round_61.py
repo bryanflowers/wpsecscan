@@ -9,7 +9,6 @@ import json
 import os
 from pathlib import Path
 
-
 # ============================================================
 # Q5 — proxy support
 # ============================================================
@@ -44,6 +43,7 @@ def test_http_client_socks_proxy_handles_missing_socksio():
     """If the SOCKS plugin isn't installed, Client should either succeed
     (if socksio is present) or raise a clear ImportError (not silently)."""
     import pytest
+
     from wpsecscan.http import Client
     try:
         import socksio  # noqa: F401
@@ -88,6 +88,7 @@ def test_db_subscribe_persists(tmp_path, monkeypatch):
 
 def test_db_subscribe_rejects_non_http(tmp_path, monkeypatch):
     import pytest
+
     from wpsecscan import db
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))
     with pytest.raises(ValueError):

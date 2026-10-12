@@ -16,7 +16,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 _SW_PATHS = ("/sw.js", "/service-worker.js", "/pwa-sw.js",
               "/wp-content/cache/sw.js")
 

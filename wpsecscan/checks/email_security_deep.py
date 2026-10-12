@@ -23,10 +23,11 @@ module adds the deep checks:
 from __future__ import annotations
 
 import asyncio
-import re
 import os
+import re
 import subprocess
 from urllib.parse import urlparse
+
 from ..http import Client
 from ..models import Finding
 
@@ -222,7 +223,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     findings.append(Finding(
         severity="info",
         title="Open-relay test — use mxtoolbox",
-        evidence=f"Outbound :25 from this scanner is usually blocked. Test from mxtoolbox: https://mxtoolbox.com/diagnostic.aspx",
+        evidence="Outbound :25 from this scanner is usually blocked. Test from mxtoolbox: https://mxtoolbox.com/diagnostic.aspx",
         remediation=f"Use mxtoolbox to confirm no MX of {apex} accepts foreign-to-foreign mail.",
         url=f"https://mxtoolbox.com/diagnostic.aspx?type=2&q={apex}",
     ))

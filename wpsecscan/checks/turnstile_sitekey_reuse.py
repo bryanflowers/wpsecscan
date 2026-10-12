@@ -17,7 +17,6 @@ import re
 from ..http import Client
 from ..models import Finding
 
-
 _SITEKEY_RE = re.compile(
     r'(?:data-sitekey|data-recaptcha-site|sitekey)\s*[=:]\s*["\']([\w._-]{6,80})["\']',
     re.IGNORECASE,
