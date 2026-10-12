@@ -1,3 +1,14 @@
+"""WordPress core version detection.
+
+Looks for the core version in the <meta name="generator"> tag on /, then in
+the /feed/ <generator> element, and always requests /readme.html, which is
+reported (medium) when it is public and shows a version. The result is stored
+in ctx['shared']['wp_version'] for other checks. It then asks
+api.wordpress.org for the latest release, a request that leaves the target:
+older than latest is high, current is info, and an unreachable API leaves a
+medium disclosure finding. No version found yields one info finding. Fix:
+update core, delete readme.html and remove the wp_generator action.
+"""
 from __future__ import annotations
 
 import re
@@ -17,11 +28,33 @@ GENERATOR_FEED = re.compile(
 README_VERSION = re.compile(r"Version\s+([0-9.]+)", re.IGNORECASE)
 
 
+_PRE_RELEASE_TAG = re.compile(
+    r"^(\d+(?:\.\d+)*)[-.]?(?:alpha|beta|rc|a|b)[-.]?\d*(?:[-.].*)?$", re.IGNORECASE
+)
+
+
 def _ver_tuple(v: str) -> tuple[int, ...]:
+    """Sortable key for a WordPress version string.
+
+    Mirrors db.ver_lt semantics (self-contained on purpose): numeric components
+    are kept and padded to 4 so 6.5 == 6.5.0, and a pre-release suffix
+    (`6.5-rc1`, `6.5-beta2`) sorts BELOW the same release but ABOVE the
+    previous one: 6.4.3 < 6.5-rc1 < 6.5. The last tuple slot is the release
+    flag (0 = release, -1 = pre-release). Returns () when `v` is not a version.
+    """
+    v = (v or "").strip()
+    m = _PRE_RELEASE_TAG.match(v)
+    base = m.group(1) if m else v
     try:
-        return tuple(int(p) for p in v.split(".") if p.isdigit())
+        parts = [int(p) for p in base.split(".") if p != ""]
     except ValueError:
         return ()
+    if not parts:
+        return ()
+    while len(parts) < 4:
+        parts.append(0)
+    parts.append(-1 if m else 0)
+    return tuple(parts)
 
 
 async def _latest_wp_version() -> str | None:

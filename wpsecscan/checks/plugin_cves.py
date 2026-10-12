@@ -281,7 +281,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
     for slug, ver in plugins.items():
         step(f"checking {slug} {ver or '(version unknown)'}...")
         matches = vulndb.find_for(vulns, "plugin", slug, ver)
-        if not matches and ver is None:
+        if not matches and not vulndb.has_numeric_version(ver):
             # Slug known to DB but no version — surface as low-confidence
             present = any(v.slug == slug.lower() and v.type == "plugin" for v in vulns)
             if present:
@@ -349,7 +349,7 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
             ) as wpc:
                 budget = 25  # free tier daily limit; cap per-scan use
                 for slug, ver in plugins.items():
-                    if budget <= 0 or not ver:
+                    if budget <= 0 or not vulndb.has_numeric_version(ver):
                         continue
                     step(f"WPScan lookup: {slug}...")
                     r = await wpc.get(f"https://wpscan.com/api/v3/plugins/{slug}")
@@ -362,6 +362,14 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
                     data = r.json().get(slug) or {}
                     for vu in data.get("vulnerabilities") or []:
                         fixed = vu.get("fixed_in")
+                        # Honour a lower bound when the payload carries one.
+                        # The upper bound is only `fixed_in`: an entry WITHOUT
+                        # `fixed_in` has no range at all, so it is reported as
+                        # unpatched for every detected version (WPScan's way of
+                        # saying "no fix released") rather than range-checked.
+                        intro = vu.get("introduced_in")
+                        if vulndb.has_numeric_version(intro) and vulndb.ver_lt(ver, intro):
+                            continue
                         if not fixed or vulndb.ver_lt(ver, fixed):
                             cve_list = (vu.get("references") or {}).get("cve") or []
                             findings.append(

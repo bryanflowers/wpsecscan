@@ -50,27 +50,41 @@ def _enrich(report: ScanReport) -> dict:
     from ..risk import risk_grade
     d["risk_grade"] = risk_grade(d.get("risk_score", 0))
     # C1+C2: enrich every CVE with KEV-actively-exploited badge + EPSS percentile.
-    # Both best-effort — if the integration fails (offline, etc.) we leave the data out.
+    # Both best-effort — if the integration fails (offline, etc.) the data is
+    # left out, but the failure is recorded (`kev_error` / `epss_error`) so a
+    # consumer can tell "not checked" from "checked, none".
     cves_in_report = _collect_cves(report)
     kev_hits: set[str] = set()
     epss_map: dict = {}
+    kev_error: str | None = None
+    epss_error: str | None = None
     if cves_in_report:
         try:
             from ..integrations import cisa_kev as _kev
             kev_set = _kev.load_kev_set()
-            kev_hits = {c for c in cves_in_report if c in kev_set}
-        except Exception:  # noqa: BLE001
-            pass
+            if kev_set:
+                kev_hits = {c for c in cves_in_report if c in kev_set}
+            else:
+                kev_error = "KEV catalogue unavailable (empty set; feed unreachable and no cache)"
+        except Exception as e:  # noqa: BLE001
+            kev_error = f"{type(e).__name__}: {e}"
         try:
             from ..integrations import epss as _epss
             epss_map = _epss.lookup_scores(cves_in_report)
-        except Exception:  # noqa: BLE001
-            pass
-    if kev_hits or epss_map:
+            if not epss_map:
+                epss_error = "EPSS returned no scores (feed unreachable or CVEs not yet scored)"
+        except Exception as e:  # noqa: BLE001
+            epss_error = f"{type(e).__name__}: {e}"
+    if kev_hits or epss_map or kev_error or epss_error:
         d["threat_intel"] = {
-            "cisa_kev_actively_exploited": sorted(kev_hits),
+            # null = KEV not checked (see kev_error); [] = checked, no matches.
+            "cisa_kev_actively_exploited": None if kev_error else sorted(kev_hits),
             "epss_scores": epss_map,
         }
+        if kev_error:
+            d["threat_intel"]["kev_error"] = kev_error
+        if epss_error:
+            d["threat_intel"]["epss_error"] = epss_error
     # Round-56: embed the activity-feed timeline so a replay of this report
     # can show every feature that fired during the original scan.
     try:
