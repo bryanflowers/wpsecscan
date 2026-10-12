@@ -6,7 +6,7 @@ tree and is kept in sync with pyproject.toml by scripts/bump-version.py.
 """
 from importlib import metadata as _metadata
 
-_FALLBACK_VERSION = "2.9.0"
+_FALLBACK_VERSION = "2.9.1"
 
 try:
     __version__ = _metadata.version("wpsecscan")

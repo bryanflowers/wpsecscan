@@ -21,6 +21,63 @@ Carried over from v2.8.5, not addressed in v2.9.0:
 
 Plus the v2.8.3 / v2.8.2 carry-overs.
 
+## [v2.9.1] — 2026-10-12
+
+Quality / cleanup release. No new checks; the registry stays at 294 (295
+incl. `authenticated`) and 66 subcommands. Follows the v2.9.0 audit's
+"Known / deferred" list.
+
+### Fixed
+
+- **`speculation_rules_audit` crashed** (`AttributeError`) on a page whose
+  `<script type="speculationrules">` block was valid JSON but not an object
+  (e.g. `[]`): the `try/except` only wrapped `json.loads`, not the
+  subsequent `.get()`. Now guarded with `isinstance(rules, dict)`.
+- **`wp_playground_sqlite` false positive**: a HIGH "possible SQLite DB file
+  reachable" was raised on any sub-5 KB HTTP 200, including empty bodies and
+  catch-all HTML pages. Now requires a non-empty, non-HTML body.
+- Both bugs were surfaced by the new check tests below.
+
+### Added
+
+- **Tests for the ~95 checks that had zero coverage** (`tests/
+  test_v291_untested_checks_{a,b,c}.py`): each check is driven offline with a
+  mocked client across degenerate responses (404/500/empty/HTML/JSON/None)
+  and must return a list without crashing, plus triggering/non-triggering
+  cases. ~930 new cases; the suite goes from 1396 to 2327 passing.
+
+### Changed / removed
+
+- **Deleted 13 modules that nothing imported** — the SSO/OIDC/SAML, RBAC,
+  two-person-approval, billing and quota "enterprise" stubs, plus
+  `diff_scan`, `sucuri_sitecheck`, `virustotal`, `parallel_sites`,
+  `comparison_two_sites`, `org_dashboard` and `pdf_custom_branding`. README,
+  FEATURES, pyproject and docs no longer claim an SSO/RBAC/multi-tenant
+  "enterprise mode"; they describe what is actually wired (the `sites`
+  registry, `--file` batch, `--daemon`, the token-gated `--api-server` with
+  its target allowlist, and the HMAC-chained audit log for credential-vault
+  and marketplace actions).
+- **ruff style sweep** (`I`, `E401`, `F541`, `UP037`; 547 fixes) committed
+  in one mechanical change recorded in `.git-blame-ignore-revs`; those rules
+  plus the existing undefined-name/redefinition set are now gating in CI.
+  `F401` is intentionally not gated (the package re-exports through
+  `__init__.py`).
+- **CodeQL** config ignores `tests/` and `scripts/` and the scanner's own
+  intentional insecure-TLS probe rules, so the tool's purpose no longer
+  trips its own SAST.
+
+### Audited, no change
+
+- The v2.9.0 "~10 duplicate checks" item: on review, 9 of the 10 flagged
+  pairs are complementary (different detection on an overlapping URL) and
+  one true duplicate (the two wp-cron timing checks) is not worth the
+  headline-count change and re-release. No checks were merged.
+
+### Still deferred (robustness, own pass)
+
+- Migrating the 7 checks that build their own HTTP client onto the shared
+  throttled client, parsing `Retry-After`, and a global `--rps` flag.
+
 ## [v2.9.0] — 2026-10-12
 
 Truth-and-safety release. A full audit of v2.8.5 found that the
