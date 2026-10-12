@@ -96,3 +96,6 @@ targets.*.txt
 *.tmp
 .tmp.driveupload/
 *.orig
+
+# local pip cache (created by editable installs run from the repo root)
+pip/

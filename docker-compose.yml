@@ -11,7 +11,7 @@
 services:
   wpsecscan:
     build: .
-    image: wpsecscan:2.8.5
+    image: wpsecscan:2.9.0
     environment:
       WPSCAN_TOKEN: ${WPSCAN_TOKEN:-}
       PATCHSTACK_TOKEN: ${PATCHSTACK_TOKEN:-}

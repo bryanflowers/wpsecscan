@@ -2,14 +2,14 @@
 <!--
 WPSecScan MSI manifest (WiX 4+).
 Build:
-  wix build installer/wpsecscan.wxs -arch x64 -o dist/wpsecscan-2.8.5.msi
+  wix build installer/wpsecscan.wxs -arch x64 -o dist/wpsecscan-2.9.0.msi
 The MSI is meant for enterprise group-policy deployment; end users typically
 prefer the NSIS .exe wizard.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="WPSecScan"
            Manufacturer="Bryan"
-           Version="2.8.5"
+           Version="2.9.0"
            UpgradeCode="2c5d4b1f-9a7e-4b1f-8b0a-5e3d2c1a9f00"
            Scope="perMachine">
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />

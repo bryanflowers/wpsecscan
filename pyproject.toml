@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wpsecscan"
-version = "2.8.5"
+version = "2.9.0"
 description = "Defensive WordPress security scanner. 294 checks, CVE feed aggregated nightly from up to 8 public sources, AI-assisted remediation (BYO key), check-level compliance mappings for 12 frameworks, Sigstore-signed releases with GitHub build-provenance attestations, 9 report formats plus 14 export formats, multi-tenant RBAC/SSO/audit-log modules. Authorized testing only."
 readme = "README.md"
 requires-python = ">=3.10"
