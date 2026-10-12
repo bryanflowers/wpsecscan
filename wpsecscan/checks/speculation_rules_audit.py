@@ -42,6 +42,10 @@ async def check(client: Client, ctx: dict) -> list[Finding]:
             rules = json.loads(m.group(1).strip())
         except (ValueError, AttributeError):
             continue
+        # A speculationrules block is valid JSON that may not be an object
+        # (e.g. `[]`); .get() below would raise AttributeError on a list.
+        if not isinstance(rules, dict):
+            continue
         for action_type in ("prerender", "prefetch"):
             for entry in rules.get(action_type, []) or []:
                 if not isinstance(entry, dict):
