@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const Version = "2.2.0"
+const Version = "2.8.5"
 
 // Summary represents the per-severity counts in a scan report.
 type Summary struct {

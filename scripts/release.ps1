@@ -6,8 +6,10 @@
 #
 # What it does:
 #   1. Validates the version string + verifies git is clean
-#   2. Runs pytest one last time
-#   3. Bumps `version` in pyproject.toml
+#   2. Runs scripts/bump-version.py --check, then pytest one last time
+#   3. Runs scripts/bump-version.py --set <Version> (pyproject.toml + every
+#      managed file: __init__, version_info.txt, installers, OpenAPI, SDKs,
+#      Dockerfile, docker-compose.yml)
 #   4. Adds a CHANGELOG.md entry stub (you fill in the body)
 #   5. Builds both .exes via build.ps1
 #   6. Tags + pushes
@@ -39,17 +41,19 @@ if ($status) {
 
 # 2. tests
 if (-not $SkipTests) {
+    Write-Host "[release] checking version consistency..." -ForegroundColor Cyan
+    & "$root\.venv\Scripts\python.exe" "$root\scripts\bump-version.py" --check
+    if ($LASTEXITCODE -ne 0) { throw "version drift - fix before releasing." }
     Write-Host "[release] running pytest..." -ForegroundColor Cyan
     & "$root\.venv\Scripts\python.exe" -m pytest -q
     if ($LASTEXITCODE -ne 0) { throw "pytest failed — fix before releasing." }
 }
 
-# 3. bump version in pyproject.toml
-$pp = Get-Content "$root\pyproject.toml" -Raw
-$ppNew = $pp -replace '(?m)^version\s*=\s*"[^"]+"', "version = `"$Version`""
-if ($ppNew -eq $pp) { throw "Couldn't find version line in pyproject.toml." }
-Set-Content "$root\pyproject.toml" $ppNew -Encoding utf8 -NoNewline
-Write-Host "[release] bumped pyproject.toml to $Version" -ForegroundColor Green
+# 3. bump version in pyproject.toml + every managed file
+$bumpOut = & "$root\.venv\Scripts\python.exe" "$root\scripts\bump-version.py" --set $Version
+if ($LASTEXITCODE -ne 0) { throw "bump-version.py --set $Version failed.`n$bumpOut" }
+$bumpedFiles = @($bumpOut | Where-Object { $_ -like "CHANGED *" } | ForEach-Object { $_.Substring(8).Trim() })
+Write-Host "[release] bumped $($bumpedFiles.Count) file(s) to ${Version}: $($bumpedFiles -join ', ')" -ForegroundColor Green
 
 # 4. CHANGELOG.md stub — prepend an entry under [Unreleased]
 $today = (Get-Date).ToString("yyyy-MM-dd")
@@ -72,7 +76,7 @@ if (-not (Test-Path "$root\dist\wpsecscan.exe") -or -not (Test-Path "$root\dist\
 
 # 6. commit + tag + push
 Write-Host "[release] committing + tagging..." -ForegroundColor Cyan
-git add pyproject.toml CHANGELOG.md
+git add CHANGELOG.md @bumpedFiles
 git commit -m "release: $Version"
 git tag -a "v$Version" -m "wpsecscan $Version"
 git push origin HEAD

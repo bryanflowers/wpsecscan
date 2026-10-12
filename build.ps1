@@ -17,7 +17,13 @@ $pip = Join-Path $root ".venv\Scripts\pip.exe"
 
 Write-Host "[build] installing deps..." -ForegroundColor Cyan
 & $pip install --upgrade pip
-& $pip install -r requirements.txt pyinstaller
+& $pip install -e . "pyinstaller==6.13.0"
+
+Write-Host "[build] checking version consistency..." -ForegroundColor Cyan
+& $py (Join-Path $root "scripts\bump-version.py") --check
+if ($LASTEXITCODE -ne 0) {
+    throw "Version drift (version_info.txt etc. disagree with pyproject.toml). Run: python scripts\bump-version.py --set <version>"
+}
 
 Write-Host "[build] building CLI (wpsecscan.exe)..." -ForegroundColor Cyan
 & $py -m PyInstaller --noconfirm --onefile --name wpsecscan `
