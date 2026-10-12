@@ -41,7 +41,11 @@ bugs and makes the public claims machine-checked. No new scan checks.
   GUI confirmation dialog (with "remember host as owned"). Without
   consent the scan runs passive and records a `consent_gate` info result.
   The gate lives inside `scanner.scan(consent=...)`, so the CLI, REST,
-  daemon, `only`, `benchmark`, GUI and third-party callers all inherit it.
+  daemon, GUI and third-party callers all inherit it. `only`, `refix` and
+  `benchmark` run check functions directly and do not go through `scan()`:
+  `only` and `refix` refuse (exit 3) to run an aggressive check without
+  consent instead of downgrading it, and `benchmark` checks consent itself
+  and falls back to the passive check set.
 - **REST `POST /scan`** now returns 403 for hosts outside
   `WPSECSCAN_API_ALLOWED_TARGETS` and reports `consent` as
   `granted` / `downgraded` / `n/a`.
@@ -202,9 +206,10 @@ bugs and makes the public claims machine-checked. No new scan checks.
 
 - Python 3.10 and 3.11 are verified by CI, not locally (local runs are on
   3.14).
-- `only` and `benchmark` downgrade aggressive checks to passive and print
-  a `consent_gate` notice when consent is missing; they do not prompt
-  interactively.
+- `only` and `refix` refuse an aggressive check without consent (they do
+  not downgrade it); `benchmark` runs only the passive checks and prints
+  a `consent_gate` notice when consent is missing. None of the three
+  prompts interactively.
 - The Scorecard workflow fix has not yet been confirmed by a run; the
   next scheduled Monday run is the check.
 - CVE feed sources Wordfence, WPVulnerability, Patchstack RSS and CIRCL

@@ -147,6 +147,26 @@ def _resolve_scan_consent(target: str, args) -> bool | None:
     return None
 
 
+def _refuse_aggressive_check_without_consent(check_id: str, target: str,
+                                             is_aggressive: bool, argv: list[str]) -> None:
+    """v2.9.0 W0b — gate for subcommands that call one check function directly
+    (`only`, `refix`) and therefore never pass through `scanner.scan()`.
+
+    An aggressive registry entry is refused (exit 3, same code as the hwkey
+    gate) unless consent resolves: `--owned` in argv, WPSECSCAN_OWNED_TARGETS,
+    or the owned-targets file. Non-aggressive checks pass through untouched.
+    """
+    if not is_aggressive:
+        return
+    if consent_mod.has_consent(target, explicit=True if "--owned" in argv else None):
+        return
+    host = consent_mod.host_of(target) or target
+    print(f"refusing to run aggressive check {check_id} against {host} without "
+          "ownership consent — pass --owned, set WPSECSCAN_OWNED_TARGETS, or "
+          f"`wpsecscan owned add {host}`", file=sys.stderr)
+    sys.exit(3)
+
+
 async def _scan_one(target: str, args, console: Console):
     # Item #72 — hwkey gate. Runs first so we never start an aggressive
     # check before authorisation is confirmed; passthrough for passive scans.
@@ -2987,8 +3007,9 @@ def _cmd_refix(args: list[str]) -> None:
     issue and tells you whether it's now clean.
     """
     if len(args) < 2 or args[0] in ("-h", "--help"):
-        print("usage: wpsecscan refix CHECK_ID URL\n"
-              "  CHECK_ID is the `check_id` from a JSON report.")
+        print("usage: wpsecscan refix CHECK_ID URL [--owned]\n"
+              "  CHECK_ID is the `check_id` from a JSON report.\n"
+              "  --owned   ownership consent; required for aggressive checks.")
         sys.exit(0 if args and args[0] in ("-h", "--help") else 2)
     check_id, target = args[0], args[1]
     if not target.startswith(("http://", "https://")):
@@ -3009,6 +3030,8 @@ def _cmd_refix(args: list[str]) -> None:
                   "see `wpsecscan check list` for valid IDs", file=sys.stderr)
             return False, []
         cid, name, fn, aggressive = ours[0]
+        # v2.9.0 W0b — this path bypasses scanner.scan(), so gate it here.
+        _refuse_aggressive_check_without_consent(cid, target, bool(aggressive), args)
         # Build a minimal client + ctx and run the check function directly.
         from .http import Client
         client = Client(target, timeout=15.0, user_agent="WPSecScan/refix")
@@ -3076,11 +3099,6 @@ def _cmd_only(args: list[str]) -> None:
         target = "https://" + target
 
     aggressive = "--aggressive" in args
-    if aggressive and not consent_mod.has_consent(
-            target, explicit=True if "--owned" in args else None):
-        print("consent_gate: aggressive mode downgraded to passive — "
-              f"no ownership consent for {consent_mod.host_of(target) or target}")
-        aggressive = False
     auth_user = None
     auth_pass = None
     for i, a in enumerate(args):
@@ -3097,7 +3115,17 @@ def _cmd_only(args: list[str]) -> None:
         print(f"unknown check_id: {check_id}", file=sys.stderr)
         print("see `wpsecscan check list` for valid IDs", file=sys.stderr)
         sys.exit(2)
-    cid, name, fn = ours[0][:3]
+    cid, name, fn, is_aggressive = ours[0]
+    # v2.9.0 W0b — `only` calls the check function directly (no scanner.scan()),
+    # and several aggressive checks never consult ctx["aggressive"], so an
+    # aggressive registry entry must be REFUSED outright without consent.
+    _refuse_aggressive_check_without_consent(cid, target, bool(is_aggressive), args)
+    # A passive check handed --aggressive without consent simply drops the flag.
+    if aggressive and not consent_mod.has_consent(
+            target, explicit=True if "--owned" in args else None):
+        print("consent_gate: aggressive mode downgraded to passive — "
+              f"no ownership consent for {consent_mod.host_of(target) or target}")
+        aggressive = False
 
     async def _run():
         client = Client(target, timeout=15.0, user_agent="WPSecScan/only")

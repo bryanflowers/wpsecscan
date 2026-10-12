@@ -122,6 +122,42 @@ def test_add_and_remove_owned_roundtrip():
         consent.add_owned("")
 
 
+# (e2) over-broad entries: bare suffixes / single labels / suffix wildcards
+BROAD = ["*", "*.com", "*.co.uk", "com", "co.uk", "localhost", "*.localhost", "https://com/"]
+
+
+@pytest.mark.parametrize("entry", BROAD)
+def test_add_owned_rejects_over_broad_entries(entry):
+    with pytest.raises(ValueError):
+        consent.add_owned(entry)
+    assert consent.load_owned() == set()
+
+
+@pytest.mark.parametrize("entry", [e for e in BROAD if e != "*"])
+def test_env_over_broad_entry_is_not_honoured(entry):
+    for target in ("https://example.com/", "https://shop.example.co.uk/", "https://localhost/"):
+        assert consent.has_consent(target, env={consent.ENV_OWNED_TARGETS: entry}) is False
+
+
+def test_owned_file_over_broad_entries_are_ignored(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "owned_targets.json").write_text(
+        '{"hosts": ["*.com", "com", "*.co.uk", "co.uk", "ok.example.org"]}', encoding="utf-8")
+    assert consent.load_owned() == {"ok.example.org"}
+    assert consent.has_consent("https://example.com/") is False
+    assert consent.has_consent("https://shop.example.co.uk/") is False
+    assert consent.has_consent("https://ok.example.org/") is True
+
+
+def test_normal_wildcards_and_literal_all_tokens_still_work():
+    assert consent.add_owned("*.example.co.uk") == {"*.example.co.uk"}
+    assert consent.has_consent("https://shop.example.co.uk/") is True
+    assert consent.has_consent("https://other.co.uk/") is False
+    assert consent.has_consent("https://anything.test/", env={consent.ENV_OWNED_TARGETS: "1"}) is True
+    assert consent.has_consent("https://anything.test/", env={consent.ENV_OWNED_TARGETS: "*"}) is True
+
+
 # (f) explicit False beats env
 def test_explicit_false_overrides_env(seen, monkeypatch):
     monkeypatch.setenv(consent.ENV_OWNED_TARGETS, "1")

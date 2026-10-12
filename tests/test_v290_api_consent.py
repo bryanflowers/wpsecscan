@@ -78,7 +78,11 @@ def _wait_idle(task_id: str) -> None:
         time.sleep(0.01)
 
 
-def test_aggressive_with_owned_true_passes_consent_true(recorder):
+def test_aggressive_with_owned_true_needs_allowlist(recorder, monkeypatch):
+    # v2.9.0 W0b: `owned:true` is client self-attestation, so it unlocks
+    # aggressive mode only when the operator has set a server-side allowlist.
+    # With the allowlist set and the target inside it, owned:true -> granted.
+    monkeypatch.setenv("WPSECSCAN_API_ALLOWED_TARGETS", "example.com")
     status, resp = _post_scan({"target": "https://example.com", "aggressive": True, "owned": True})
     assert status == 202
     assert resp["consent"] == "granted"
@@ -86,6 +90,17 @@ def test_aggressive_with_owned_true_passes_consent_true(recorder):
     _wait_idle(resp["task_id"])
     assert recorder.calls[0]["aggressive"] is True
     assert recorder.calls[0]["consent"] is True
+
+
+def test_aggressive_with_owned_true_but_no_allowlist_is_downgraded(recorder):
+    # Without an allowlist, owned:true from the request body is ignored; only
+    # server-side consent (WPSECSCAN_OWNED_TARGETS / owned-targets file) counts.
+    status, resp = _post_scan({"target": "https://example.com", "aggressive": True, "owned": True})
+    assert status == 202
+    assert resp["consent"] == "downgraded"
+    assert recorder.called.wait(5)
+    _wait_idle(resp["task_id"])
+    assert recorder.calls[0]["consent"] is None
 
 
 def test_aggressive_without_owned_is_downgraded(recorder):

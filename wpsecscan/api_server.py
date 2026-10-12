@@ -26,7 +26,9 @@ refused with HTTP 403 before a scan starts. When unset any target is accepted.
 Aggressive consent (v2.9.0 W0b): `"aggressive": true` only runs aggressive
 checks when ownership consent resolves (body `"owned": true`, or the
 WPSECSCAN_OWNED_TARGETS env / owned-targets file, see `consent.py`);
-otherwise `scanner.scan` downgrades the scan to passive.
+otherwise `scanner.scan` downgrades the scan to passive. `"owned": true` is
+client self-attestation and is honoured only while WPSECSCAN_API_ALLOWED_TARGETS
+is set; with no allowlist it is ignored and only the env / file consent counts.
 """
 from __future__ import annotations
 
@@ -307,8 +309,13 @@ def _make_handler(token: str):
                 # v2.9.0 W0b — ownership consent. Only a literal JSON `true`
                 # in "owned" grants consent explicitly; otherwise None lets
                 # the env / owned-targets file decide inside scanner.scan().
+                # `owned` is client self-attestation, so it is honoured only
+                # when the operator configured an allowlist; with none set it
+                # is ignored and only server-side consent (WPSECSCAN_OWNED_TARGETS
+                # / owned-targets file) can unlock aggressive mode.
                 from . import consent as _consent
-                consent = True if body.get("owned") is True else None
+                consent = (True if body.get("owned") is True
+                           and _allowed_targets() is not None else None)
                 if not aggressive:
                     consent_state = "n/a"
                 elif _consent.has_consent(target, explicit=consent):
@@ -389,8 +396,10 @@ def serve(host: str = "127.0.0.1", port: int = 8765, *, token: str | None = None
               "Prefer 127.0.0.1 + an SSH tunnel.")
     if _allowed_targets() is None:
         print(f"⚠  no target allowlist configured ({ENV_ALLOWED_TARGETS} unset) — "
-              "any authenticated client can scan any host. Set it to a "
-              "comma-separated host list (e.g. example.com,*.example.org).")
+              "any authenticated client can scan any host, and a request's "
+              "\"owned\": true is ignored, so aggressive requests run passive unless "
+              "WPSECSCAN_OWNED_TARGETS / `wpsecscan owned add` grants consent. Set it "
+              "to a comma-separated host list (e.g. example.com,*.example.org).")
     print(f"WPSecScan API listening on http://{host}:{port}")
     # C11 (v2.7.2) — was `{token[:6]}***`, which echoed 37.5% of a
     # 16-char token to stdout (often logged or screen-captured).

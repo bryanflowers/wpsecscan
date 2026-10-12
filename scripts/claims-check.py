@@ -4,7 +4,9 @@
 Computes the countable facts from CODE (registry size, subcommands, emit
 formats, push providers, AI helpers, proof helpers, compliance frameworks,
 `--format` choices, CVE sources), then scans README.md, FEATURES.md,
-pyproject.toml (description) and docs/*.md for
+pyproject.toml (description) and docs/*.md for (case-insensitively for the
+phrases; browser-extension/**/manifest.json and ci/ are scanned for the
+dead-host phrases only)
 
   * number-claims next to the words checks / subcommands / formats /
     providers / helpers / frameworks / verifiers / monitors / sources that
@@ -50,6 +52,13 @@ FORBIDDEN = (
     r"wpsecscan\.org",
     r"\b1066\b",
     r"\b1097\b",
+)
+
+# The dead-host subset of FORBIDDEN. Also scanned in files that are not prose docs
+# (browser-extension manifests, ci/ templates), where the other phrases do not apply.
+DEAD_HOSTS = (
+    r"wpsecscan\.dev",
+    r"wpsecscan\.org",
 )
 
 # A line containing this marker is skipped by the number scan (not by FORBIDDEN),
@@ -189,6 +198,28 @@ def _scan_files(root: Path) -> list[Path]:
     return [f for f in files if f.is_file()]
 
 
+def _dead_host_files(root: Path) -> list[Path]:
+    """Non-prose files that can carry a dead host: extension manifests + ci/ templates."""
+    files: list[Path] = []
+    ext = root / "browser-extension"
+    if ext.is_dir():
+        files.extend(sorted(ext.rglob("manifest.json")))
+    ci = root / "ci"
+    if ci.is_dir():
+        files.extend(sorted(p for p in ci.rglob("*") if p.is_file()))
+    return files
+
+
+def _scan_dead_hosts(path: Path, rel: str) -> list[str]:
+    out: list[str] = []
+    text = path.read_text(encoding="utf-8", errors="replace")
+    for lineno, line in enumerate(text.splitlines(), 1):
+        for pat in DEAD_HOSTS:
+            if re.search(pat, line, re.IGNORECASE):
+                out.append(f"{rel}:{lineno}: forbidden phrase /{pat}/: {line.strip()[:120]}")
+    return out
+
+
 def _scan_text(path: Path, rel: str, facts: dict, verified: list[int]) -> list[str]:
     out: list[str] = []
     text = path.read_text(encoding="utf-8", errors="replace")
@@ -199,7 +230,7 @@ def _scan_text(path: Path, rel: str, facts: dict, verified: list[int]) -> list[s
     historical = path.name in _HISTORICAL
     for lineno, line in enumerate(text.splitlines(), 1):
         for pat in FORBIDDEN:
-            if re.search(pat, line):
+            if re.search(pat, line, re.IGNORECASE):
                 out.append(f"{rel}:{lineno}: forbidden phrase /{pat}/: {line.strip()[:120]}")
         if historical or IGNORE_MARKER in line:
             continue
@@ -233,6 +264,8 @@ def check(root, facts: dict | None = None, verified: list[int] | None = None) ->
     for f in _scan_files(root):
         rel = f.relative_to(root).as_posix()
         problems.extend(_scan_text(f, rel, facts, counter))
+    for f in _dead_host_files(root):
+        problems.extend(_scan_dead_hosts(f, f.relative_to(root).as_posix()))
     return problems
 
 

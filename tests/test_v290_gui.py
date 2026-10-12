@@ -209,6 +209,101 @@ def test_aggressive_toggle_yes_sets_confirmed_no_clears(monkeypatch):
     assert app._aggressive_confirmed is False and state["on"] is False
 
 
+def _consent_app(gui, entry_url="", aggressive=True):
+    """Un-initialised App with just the widgets the aggressive-consent path reads."""
+    app = object.__new__(gui.App)
+    state = {"on": aggressive}
+    app.aggressive_var = types.SimpleNamespace(
+        get=lambda: state["on"], set=lambda v: state.__setitem__("on", v))
+    app.url_var = types.SimpleNamespace(get=lambda: entry_url)
+    app.url_entry = types.SimpleNamespace(_placeholder_active=False)
+    app._aggressive_confirmed = False
+    app._aggressive_confirmed_host = None
+    return app, state
+
+
+def test_toggle_confirmation_is_bound_to_the_entry_host(monkeypatch):
+    gui = pytest.importorskip("wpsecscan.gui")
+    app, _state = _consent_app(gui, "https://A.example/")
+    asked: list = []
+    monkeypatch.setattr(app, "_ask_aggressive_confirm",
+                        lambda host=None: asked.append(host) or True)
+    app._on_aggressive_toggle()
+    assert asked == ["a.example"]
+    assert app._aggressive_confirmed is True
+    assert app._aggressive_confirmed_host == "a.example"
+
+
+def test_changing_target_after_confirm_reprompts_and_no_means_passive(monkeypatch):
+    gui = pytest.importorskip("wpsecscan.gui")
+    app, state = _consent_app(gui)
+    app._aggressive_confirmed = True
+    app._aggressive_confirmed_host = "a.example"
+    asked: list = []
+
+    # Same host: confirmation on record is reused, no dialog.
+    monkeypatch.setattr(app, "_ask_aggressive_confirm",
+                        lambda host=None: asked.append(host) or False)
+    assert app._aggressive_scan_consent("a.example") is True
+    assert asked == []
+
+    # Different host: must re-prompt; a No drops consent and aggressive.
+    assert app._aggressive_scan_consent("b.example") is None
+    assert asked == ["b.example"]
+    assert state["on"] is False
+    assert app._aggressive_confirmed is False and app._aggressive_confirmed_host is None
+
+
+def test_changing_target_after_confirm_yes_rebinds_to_new_host(monkeypatch):
+    gui = pytest.importorskip("wpsecscan.gui")
+    app, state = _consent_app(gui)
+    app._aggressive_confirmed = True
+    app._aggressive_confirmed_host = "a.example"
+    monkeypatch.setattr(app, "_ask_aggressive_confirm", lambda host=None: True)
+    assert app._aggressive_scan_consent("b.example") is True
+    assert app._aggressive_confirmed_host == "b.example"
+    assert state["on"] is True
+
+
+def test_confirmation_without_a_bound_host_does_not_cover_any_host(monkeypatch):
+    gui = pytest.importorskip("wpsecscan.gui")
+    app, _state = _consent_app(gui, "")  # toggled before a URL was typed
+    monkeypatch.setattr(app, "_ask_aggressive_confirm", lambda host=None: True)
+    app._on_aggressive_toggle()
+    assert app._aggressive_confirmed_host is None
+    asked: list = []
+    monkeypatch.setattr(app, "_ask_aggressive_confirm",
+                        lambda host=None: asked.append(host) or False)
+    assert app._aggressive_scan_consent("a.example") is None
+    assert asked == ["a.example"]
+
+
+def test_passive_scan_never_gets_consent(monkeypatch):
+    gui = pytest.importorskip("wpsecscan.gui")
+    app, _state = _consent_app(gui, aggressive=False)
+    app._aggressive_confirmed = True
+    app._aggressive_confirmed_host = "a.example"
+    assert app._aggressive_scan_consent("a.example") is None
+
+
+def test_toggle_off_clears_the_bound_host():
+    gui = pytest.importorskip("wpsecscan.gui")
+    app, _state = _consent_app(gui, aggressive=False)
+    app._aggressive_confirmed = True
+    app._aggressive_confirmed_host = "a.example"
+    app._on_aggressive_toggle()
+    assert app._aggressive_confirmed is False and app._aggressive_confirmed_host is None
+
+
+def test_scan_click_uses_host_bound_consent_helper(tree):
+    src = _GUI.read_text(encoding="utf-8")
+    assert "_aggressive_scan_consent(" in src
+    # the old session-wide gate must not be reintroduced in _on_scan_click
+    fn = next(n for n in ast.walk(tree)
+              if isinstance(n, ast.FunctionDef) and n.name == "_on_scan_click")
+    assert "_aggressive_confirmed" not in ast.unparse(fn)
+
+
 def test_remember_owned_adds_host_only_on_yes(monkeypatch, tmp_path):
     gui = pytest.importorskip("wpsecscan.gui")
     monkeypatch.setenv("WPSECSCAN_HOME", str(tmp_path))

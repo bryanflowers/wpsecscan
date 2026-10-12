@@ -65,6 +65,47 @@ def test_ignore_marker_skips_number_scan_but_not_forbidden_scan(tmp_path):
     assert any(p.startswith("README.md:3:") for p in problems)
 
 
+_FACTS = {"checks": 295, "aggressive": 31, "passive": 264, "checks_non_auth": 294,
+          "subcommands": 66, "emit_formats": 14, "providers": 16, "helpers": 7,
+          "provers": 5, "frameworks": 12, "formats": 9, "monitors": 1, "sources": 8}
+
+
+@pytest.mark.parametrize("line", [
+    "Supply-chain: SLSA level 3 provenance",
+    "supply-chain: slsa l3",
+    "WINGET INSTALL wpsecscan",
+    "Brew Install wpsecscan",
+    "see BUG-bounty.md",
+])
+def test_forbidden_phrases_are_matched_case_insensitively(tmp_path, line):
+    (tmp_path / "README.md").write_text(line + "\n", encoding="utf-8")
+    problems = _load().check(tmp_path, facts=_FACTS, verified=[0])
+    assert len(problems) == 1, problems
+    assert problems[0].startswith("README.md:1: forbidden phrase")
+
+
+def test_dead_hosts_are_caught_in_extension_manifests_and_ci_templates(tmp_path):
+    (tmp_path / "README.md").write_text("fine\n", encoding="utf-8")
+    ff = tmp_path / "browser-extension" / "firefox"
+    ff.mkdir(parents=True)
+    (ff / "manifest.json").write_text(
+        '{"gecko": {"id": "x@WPSecScan.DEV"}}\n', encoding="utf-8")
+    (tmp_path / "browser-extension" / "popup.js").write_text("// wpsecscan.dev\n", encoding="utf-8")
+    ci = tmp_path / "ci"
+    ci.mkdir()
+    (ci / "gitlab-ci.yml").write_text("script: curl https://wpsecscan.org/x\n", encoding="utf-8")
+    (ci / "Jenkinsfile").write_text("// brew install ok here, not a dead host\n", encoding="utf-8")
+    problems = _load().check(tmp_path, facts=_FACTS, verified=[0])
+    assert sorted(p.split(":")[0] for p in problems) == [
+        "browser-extension/firefox/manifest.json", "ci/gitlab-ci.yml"]
+
+
+def test_repo_extension_manifests_and_ci_have_no_dead_hosts():
+    mod = _load()
+    for f in mod._dead_host_files(ROOT):
+        assert mod._scan_dead_hosts(f, f.relative_to(ROOT).as_posix()) == []
+
+
 # v2.9.0 W5: hard gate — README/FEATURES/pyproject/docs must agree with the code.
 def test_repo_docs_agree_with_code():
     problems = _load().check(ROOT)

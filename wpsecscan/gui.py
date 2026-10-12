@@ -216,7 +216,10 @@ class App:
         # v2.9.0 W0b — True once the user said Yes to the aggressive-mode
         # dialog; passed to scan() as consent=True. _owned_prompted holds
         # hosts we already asked "remember as owned?" about this session.
+        # The confirmation is bound to the host that was in the URL box when
+        # it was given (None = no host yet); scanning another host re-prompts.
         self._aggressive_confirmed = False
+        self._aggressive_confirmed_host: str | None = None
         self._owned_prompted: set[str] = set()
         self.prove_var = BooleanVar(value=False)
         self.deep_throttle_var = BooleanVar(value=False)
@@ -1202,12 +1205,9 @@ class App:
         # v2.9.0 W0b — aggressive can be switched on without the toggle dialog
         # (profile load); make sure the user has confirmed before we send
         # consent=True. Declining runs the scan passive.
-        if self.aggressive_var.get() and not self._aggressive_confirmed:
-            if self._ask_aggressive_confirm():
-                self._aggressive_confirmed = True
-            else:
-                self.aggressive_var.set(False)
-        scan_consent = True if (self.aggressive_var.get() and self._aggressive_confirmed) else None
+        # The confirmation only covers the host it was given for: a different
+        # host in the URL box re-prompts instead of inheriting consent.
+        scan_consent = self._aggressive_scan_consent(_consent.host_of(target))
         if scan_consent:
             self._maybe_remember_owned(target)
         self._cancel_requested = False
@@ -1861,22 +1861,58 @@ class App:
         else:
             # v2.9.0 W0b — a Yes here is also explicit ownership consent.
             self._aggressive_confirmed = True
+            self._aggressive_confirmed_host = self._entry_host()
+
+    def _aggressive_scan_consent(self, scan_host: str) -> bool | None:
+        """Consent value for a scan of `scan_host`: True only when the aggressive
+        confirmation on record is for that exact host, else re-prompt (a No turns
+        aggressive off and the scan runs passive)."""
+        if self.aggressive_var.get() and not (
+                self._aggressive_confirmed and self._aggressive_confirmed_host == scan_host):
+            if self._ask_aggressive_confirm(scan_host):
+                self._aggressive_confirmed = True
+                self._aggressive_confirmed_host = scan_host
+            else:
+                self._aggressive_confirmed = False
+                self._aggressive_confirmed_host = None
+                self.aggressive_var.set(False)
+        return True if (
+            self.aggressive_var.get() and self._aggressive_confirmed
+            and self._aggressive_confirmed_host == scan_host) else None
+
+    def _entry_host(self) -> str | None:
+        """Host currently in the URL box, or None when it is empty / a placeholder."""
+        try:
+            if getattr(self.url_entry, "_placeholder_active", False):
+                return None
+            raw = (self.url_var.get() or "").strip()
+            if raw.startswith("[") and "] " in raw:
+                raw = raw.split("] ", 1)[1]
+            return _consent.host_of(self._normalize_url(raw)) or None
+        except Exception:  # noqa: BLE001 — a missing widget just means "no host yet"
+            return None
 
     def _on_aggressive_toggle(self) -> None:
         if not self.aggressive_var.get():
             self._aggressive_confirmed = False
+            self._aggressive_confirmed_host = None
             return
-        if self._ask_aggressive_confirm():
+        host = self._entry_host()
+        if self._ask_aggressive_confirm(host):
             self._aggressive_confirmed = True
+            self._aggressive_confirmed_host = host
         else:
             self._aggressive_confirmed = False
+            self._aggressive_confirmed_host = None
             self.aggressive_var.set(False)
 
-    def _ask_aggressive_confirm(self) -> bool:
+    def _ask_aggressive_confirm(self, host: str | None = None) -> bool:
         """v2.9.0 W0b — the aggressive-mode confirmation dialog. A Yes is the
-        user's ownership consent, passed to scan() as consent=True."""
+        user's ownership consent for `host`, passed to scan() as consent=True."""
+        target_line = f"Target: {host}\n\n" if host else ""
         return bool(messagebox.askyesno(
             "Aggressive mode — sites you own only",
+            target_line +
             "Aggressive mode will send active payloads to the target:\n\n"
             "  • SQL injection probes (read-only, includes time-based SLEEP(3) tests)\n"
             "  • Reflected XSS probes (benign marker payloads)\n"

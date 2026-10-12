@@ -176,15 +176,20 @@ def fake_only(monkeypatch):
     rec: dict = {}
 
     async def _fn(client, ctx):
+        rec["calls"] = rec.get("calls", 0) + 1
         rec["aggressive"] = ctx["aggressive"]
         return []
 
-    monkeypatch.setattr("wpsecscan.checks.ALL_CHECKS", [("fake_check", "Fake", _fn, True)])
+    # `fake_check` is a passive registry entry, `fake_agg` an aggressive one.
+    monkeypatch.setattr("wpsecscan.checks.ALL_CHECKS", [
+        ("fake_check", "Fake", _fn, False),
+        ("fake_agg", "Fake aggressive", _fn, True),
+    ])
     monkeypatch.setattr("wpsecscan.http.Client", _FakeClient)
     return rec
 
 
-def test_only_downgrades_without_consent(fake_only, capsys):
+def test_only_downgrades_passive_check_without_consent(fake_only, capsys):
     with pytest.raises(SystemExit):
         cli._cmd_only(["fake_check", "https://x.invalid", "--aggressive"])
     out = capsys.readouterr().out
@@ -198,6 +203,104 @@ def test_only_keeps_aggressive_with_owned(fake_only, capsys):
         cli._cmd_only(["fake_check", "https://x.invalid", "--aggressive", "--owned"])
     assert "consent_gate" not in capsys.readouterr().out
     assert fake_only["aggressive"] is True
+
+
+# (e2) only / refix REFUSE an aggressive registry entry without consent ---------
+def test_only_refuses_aggressive_check_without_consent(fake_only, capsys):
+    with pytest.raises(SystemExit) as ei:
+        cli._cmd_only(["fake_agg", "https://x.invalid"])
+    assert ei.value.code == 3
+    assert "calls" not in fake_only
+    err = capsys.readouterr().err
+    assert ("refusing to run aggressive check fake_agg against x.invalid without "
+            "ownership consent") in err
+    assert "--owned" in err and "WPSECSCAN_OWNED_TARGETS" in err and "owned add x.invalid" in err
+
+
+def test_only_refuses_aggressive_check_even_with_aggressive_flag(fake_only):
+    with pytest.raises(SystemExit) as ei:
+        cli._cmd_only(["fake_agg", "https://x.invalid", "--aggressive"])
+    assert ei.value.code == 3
+    assert "calls" not in fake_only
+
+
+def test_only_runs_aggressive_check_with_owned_flag(fake_only):
+    with pytest.raises(SystemExit) as ei:
+        cli._cmd_only(["fake_agg", "https://x.invalid", "--owned"])
+    assert ei.value.code == 0
+    assert fake_only["calls"] == 1
+
+
+def test_only_runs_aggressive_check_with_env_consent(fake_only, monkeypatch):
+    monkeypatch.setenv(consent.ENV_OWNED_TARGETS, "1")
+    with pytest.raises(SystemExit) as ei:
+        cli._cmd_only(["fake_agg", "https://x.invalid"])
+    assert ei.value.code == 0
+    assert fake_only["calls"] == 1
+
+
+def test_only_runs_aggressive_check_with_owned_file(fake_only):
+    consent.add_owned("x.invalid")
+    with pytest.raises(SystemExit) as ei:
+        cli._cmd_only(["fake_agg", "https://x.invalid"])
+    assert ei.value.code == 0
+    assert fake_only["calls"] == 1
+
+
+def test_only_runs_passive_check_without_consent(fake_only):
+    with pytest.raises(SystemExit) as ei:
+        cli._cmd_only(["fake_check", "https://x.invalid"])
+    assert ei.value.code == 0
+    assert fake_only["calls"] == 1
+
+
+def test_refix_refuses_aggressive_check_without_consent(fake_only, capsys):
+    with pytest.raises(SystemExit) as ei:
+        cli._cmd_refix(["fake_agg", "https://x.invalid"])
+    assert ei.value.code == 3
+    assert "calls" not in fake_only
+    err = capsys.readouterr().err
+    assert ("refusing to run aggressive check fake_agg against x.invalid without "
+            "ownership consent") in err
+
+
+def test_refix_runs_aggressive_check_with_owned_flag(fake_only, capsys):
+    with pytest.raises(SystemExit) as ei:
+        cli._cmd_refix(["fake_agg", "https://x.invalid", "--owned"])
+    assert ei.value.code == 0
+    assert fake_only["calls"] == 1
+    assert "PASS: fake_agg" in capsys.readouterr().out
+
+
+def test_refix_runs_aggressive_check_with_env_consent(fake_only, monkeypatch):
+    monkeypatch.setenv(consent.ENV_OWNED_TARGETS, "1")
+    with pytest.raises(SystemExit) as ei:
+        cli._cmd_refix(["fake_agg", "https://x.invalid"])
+    assert ei.value.code == 0
+    assert fake_only["calls"] == 1
+
+
+def test_refix_runs_passive_check_without_consent(fake_only):
+    with pytest.raises(SystemExit) as ei:
+        cli._cmd_refix(["fake_check", "https://x.invalid"])
+    assert ei.value.code == 0
+    assert fake_only["calls"] == 1
+
+
+def test_only_and_refix_real_registry_refuse_sqli_without_consent(monkeypatch, capsys):
+    # Real registry entry (no fake): sqli is aggressive; the client must never be built.
+    from wpsecscan.checks import ALL_CHECKS
+    assert [c[3] for c in ALL_CHECKS if c[0] == "sqli"] == [True]
+
+    def _boom(*a, **k):
+        raise AssertionError("Client constructed for a refused aggressive check")
+
+    monkeypatch.setattr("wpsecscan.http.Client", _boom)
+    for fn in (cli._cmd_only, cli._cmd_refix):
+        with pytest.raises(SystemExit) as ei:
+            fn(["sqli", "https://x.invalid"])
+        assert ei.value.code == 3
+    capsys.readouterr()
 
 
 @pytest.fixture

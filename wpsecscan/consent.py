@@ -17,6 +17,11 @@ Consent sources, in precedence order:
 3. The owned-targets file ``<home>/owned_targets.json`` shaped
    ``{"hosts": ["example.com", ...]}``, where ``<home>`` is ``WPSECSCAN_HOME``
    or ``~/.wpsecscan``. Entries use the same matching rules as the env list.
+
+Entries that are a bare single label (``com``), a public suffix (``co.uk``) or a
+wildcard on one of those (``*.com``) are ignored when matching and rejected by
+``add_owned``. The literal ``1`` / ``true`` / ``yes`` / ``*`` env values stay
+"every target"; that is the documented opt-out, not a suffix wildcard.
 """
 from __future__ import annotations
 
@@ -60,8 +65,36 @@ def host_of(target: str) -> str:
     return host.lower().rstrip(".")
 
 
+# Second-level labels that, directly under a two-letter country TLD, form a public
+# suffix (co.uk, com.au, ac.jp, ...). Not a full public-suffix list: it exists so
+# that the obvious "grant a whole registry" entries are refused.
+_SLD_UNDER_CCTLD = frozenset({
+    "co", "com", "org", "net", "gov", "edu", "ac", "or", "ne", "go", "gob", "mil",
+    "nom", "ltd", "plc", "sch", "id", "web", "info",
+})
+
+
+def _too_broad(host: str) -> bool:
+    """True for a bare TLD / single label (``com``) or a public suffix (``co.uk``).
+
+    A wildcard on such a base (``*.com``, ``*.co.uk``) would grant consent for a
+    whole registry, so it is never honoured. IPv6 literals are left alone.
+    """
+    if not host or ":" in host:
+        return False
+    labels = host.split(".")
+    if len(labels) < 2:
+        return True
+    return len(labels) == 2 and labels[0] in _SLD_UNDER_CCTLD and len(labels[1]) == 2
+
+
 def _norm_entry(entry: str) -> str:
-    """Normalise an owned-list entry; keeps a leading ``*.`` wildcard."""
+    """Normalise an owned-list entry; keeps a leading ``*.`` wildcard.
+
+    Returns ``""`` (entry ignored) for anything invalid or too broad to be a
+    single owner's domain: a bare single label or public suffix, or a wildcard
+    whose base is one.
+    """
     e = (entry or "").strip().lower()
     if not e:
         return ""
@@ -69,8 +102,9 @@ def _norm_entry(entry: str) -> str:
         return e
     if e.startswith("*."):
         rest = host_of(e[2:])
-        return "*." + rest if rest else ""
-    return host_of(e)
+        return "*." + rest if rest and not _too_broad(rest) else ""
+    h = host_of(e)
+    return "" if _too_broad(h) else h
 
 
 def _entry_matches(entry: str, host: str) -> bool:
@@ -110,7 +144,11 @@ def _save_owned(hosts: set[str]) -> None:
 
 
 def add_owned(host: str) -> set[str]:
-    """Record `host` (hostname, URL or ``*.domain``) as owned. Returns the new set."""
+    """Record `host` (hostname, URL or ``*.domain``) as owned. Returns the new set.
+
+    Raises ValueError for an empty entry, ``*``, a bare single label (``com``) or
+    public suffix (``co.uk``), and a wildcard on one of those (``*.com``).
+    """
     entry = _norm_entry(host)
     if not entry or entry in _ALL_TOKENS:
         raise ValueError(f"not a valid host to record as owned: {host!r}")
