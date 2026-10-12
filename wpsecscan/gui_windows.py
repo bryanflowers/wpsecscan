@@ -1303,7 +1303,9 @@ def open_marketplace(app) -> None:
         tv.column(c, width=w, anchor="w")
     tv.pack(fill="both", expand=True, pady=(8, 8))
 
-    summary_lbl = ttk.Label(body, text="", foreground=MUTED, wraplength=860)
+    # Empty catalogue: say so instead of showing a blank list.
+    empty_text = "" if entries else _mp.describe_catalogue(cat)
+    summary_lbl = ttk.Label(body, text=empty_text, foreground=MUTED, wraplength=860)
     summary_lbl.pack(anchor="w")
 
     def _populate() -> None:
@@ -1320,7 +1322,7 @@ def open_marketplace(app) -> None:
     def _on_select(_e=None) -> None:
         sel = tv.selection()
         if not sel:
-            summary_lbl.config(text="")
+            summary_lbl.config(text=empty_text)
             return
         e = next((x for x in entries if x.get("id") == sel[0] or x.get("name") == sel[0]), None)
         if not e:

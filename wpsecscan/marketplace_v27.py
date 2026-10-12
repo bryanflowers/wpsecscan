@@ -4,7 +4,7 @@
   L127 sort by stars (popularity field in the index)
   L128 author profiles + sigstore signature on each check
   L129 community CVE-DB contributions (submit-cve subcommand)
-  L130 public bug-bounty leaderboard (HackerOne report aggregation)
+  L130 contributor leaderboard (curated list in the marketplace index)
 
 Marketplace index default (a file in the repo, served raw):
   https://raw.githubusercontent.com/bryanflowers/wpsecscan/main/docs/marketplace.json
@@ -215,15 +215,16 @@ def cmd_marketplace(args: list[str]) -> None:
         return
 
     if sub == "leaderboard":
-        # L130 — pull HackerOne reports authored by the wpsecscan community.
-        # Without a HackerOne token we fall back to the index's curated list.
-        lb = idx.get("bug_bounty_leaderboard", [])
+        # L130 — contributor leaderboard from the index's curated list. No
+        # bounty programme exists; the legacy `bug_bounty_leaderboard` /
+        # `bounty_usd` index keys are still read so old indexes render.
+        lb = idx.get("contributor_leaderboard") or idx.get("bug_bounty_leaderboard", [])
         if not lb:
             print("No leaderboard data in the index yet.")
             return
-        print("WPSecScan community bug-bounty leaderboard:")
-        for row in sorted(lb, key=lambda r: -int(r.get("bounty_usd", 0)))[:20]:
-            print(f"  ${row.get('bounty_usd', 0):>6,}  @{row.get('handle', '?'):15s}  "
+        print("WPSecScan contributor leaderboard:")
+        for row in sorted(lb, key=lambda r: -int(r.get("score", r.get("bounty_usd", 0))))[:20]:
+            print(f"  {row.get('score', row.get('bounty_usd', 0)):>6,}  @{row.get('handle', '?'):15s}  "
                    f"{row.get('cve', ''):16s}  {row.get('summary', '')[:60]}")
         return
 

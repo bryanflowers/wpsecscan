@@ -1090,7 +1090,9 @@ class App:
         self.detail.insert(END, "\n", "muted")
         self.detail.insert(END,
             "Only scan sites you own or have written permission to test. "
-            "No bulk online brute force, no auto-exploitation.\n",
+            "Login probing is capped (6 attempts) unless the deep throttle mapper "
+            "is explicitly enabled; aggressive checks run only against targets "
+            "you have marked as owned.\n",
             "muted")
 
     def _normalize_url(self, raw: str) -> str:
@@ -4087,7 +4089,8 @@ class App:
         ), foreground=FG, justify="left").pack(anchor="w")
         ttk.Label(body, text="", font=("Segoe UI", 4)).pack()
         ttk.Label(body, text=(
-            "No bulk online brute force, no auto-exploitation, no write payloads.\n"
+            "Login probing is capped (6 attempts) unless the deep throttle mapper is "
+            "explicitly enabled.\nNo auto-exploitation, no write payloads.\n"
             "For real password testing: hashcat against your own DB hash dump.\n"
             "For real exploit testing: sqlmap / Metasploit, per-target."
         ), foreground=MUTED, justify="left").pack(anchor="w")

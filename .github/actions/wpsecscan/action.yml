@@ -4,18 +4,26 @@ author: bryanflowers
 
 inputs:
   target:
-    description: WordPress URL to scan
+    description: WordPress URL to scan (http:// or https://)
     required: true
+  version:
+    description: wpsecscan version to install from PyPI (pinned so a new release cannot change CI behaviour)
+    required: false
+    default: "2.8.5"
   aggressive:
-    description: Enable aggressive (active payload) checks
+    description: Enable aggressive (active payload) checks. Without `owned`, aggressive checks run passively only.
+    required: false
+    default: "false"
+  owned:
+    description: Confirm you own or are authorised to test the target (passes --owned; required for aggressive checks to run actively)
     required: false
     default: "false"
   max-critical:
-    description: Fail if any finding above this critical count
+    description: Fail if the report has more than this many critical findings
     required: false
     default: "0"
   max-high:
-    description: Fail if any finding above this high count
+    description: Fail if the report has more than this many high findings
     required: false
     default: "5"
   auth-user:
@@ -38,26 +46,66 @@ runs:
   steps:
     - name: Install WPSecScan
       shell: bash
-      run: python -m pip install --quiet wpsecscan
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+      run: python -m pip install --quiet "wpsecscan==${INPUT_VERSION}"
 
     - id: scan
       shell: bash
       env:
         WPSECSCAN_NO_AI: "1"          # CI safety: never call cloud LLMs
+        INPUT_TARGET: ${{ inputs.target }}
+        INPUT_AGGRESSIVE: ${{ inputs.aggressive }}
+        INPUT_OWNED: ${{ inputs.owned }}
+        # Credentials travel by environment, not argv (the scanner reads these).
+        WPSECSCAN_AUTH_USER: ${{ inputs.auth-user }}
+        WPSECSCAN_AUTH_APP_PASSWORD: ${{ inputs.auth-app-password }}
+        WPSECSCAN_COMPANION_TOKEN: ${{ inputs.companion-token }}
       run: |
-        set -e
-        FLAGS="--target ${{ inputs.target }} --json report.json"
-        [ "${{ inputs.aggressive }}" = "true" ] && FLAGS="$FLAGS --aggressive"
-        [ -n "${{ inputs.auth-user }}" ] && FLAGS="$FLAGS --auth-user ${{ inputs.auth-user }}"
-        [ -n "${{ inputs.auth-app-password }}" ] && FLAGS="$FLAGS --auth-app-password '${{ inputs.auth-app-password }}'"
-        [ -n "${{ inputs.companion-token }}" ] && FLAGS="$FLAGS --companion-token ${{ inputs.companion-token }}"
-        wpsecscan $FLAGS
+        case "$INPUT_TARGET" in
+          http://*|https://*) ;;
+          *) echo "target must start with http:// or https://" >&2; exit 64 ;;
+        esac
+        ARGS=(--out report.json --format json --no-color --no-live --no-update-check)
+        [ "$INPUT_AGGRESSIVE" = "true" ] && ARGS+=(--aggressive)
+        [ "$INPUT_OWNED" = "true" ] && ARGS+=(--owned)
+        # The scanner exits 1 (medium) or 2 (high/critical) when it finds
+        # something; the gate step below decides pass/fail from the report.
+        # Only a usage/runtime error (>2) or a missing report stops here.
+        rc=0
+        wpsecscan "$INPUT_TARGET" "${ARGS[@]}" || rc=$?
+        if [ "$rc" -gt 2 ]; then
+          echo "wpsecscan exited with status $rc" >&2
+          exit "$rc"
+        fi
+        [ -s report.json ] || { echo "wpsecscan wrote no report.json" >&2; exit 1; }
         echo "report-path=report.json" >> "$GITHUB_OUTPUT"
 
     - name: Apply CI gate
       shell: bash
+      env:
+        MAX_CRITICAL: ${{ inputs.max-critical }}
+        MAX_HIGH: ${{ inputs.max-high }}
       run: |
-        wpsecscan ci-gate report.json --max-critical ${{ inputs.max-critical }} --max-high ${{ inputs.max-high }}
+        python - report.json <<'PY'
+        import json
+        import os
+        import sys
+
+        report = json.load(open(sys.argv[1], encoding="utf-8"))
+        summary = report.get("summary") or {}
+        limits = {
+            "critical": int(os.environ["MAX_CRITICAL"]),
+            "high": int(os.environ["MAX_HIGH"]),
+        }
+        failed = False
+        for sev, limit in limits.items():
+            count = int(summary.get(sev, 0))
+            print(f"{sev}: {count} (limit {limit})")
+            if count > limit:
+                failed = True
+        sys.exit(1 if failed else 0)
+        PY
 
     - name: Upload report
       uses: actions/upload-artifact@v5
@@ -65,3 +113,4 @@ runs:
       with:
         name: wpsecscan-report
         path: report.json
+        if-no-files-found: ignore

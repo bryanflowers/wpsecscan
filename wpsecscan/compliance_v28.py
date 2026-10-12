@@ -9,6 +9,7 @@ All file outputs go through `reporters._atomic_write_text` for crash-safety.
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
 import os
@@ -182,13 +183,29 @@ def spdx_sbom(report, *, doc_name: str = "wpsecscan-sbom") -> dict:
 # ---------------------------------------------------------------------------
 # F55 — in-toto attestation wrapper
 # ---------------------------------------------------------------------------
-def intoto_attestation(report, *, builder_id: str = "https://wpsecscan") -> dict:
+def intoto_attestation(
+    report, *, builder_id: str = "https://github.com/bryanflowers/wpsecscan",
+) -> dict:
     """Wrap the scan summary in an in-toto Statement (v0.1) so the report is
-    consumable by SLSA verifiers."""
+    consumable by SLSA verifiers.
+
+    The subject digest is the sha256 of the canonical JSON (sorted keys,
+    compact separators) of target + scanned_at + risk_score + summary, so it
+    changes whenever the attested result changes."""
+    subject_doc = {
+        "target": report.target,
+        "scanned_at": getattr(report, "scanned_at", None),
+        "risk_score": report.risk_score,
+        "summary": dict(report.summary or {}),
+    }
+    digest = hashlib.sha256(
+        json.dumps(subject_doc, sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
     return {
         "_type": "https://in-toto.io/Statement/v0.1",
         "subject": [{"name": report.target,
-                      "digest": {"sha256": "0" * 64}}],
+                      "digest": {"sha256": digest}}],
         "predicateType": "https://wpsecscan.com/schema/attest-v1.json",
         "predicate": {
             "builder": {"id": builder_id},

@@ -79,6 +79,10 @@ RULES: tuple[Rule, ...] = (
          rf"(?m)^([ \t]+image: wpsecscan:)({VERSION_RE})()", _full),
     Rule("Dockerfile",
          rf'(?m)^(LABEL org\.opencontainers\.image\.version=")({VERSION_RE})(")', _full),
+    # The composite GitHub Action pins the PyPI version it installs; the
+    # default must follow each release or CI users silently stay behind.
+    Rule(".github/actions/wpsecscan/action.yml",
+         rf'(?m)^(    default: ")({VERSION_RE})(")', _full, max_matches=1),
 )
 
 PYPROJECT = "pyproject.toml"
