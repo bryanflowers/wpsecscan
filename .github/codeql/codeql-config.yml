@@ -1,0 +1,24 @@
+name: wpsecscan CodeQL config
+
+# Paths that produce only false positives for this project:
+#  - tests/   : fixtures and assertions (e.g. `"example.com" in output`) trip
+#               py/incomplete-url-substring-sanitization though they are not
+#               URL sanitizers.
+#  - scripts/ : build/release/codegen helpers, not shipped in the package.
+paths-ignore:
+  - tests
+  - scripts
+
+# wpsecscan is a WordPress security scanner. Several checks deliberately open
+# deliberately-insecure TLS connections, skip certificate validation, or probe
+# weak protocols *against the target* in order to DETECT them. CodeQL's
+# insecure-connection rules flag the scanner's own probe code as if it were a
+# vulnerability in wpsecscan. These are intentional and reviewed; exclude them
+# repo-wide so they do not block every PR. (All other security queries run.)
+query-filters:
+  - exclude:
+      id: py/insecure-protocol
+  - exclude:
+      id: py/request-without-cert-validation
+  - exclude:
+      id: py/insecure-default-protocol
