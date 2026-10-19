@@ -95,6 +95,7 @@ jobs:
         with:
           name: wpsecscan-report
           path: reports/
+          retention-days: 7
 
       - name: Comment on PR with risk score
         if: github.event_name == 'pull_request'

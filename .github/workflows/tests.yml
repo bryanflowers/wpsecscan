@@ -109,4 +109,4 @@ jobs:
           path: |
             dist/wpsecscan.exe
             dist/wpsecscan-gui.exe
-          retention-days: 14
+          retention-days: 3

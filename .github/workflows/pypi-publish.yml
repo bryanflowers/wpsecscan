@@ -63,6 +63,7 @@ jobs:
         with:
           name: wpsecscan-dist-${{ github.sha }}
           path: dist/
+          retention-days: 3
 
   publish-testpypi:
     name: Publish to TestPyPI (dry run)
